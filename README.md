@@ -1,12 +1,14 @@
 ## runV
-`runV` is a hypervisor-based reference implementation of [OCF](https://github.com/opencontainers/specs).
 
 ### compatibility
-Due to the difference between hypervisors and containers, some specs in OCF are not applied in runV:
+`runV` is a hypervisor-based runtime for [OCF](https://github.com/opencontainers/specs).
+
+### OCF
+Due to the difference between hypervisors and containers, the following sections in OCF don't apply to runV:
 - Namespace
 - Capability
 - Device
-- `linux` and `mount` field in OCI spec are ignored.
+- `linux` and `mount` fields in OCI specs are ignored
 
 ### Build
 ```bash
@@ -21,11 +23,12 @@ sudo make install
 ```
 
 ### Run
+<<<<<<< HEAD
 To run a OCF image, execute `runv` with the JSON format file as argument,
 or have a `config.json` file in the current working directory. `HyperKernel` and `hyper initrd`
-are needed too. You can find them in [hyperstart repo](https://github.com/hyperhq/hyperstart/).
-If dont specify any `kernel` or `initrd` argument, `runv` will read the `kernel` and `initrd.img` files
-in the current working directroy.
+are needed too. You can find them in [HyperStart repo](https://github.com/hyperhq/hyperstart/).
+If not specified, runV will try to load the `kernel` and `initrd.img` files present
+in the current working directory.
 
 ```bash
 runv --kernel kernel --initrd initrd.img
@@ -37,7 +40,7 @@ root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 ```
 
 ### Example
-Please check the runc example to get the container rootfs.
+Please check the runC example to get the container rootfs.
 https://github.com/opencontainers/runc#examples
 
 And you can get a sample OCF config.json at
