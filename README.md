@@ -23,10 +23,9 @@ sudo make install
 ```
 
 ### Run
-<<<<<<< HEAD
 To run a OCF image, execute `runv` with the JSON format file as argument,
 or have a `config.json` file in the current working directory. `HyperKernel` and `hyper initrd`
-are needed too. You can find them in [HyperStart repo](https://github.com/hyperhq/hyperstart/).
+are needed too. You can find them in [HyperStart](https://github.com/hyperhq/hyperstart/) repo.
 If not specified, runV will try to load the `kernel` and `initrd.img` files present
 in the current working directory.
 
