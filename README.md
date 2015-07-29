@@ -1,5 +1,5 @@
 ## runV
-`runV` is a hypervisor-based reference implementation of [OCF](https://github.com/opencontainers/spec).
+`runV` is a hypervisor-based runtime for [OCF](https://github.com/opencontainers/spec).
 
 ### compatible
 Due the difference between hypervisor and container, the following sections in OCF doesn't apply in runV.
