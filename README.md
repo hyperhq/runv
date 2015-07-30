@@ -3,17 +3,17 @@
 `runV` is a hypervisor-based runtime for [OCF](https://github.com/opencontainers/specs).
 
 ### OCF
-`runV` is compatible with OCF. However, due to the difference between hypervisors and containers, the following sections in OCF don't apply to runV:
+`runV` is compatible with OCF. However, due to the difference between hypervisors and containers, the following sections of OCF don't apply to runV:
 - Namespace
 - Capability
 - Device
 - `linux` and `mount` fields in OCI specs are ignored
 
-### Hypervisor 
+### Hypervisor
 The current release of `runV` supports the following hypervisors:
 - KVM (QEMU 2.0 or later)
 - Xen (4.5 or later)
-- VirtualBox (MacOS X)
+- VirtualBox (Mac OS X)
 
 ### Distro
 The current release of `runV` supports the following distros:
@@ -43,10 +43,9 @@ sudo make install
 ```
 
 ### Run
-To run a OCF image, execute `runv` with the [OCF JSON format file](https://github.com/opencontainers/runc#ocf-container-json-format) as argument,
-or have a `config.json` file in `CWD`. 
+To run a OCF image, execute `runv` with the [OCF JSON format file](https://github.com/opencontainers/runc#ocf-container-json-format) as argument, or have a `config.json` file in `CWD`.
 
-Alsom, a kernel and initrd are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to load the `kernel` and `initrd.img` files from `CWD`.
+Also, a kernel and initrd images are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to load the `kernel` and `initrd.img` files from `CWD`.
 
 ```bash
 runv --kernel kernel --initrd initrd.img
