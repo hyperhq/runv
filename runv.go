@@ -20,10 +20,18 @@ import (
 	"github.com/hyperhq/runv/hypervisor/qemu"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/hypervisor/xen"
+	"github.com/hyperhq/runv/hypervisor/vbox"
 	"github.com/hyperhq/runv/lib/term"
 )
 
 func DriversProbe() hypervisor.HypervisorDriver {
+	vd := &vbox.VBox{}
+	vd := vbox.InitDriver()
+	if vd != nil {
+		fmt.Printf("Vbox Driver Loaded.\n")
+		return vd
+	}
+
 	xd := xen.InitDriver()
 	if xd != nil {
 		fmt.Printf("Xen Driver Loaded.\n")

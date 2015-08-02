@@ -9,9 +9,9 @@ import (
 	"os"
 )
 
-func CreateInterface(index int, pciAddr int, name string, isDefault bool, addrOnly bool,
+func CreateInterface(vmId string, index int, pciAddr int, name string, addrOnly bool,
 	maps []pod.UserContainerPort, callback chan VmEvent) {
-	inf, err := network.Allocate("", addrOnly, maps)
+	inf, err := network.Allocate(vmId, "", addrOnly, maps)
 	if err != nil {
 		glog.Error("interface creating failed: ", err.Error())
 		callback <- &DeviceFailed{
@@ -20,13 +20,13 @@ func CreateInterface(index int, pciAddr int, name string, isDefault bool, addrOn
 		return
 	}
 
-	interfaceGot(index, pciAddr, name, isDefault, callback, inf)
+	interfaceGot(index, pciAddr, name, callback, inf)
 }
 
-func ReleaseInterface(index int, ipAddr string, file *os.File,
+func ReleaseInterface(vmId string, index int, ipAddr string, file *os.File,
 	maps []pod.UserContainerPort, callback chan VmEvent) {
 	success := true
-	err := network.Release(ipAddr, maps, file)
+	err := network.Release(vmId, ipAddr, maps, file)
 	if err != nil {
 		glog.Warning("Unable to release network interface, address: ", ipAddr, err)
 		success = false
@@ -34,8 +34,7 @@ func ReleaseInterface(index int, ipAddr string, file *os.File,
 	callback <- &InterfaceReleased{Index: index, Success: success}
 }
 
-func interfaceGot(index int, pciAddr int, name string, isDefault bool, callback chan VmEvent, inf *network.Settings) {
-
+func interfaceGot(index int, pciAddr int, name string, callback chan VmEvent, inf *network.Settings) {
 	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
 	if err != nil {
 		glog.Error("can not parse cidr")
@@ -53,7 +52,7 @@ func interfaceGot(index int, pciAddr int, name string, isDefault bool, callback 
 	//            Gateway:"", ViaThis:true,
 	//        },
 	}
-	if isDefault {
+	if index == 0 {
 		rt = append(rt, &RouteRule{
 			Destination: "0.0.0.0/0",
 			Gateway:     inf.Gateway, ViaThis: true,

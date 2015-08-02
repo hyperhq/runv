@@ -235,7 +235,7 @@ func (ctx *VmContext) allocateNetworks() {
 	for i, _ := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		go CreateInterface(i, addr, name, i == 0, ctx.DCtx.BuildinNetwork(), maps, ctx.Hub)
+		go CreateInterface(ctx.Id, i, addr, name, ctx.DCtx.BuildinNetwork(), maps, ctx.Hub)
 	}
 }
 
@@ -459,7 +459,7 @@ func (ctx *VmContext) releaseNetwork() {
 	for idx, nic := range ctx.devices.networkMap {
 		glog.V(1).Infof("remove network card %d: %s", idx, nic.IpAddr)
 		ctx.progress.deleting.networks[idx] = true
-		go ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
+		go ReleaseInterface(ctx.Id, idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
 		maps = nil
 	}
 }
@@ -476,7 +476,7 @@ func (ctx *VmContext) removeInterface() {
 	for idx, nic := range ctx.devices.networkMap {
 		glog.V(1).Infof("remove network card %d: %s", idx, nic.IpAddr)
 		ctx.progress.deleting.networks[idx] = true
-		go ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
+		go ReleaseInterface(ctx.Id, idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
 		ctx.DCtx.RemoveNic(ctx, nic.DeviceName, nic.MacAddr, &NetDevRemovedEvent{Index: idx})
 		maps = nil
 	}

@@ -952,7 +952,12 @@ func Allocate(requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (
 	mac, err := GenRandomMac()
 	if err != nil {
 		glog.Errorf("Generate Random Mac address failed")
-		tapFile.Close()
+		return nil, err
+	}
+
+	err = SetupPortMaps(ip.String(), maps)
+	if err != nil {
+		glog.Errorf("Setup Port Map failed %s", err)
 		return nil, err
 	}
 
@@ -1014,13 +1019,6 @@ func Allocate(requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (
 		return nil, err
 	}
 
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		tapFile.Close()
-		return nil, err
-	}
-
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
@@ -1034,7 +1032,6 @@ func Allocate(requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (
 
 // Release an interface for a select ip
 func Release(releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
-
 	if file != nil {
 		file.Close()
 	}
