@@ -936,7 +936,7 @@ func UpAndAddToBridge(name string) error {
 	return nil
 }
 
-func Allocate(requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
 	var (
 		req   ifReq
 		errno syscall.Errno

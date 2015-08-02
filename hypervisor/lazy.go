@@ -13,7 +13,7 @@ func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, 
 
 	glog.V(1).Infof("Start VM %s in lazy mode, not started yet actually", vmId)
 
-	context, err := InitContext(HDriver, vmId, hub, client, nil, boot)
+	context, err := InitContext(vmId, hub, client, nil, boot)
 	if err != nil {
 		client <- &types.QemuResponse{
 			VmId:  vmId,

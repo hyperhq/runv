@@ -19,10 +19,11 @@ type VBox struct {
 }
 
 type VBoxContext struct {
-	Driver    *VBox
-	Machine   *virtualbox.Machine
-	mediums   []*virtualbox.StorageMedium
-	callbacks []hypervisor.VmEvent
+	Driver		*VBox
+	Machine		*virtualbox.Machine
+	AddrOnly	bool
+	mediums		[]*virtualbox.StorageMedium
+	callbacks	[]hypervisor.VmEvent
 }
 
 func vboxContext(ctx *hypervisor.VmContext) *VBoxContext {
@@ -42,8 +43,9 @@ func InitDriver() *VBox {
 
 func (v *VBox) InitContext(homeDir string) hypervisor.DriverContext {
 	return &VBoxContext{
-		Driver:  v,
-		Machine: nil,
+		Driver:		v,
+		Machine:	nil,
+		AddrOnly:	true,
 	}
 }
 
@@ -225,8 +227,6 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 	}()
 }
-
-func (qc *VBoxContext) BuildinNetwork() bool { return true }
 
 func (vc *VBoxContext) Close() {}
 

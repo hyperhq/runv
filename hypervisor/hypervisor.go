@@ -96,3 +96,11 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 
 	context.loop()
 }
+
+func InitNetwork(bIface, bIP string) error {
+	if _, ok := HDriver.(InitNetwork); ok {
+		return HDriver.InitNetwork(bIface, bIP)
+	}
+
+	return network.InitNetwork(bIface, bIP)
+}

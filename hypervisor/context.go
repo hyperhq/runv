@@ -69,7 +69,6 @@ type VmContext struct {
 type stateHandler func(ctx *VmContext, event VmEvent)
 
 func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
-
 	var err error = nil
 
 	vmChannel := make(chan *DecodedMessage, 128)

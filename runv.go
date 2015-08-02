@@ -158,7 +158,7 @@ func main() {
 	}
 
 /*
-	err := network.InitNetwork(*bridge, *subnet)
+	err := hypervisor.InitNetwork(hypervisor.HDriver, *bridge, *subnet)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
