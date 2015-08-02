@@ -9,9 +9,9 @@ import (
 	"os"
 )
 
-func CreateInterface(vmId string, index int, pciAddr int, name string, addrOnly bool,
-	maps []pod.UserContainerPort, callback chan VmEvent) {
-	inf, err := network.Allocate(vmId, "", addrOnly, maps)
+func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
+			maps []pod.UserContainerPort) {
+	inf, err := network.Allocate(ctx.Id, "", ctx.DCtx.BuildinNetwork(), maps)
 	if err != nil {
 		glog.Error("interface creating failed: ", err.Error())
 		callback <- &DeviceFailed{
@@ -20,18 +20,18 @@ func CreateInterface(vmId string, index int, pciAddr int, name string, addrOnly 
 		return
 	}
 
-	interfaceGot(index, pciAddr, name, callback, inf)
+	interfaceGot(index, pciAddr, name, ctx.Hub, inf)
 }
 
-func ReleaseInterface(vmId string, index int, ipAddr string, file *os.File,
-	maps []pod.UserContainerPort, callback chan VmEvent) {
+func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
+			maps []pod.UserContainerPort) {
 	success := true
-	err := network.Release(vmId, ipAddr, maps, file)
+	err := network.Release(ctx.Id, ipAddr, maps, file)
 	if err != nil {
 		glog.Warning("Unable to release network interface, address: ", ipAddr, err)
 		success = false
 	}
-	callback <- &InterfaceReleased{Index: index, Success: success}
+	ctx.Hub <- &InterfaceReleased{Index: index, Success: success}
 }
 
 func interfaceGot(index int, pciAddr int, name string, callback chan VmEvent, inf *network.Settings) {
