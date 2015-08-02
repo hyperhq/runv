@@ -22,7 +22,6 @@ func (ctx *VmContext) loop() {
 }
 
 func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig) {
-
 	context, err := InitContext(vmId, hub, client, nil, boot)
 	if err != nil {
 		client <- &types.QemuResponse{

@@ -25,7 +25,6 @@ import (
 )
 
 func DriversProbe() hypervisor.HypervisorDriver {
-	vd := &vbox.VBox{}
 	vd := vbox.InitDriver()
 	if vd != nil {
 		fmt.Printf("Vbox Driver Loaded.\n")
@@ -38,12 +37,10 @@ func DriversProbe() hypervisor.HypervisorDriver {
 		return xd
 	}
 
-	qd := &qemu.QemuDriver{}
-	if err := qd.Initialize(); err == nil {
+	qd := qemu.InitDriver{}
+	if qd != nil {
 		fmt.Printf("Qemu Driver Loaded\n")
 		return qd
-	} else {
-		fmt.Printf("Qemu Driver Load failed: %s\n", err.Error())
 	}
 
 	fmt.Printf("No driver available\n")
@@ -214,7 +211,7 @@ func main() {
 		Cbfs:   "",
 	}
 
-	vm := hypervisor.NewVm(vmId, cpu, mem)
+	vm := hypervisor.NewVm(vmId, cpu, mem, false)
 	err = vm.Launch(b)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())

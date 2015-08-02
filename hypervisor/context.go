@@ -96,7 +96,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		}
 	}()
 
-	return &VmContext{
+	return &VmContext {
 		Id:              id,
 		Boot:            boot,
 		pciAddr:         PciAddrFrom,

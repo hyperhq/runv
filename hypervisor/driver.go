@@ -27,8 +27,6 @@ type GuestNicInfo struct {
 }
 
 type HypervisorDriver interface {
-	Initialize() error
-
 	InitContext(homeDir string) DriverContext
 
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
