@@ -10,19 +10,19 @@ import (
 	"github.com/hyperhq/runv/hypervisor/vbox"
 )
 
-func Probe(driver string) hypervisor.HypervisorDriver {
+func Probe(driver string) (hypervisor.HypervisorDriver, error) {
 	switch strings.ToLower(driver) {
 	case "vbox":
 		vd := vbox.InitDriver()
 		if vd != nil {
 			fmt.Printf("Vbox Driver Loaded.\n")
-			return vd
+			return vd, nil
 		}
 	case "xen":
 		xd := xen.InitDriver()
 		if xd != nil {
 			fmt.Printf("Xen Driver Loaded.\n")
-			return xd
+			return xd, nil
 		}
 	case "kvm":
 		fallthrough
@@ -30,15 +30,11 @@ func Probe(driver string) hypervisor.HypervisorDriver {
 		qd := qemu.InitDriver()
 		if qd != nil {
 			fmt.Printf("Qemu Driver Loaded\n")
-			return qd
+			return qd, nil
 		}
 	default:
-		fmt.Printf("Unsupported driver %s\n", driver)
-		return nil
+		return nil, fmt.Errorf("Unsupported driver %s\n", driver)
 	}
 
-	fmt.Printf("Driver %s is unavailable\n", driver)
-	return nil
+	return nil, fmt.Errorf("Driver %s is unavailable\n", driver)
 }
-
-

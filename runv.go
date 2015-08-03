@@ -83,12 +83,17 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 }
 
 func main() {
-	hypervisor.HDriver = driverloader.Probe("kvm")
+
 	hypervisor.InterfaceCount = 0
 	var containerInfoList []*hypervisor.ContainerInfo
 	var roots []string
 	var containerId string
 	var err error
+
+	if hypervisor.HDriver, err = driverloader.Probe("kvm"); err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
 
 	ocifile := flag.String("config", "", "oci configure file")
 	kernel := flag.String("kernel", "", "hyper kernel")
