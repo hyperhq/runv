@@ -15,37 +15,11 @@ import (
 	"syscall"
 
 	"github.com/hyperhq/runv/hypervisor"
-	//"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/qemu"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/hypervisor/xen"
-	"github.com/hyperhq/runv/hypervisor/vbox"
+	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/lib/term"
 )
-
-func DriversProbe() hypervisor.HypervisorDriver {
-	vd := vbox.InitDriver()
-	if vd != nil {
-		fmt.Printf("Vbox Driver Loaded.\n")
-		return vd
-	}
-
-	xd := xen.InitDriver()
-	if xd != nil {
-		fmt.Printf("Xen Driver Loaded.\n")
-		return xd
-	}
-
-	qd := qemu.InitDriver()
-	if qd != nil {
-		fmt.Printf("Qemu Driver Loaded\n")
-		return qd
-	}
-
-	fmt.Printf("No driver available\n")
-	return nil
-}
 
 const shortLen = 12
 
@@ -109,7 +83,7 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 }
 
 func main() {
-	hypervisor.HDriver = DriversProbe()
+	hypervisor.HDriver = driverloader.Probe("kvm")
 	hypervisor.InterfaceCount = 0
 	var containerInfoList []*hypervisor.ContainerInfo
 	var roots []string
