@@ -2,11 +2,11 @@ package hypervisor
 
 import (
 	"encoding/json"
-
 	"fmt"
-	"hyper/lib/glog"
-	"hyper/pod"
-	"hyper/types"
+
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig) {
@@ -87,6 +87,21 @@ func (ctx *VmContext) lazyPrepareDevice(cmd *RunPodCommand) bool {
 	return true
 }
 
+func networkConfigure(info *InterfaceCreated) (*HostNicInfo, *GuestNicInfo) {
+	return &HostNicInfo{
+			Fd:      uint64(info.Fd.Fd()),
+			Device:  info.HostDevice,
+			Mac:     info.MacAddr,
+			Bridge:  info.Bridge,
+			Gateway: info.Bridge,
+		}, &GuestNicInfo{
+			Device:  info.DeviceName,
+			Ipaddr:  info.IpAddr,
+			Index:   info.Index,
+			Busaddr: info.PCIAddr,
+		}
+}
+
 func (ctx *VmContext) lazyAllocateNetworks() error {
 	var maps []pod.UserContainerPort
 
@@ -99,7 +114,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 	for i, _ := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		nic, err := allocateInterface(ctx.Id, i, addr, name, i == 0, ctx.DCtx.BuildinNetwork(), maps)
+		nic, err := ctx.allocateInterface(i, addr, name, maps)
 		if err != nil {
 			return err
 		}

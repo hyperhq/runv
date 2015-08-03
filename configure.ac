@@ -15,6 +15,9 @@ case $build_os in
 	darwin*)
 		AM_CONDITIONAL([ON_DARWIN], [ true ])
 		;;
+	*)
+		AM_CONDITIONAL([ON_DARWIN], [ false ])
+		;;
 esac
 
 # Checks for go tool chain

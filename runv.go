@@ -37,7 +37,7 @@ func DriversProbe() hypervisor.HypervisorDriver {
 		return xd
 	}
 
-	qd := qemu.InitDriver{}
+	qd := qemu.InitDriver()
 	if qd != nil {
 		fmt.Printf("Qemu Driver Loaded\n")
 		return qd

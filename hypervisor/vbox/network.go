@@ -4,27 +4,24 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
-	"syscall"
-	"unsafe"
 
 	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/govbox"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/hypervisor/network"
 )
 
-func (v *Vbox) InitNetwork(bIface, bIP string) error {
-	var err error
+func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 	var i = 0
 
 	if bIP == "" {
-		BridgeIP = defaultBridgeIP
+		network.BridgeIP = network.DefaultBridgeIP
 	} else {
-		BridgeIP = bIP
+		network.BridgeIP = bIP
 	}
 
-	bip, ipnet, err = net.ParseCIDR(BridgeIP)
+	bip, ipnet, err := net.ParseCIDR(network.BridgeIP)
 	if err != nil {
 		return err
 	}
@@ -33,17 +30,17 @@ func (v *Vbox) InitNetwork(bIface, bIP string) error {
 	inc(gateway, 2)
 
 	if !ipnet.Contains(gateway) {
-		return fmt.Errorf("get Gateway from BridgeIP %s failed", BridgeIP)
+		return fmt.Errorf("get Gateway from BridgeIP %s failed", network.BridgeIP)
 	}
 
-	_, bridgeIPv4Net, err = net.ParseCIDR(gateway.String())
+	_, network.BridgeIPv4Net, err = net.ParseCIDR(gateway.String())
 	if err != nil {
 		return err
 	}
 
 	for bip = bip.Mask(ipnet.Mask); ipnet.Contains(bip) && i < 15; inc(bip, 1) {
 		i++
-		_, err = ipAllocator.RequestIP(bridgeIPv4Net, bip)
+		_, err = network.IpAllocator.RequestIP(network.BridgeIPv4Net, bip)
 
 		if err != nil {
 			return err
@@ -78,7 +75,7 @@ func SetupPortMaps(vmId string, containerip string, maps []pod.UserContainerPort
 			return err
 		}
 
-		err = portMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
+		err = network.PortMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
 		if err != nil {
 			return err
 		}
@@ -94,7 +91,7 @@ func ReleasePortMaps(vmId string, containerip string, maps []pod.UserContainerPo
 
 	for _, m := range maps {
 		glog.V(1).Infof("release port map %d", m.HostPort)
-		err := portMapper.ReleaseMap(m.Protocol, m.HostPort)
+		err := network.PortMapper.ReleaseMap(m.Protocol, m.HostPort)
 		if err != nil {
 			continue
 		}
@@ -103,14 +100,14 @@ func ReleasePortMaps(vmId string, containerip string, maps []pod.UserContainerPo
 	return nil
 }
 
-func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string, addrOnly bool,
-			maps []pod.UserContainerPort) (*Settings, error) {
-	ip, err := ipAllocator.RequestIP(bridgeIPv4Net, net.ParseIP(requestedIP))
+func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
+			maps []pod.UserContainerPort) (*network.Settings, error) {
+	ip, err := network.IpAllocator.RequestIP(network.BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
 		return nil, err
 	}
 
-	maskSize, _ := bridgeIPv4Net.Mask.Size()
+	maskSize, _ := network.BridgeIPv4Net.Mask.Size()
 
 	err = SetupPortMaps(vmId, ip.String(), maps)
 	if err != nil {
@@ -118,10 +115,10 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string, addrOnly bool,
 		return nil, err
 	}
 
-	return &Settings {
+	return &network.Settings {
 		Mac:         "",
 		IPAddress:   ip.String(),
-		Gateway:     bridgeIPv4Net.IP.String(),
+		Gateway:     network.BridgeIPv4Net.IP.String(),
 		Bridge:      "",
 		IPPrefixLen: maskSize,
 		Device:      "",
@@ -130,9 +127,9 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string, addrOnly bool,
 }
 
 // Release an interface for a select ip
-func (vc *VBoxContext) Release(vmId, releasedIP string, maps []pod.UserContainerPort,
+func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
 				file *os.File) error {
-	if err := ipAllocator.ReleaseIP(bridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
+	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}
 
@@ -146,7 +143,9 @@ func (vc *VBoxContext) Release(vmId, releasedIP string, maps []pod.UserContainer
 
 func inc(ip net.IP, count int) {
 	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j] += count
+		for i := 0; i < count; i++ {
+			ip[j]++
+		}
 		if ip[j] > 0 {
 			break
 		}

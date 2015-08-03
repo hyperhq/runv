@@ -14,14 +14,13 @@ import (
 )
 
 //implement the hypervisor.HypervisorDriver interface
-type VBox struct {
+type VBoxDriver struct {
 	Machines map[string]*hypervisor.VmContext
 }
 
 type VBoxContext struct {
-	Driver		*VBox
+	Driver		*VBoxDriver
 	Machine		*virtualbox.Machine
-	AddrOnly	bool
 	mediums		[]*virtualbox.StorageMedium
 	callbacks	[]hypervisor.VmEvent
 }
@@ -30,26 +29,25 @@ func vboxContext(ctx *hypervisor.VmContext) *VBoxContext {
 	return ctx.DCtx.(*VBoxContext)
 }
 
-func InitDriver() *VBox {
+func InitDriver() *VBoxDriver {
 	_, err := exec.LookPath("vboxmanage")
 	if err != nil {
 		return nil
 	}
 
-	v := &VBox{}
-	v.Machines = make(map[string]*hypervisor.VmContext)
-	return v
+	vd := &VBoxDriver{}
+	vd.Machines = make(map[string]*hypervisor.VmContext)
+	return vd
 }
 
-func (v *VBox) InitContext(homeDir string) hypervisor.DriverContext {
-	return &VBoxContext{
-		Driver:		v,
+func (vd *VBoxDriver) InitContext(homeDir string) hypervisor.DriverContext {
+	return &VBoxContext {
+		Driver:		vd,
 		Machine:	nil,
-		AddrOnly:	true,
 	}
 }
 
-func (v *VBox) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {
+func (vd *VBoxDriver) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {
 	if t, ok := persisted["hypervisor"]; !ok || t != "vbox" {
 		return nil, fmt.Errorf("wrong driver type in persist info")
 	}
@@ -68,8 +66,8 @@ func (v *VBox) LoadContext(persisted map[string]interface{}) (hypervisor.DriverC
 		}
 	}
 
-	return &VBoxContext{
-		Driver:  v,
+	return &VBoxContext {
+		Driver:  vd,
 		Machine: m,
 	}, nil
 }
@@ -106,12 +104,12 @@ func (vc *VBoxContext) Launch(ctx *hypervisor.VmContext) {
 		m.Flag = m.Flag | virtualbox.F_longmode | virtualbox.F_vtxux | virtualbox.F_hwvirtex | virtualbox.F_vtxvpid | virtualbox.F_acpi | virtualbox.F_ioapic
 		m.Modify([]string{})
 
-		nic := virtualbox.NIC{
+		nic := virtualbox.NIC {
 			Network:  virtualbox.NICNetNAT,
 			Hardware: virtualbox.IntelPro1000MTServer,
 			NatNet:   network.BridgeIP,
 		}
-		for i := 1; i <= network.NICNum; i++ {
+		for i := 1; i <= ctx.InterfaceCount; i++ {
 			err = vc.Machine.SetNIC(i, nic)
 			if err != nil {
 				glog.Errorf(err.Error())
@@ -227,6 +225,8 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 	}()
 }
+
+func (qc *VBoxContext) BuildinNetwork() bool { return false }
 
 func (vc *VBoxContext) Close() {}
 
@@ -480,7 +480,7 @@ func (vc *VBoxContext) initVM(ctx *hypervisor.VmContext) error {
 		Hardware: virtualbox.IntelPro1000MTServer,
 		NatNet:   network.BridgeIP,
 	}
-	for i := 1; i <= network.NICNum; i++ {
+	for i := 1; i <= ctx.InterfaceCount; i++ {
 		modifies = append(modifies, m.NicConf(i, nic)...)
 	}
 

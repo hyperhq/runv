@@ -30,7 +30,6 @@ type XenContext struct {
 	driver		*XenDriver
 	domId		int
 	ev		unsafe.Pointer
-	AddrOnly	bool
 }
 
 type DomainConfig struct {
@@ -94,8 +93,9 @@ func InitDriver() *XenDriver {
 		Logger:		ctx.Logger,
 		Version:	ctx.Version,
 		Capabilities:	ctx.Capabilities,
-		domain:		make(map[unit32]*hypervisor.VmContext)
 	}
+
+	xd.domains = make(map[uint32]*hypervisor.VmContext)
 
 	globalDriver = xd
 	return globalDriver
@@ -107,7 +107,6 @@ func (xd *XenDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	return &XenContext {
 			driver:	xd,
 			domId:	-1,
-			AddrOnly: false,
 		}
 }
 
@@ -195,6 +194,8 @@ func (xc *XenContext) Kill(ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: res == 0}
 	}()
 }
+
+func (xc *XenContext) BuildinNetwork() bool { return false }
 
 func (xc *XenContext) Close() {}
 

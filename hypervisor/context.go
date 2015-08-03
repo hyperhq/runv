@@ -46,6 +46,8 @@ type VmContext struct {
 	scsiId   int    //next available scsi id for scsi hotplug
 	attachId uint64 //next available attachId for attached tty
 
+	InterfaceCount	int
+
 	ptys        *pseudoTtys
 	ttySessions map[string]uint64
 
@@ -112,6 +114,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		TtySockName:     ttySockName,
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
+		InterfaceCount:	 InterfaceCount,
 		timer:           nil,
 		handler:         stateInit,
 		userSpec:        nil,
@@ -245,7 +248,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
-	for i := 0; i < InterfaceCount; i++ {
+	for i := 0; i < ctx.InterfaceCount; i++ {
 		ctx.progress.adding.networks[i] = true
 	}
 

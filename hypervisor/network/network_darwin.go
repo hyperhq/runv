@@ -9,6 +9,20 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
+const (
+	DefaultBridgeIface = "hyper0"
+	DefaultBridgeIP    = "192.168.123.0/24"
+)
+
+var (
+	IpAllocator   = ipallocator.New()
+	PortMapper    = portmapper.New()
+	BridgeIPv4Net *net.IPNet
+	BridgeIface   string
+	BridgeIP      string
+)
+
+
 func InitNetwork(bIface, bIP string) error {
 	return fmt.Error("Generial Network driver is unsupported on this os")
 }

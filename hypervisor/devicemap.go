@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/lib/glog"
 )
 
@@ -237,7 +238,7 @@ func (ctx *VmContext) allocateNetworks() {
 	for i, _ := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		go ctx.CreateInterface(ctx.Id, i, addr, name, ctx.DCtx.BuildinNetwork(), maps, ctx.Hub)
+		go ctx.CreateInterface(i, addr, name, maps)
 	}
 }
 
@@ -484,33 +485,43 @@ func (ctx *VmContext) removeInterface() {
 	}
 }
 
-func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
-			maps []pod.UserContainerPort) {
-	if _, ok := ctx.DCtx.(AllocateNetwork); ok {
-		inf, err : = ctx.DCtx.AllocateNetwork(ctx.Id, "", ctx.DCtx.AddrOnly, maps)
-	} else {
-		inf, err := network.Allocate(ctx.Id, "", ctx.DCtx.AddrOnly, maps)
+func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
+	maps []pod.UserContainerPort) (*InterfaceCreated, error) {
+	var inf *network.Settings
+	var err error
+
+	if inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps); err != nil { 
+		inf, err = network.Allocate(ctx.Id, "", ctx.DCtx.BuildinNetwork(), maps)
 	}
 
 	if err != nil {
 		glog.Error("interface creating failed: ", err.Error())
-		callback <- &DeviceFailed{
-			Session: &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name},
-		}
+
+		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
+	}
+
+	return interfaceGot(index, pciAddr, name, inf)
+}
+
+func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
+			maps []pod.UserContainerPort) {
+	session, err := ctx.allocateInterface(index, pciAddr, name, maps)
+
+	if err != nil {
+		ctx.Hub <- &DeviceFailed{Session: session}
 		return
 	}
 
-	interfaceGot(index, pciAddr, name, ctx.Hub, inf)
+	ctx.Hub <- session
 }
 
 func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 			maps []pod.UserContainerPort) {
+	var err error
 	success := true
 
-	if _, ok := ctx.DCtx.(ReleaseNetwork); ok {
-		err := ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file)
-	} else {
-		err := network.Release(ctx.Id, ipAddr, maps, file)
+	if err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file); err != nil {
+		err = network.Release(ctx.Id, ipAddr, maps, file)
 	}
 
 	if err != nil {
@@ -520,14 +531,11 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 	ctx.Hub <- &InterfaceReleased{Index: index, Success: success}
 }
 
-func interfaceGot(index int, pciAddr int, name string, callback chan VmEvent, inf *network.Settings) {
+func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error){
 	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
 	if err != nil {
 		glog.Error("can not parse cidr")
-		callback <- &DeviceFailed{
-			Session: &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name},
-		}
-		return
+		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
 	}
 	var tmp []byte = nw.Mask
 	var mask net.IP = tmp
@@ -540,7 +548,7 @@ func interfaceGot(index int, pciAddr int, name string, callback chan VmEvent, in
 		})
 	}
 
-	event := &InterfaceCreated{
+	return &InterfaceCreated{
 		Index:      index,
 		PCIAddr:    pciAddr,
 		Bridge:     inf.Bridge,
@@ -551,7 +559,5 @@ func interfaceGot(index int, pciAddr int, name string, callback chan VmEvent, in
 		IpAddr:     ip.String(),
 		NetMask:    mask.String(),
 		RouteTable: rt,
-	}
-
-	callback <- event
+	}, nil
 }

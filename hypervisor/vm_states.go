@@ -262,7 +262,7 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 		}
 
 		glog.V(1).Infof("release %d interface: %s", n.Index, nic.IpAddr)
-		go ReleaseInterface(n.Index, nic.IpAddr, nic.Fd, maps, ctx.Hub)
+		go ctx.ReleaseInterface(n.Index, nic.IpAddr, nic.Fd, maps)
 	default:
 		processed = false
 	}

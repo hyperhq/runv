@@ -2,9 +2,19 @@ package hypervisor
 
 import (
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/lib/glog"
+
 	"sync"
 )
+
+func (ctx *VmContext) startSocks() {
+	go waitInitReady(ctx)
+	go waitPts(ctx)
+	if glog.V(1) {
+		go waitConsoleOutput(ctx)
+	}
+}
 
 func (ctx *VmContext) loop() {
 	for ctx.handler != nil {
@@ -33,11 +43,7 @@ func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot
 	}
 
 	//launch routines
-	go waitInitReady(context)
-	go waitPts(context)
-	if glog.V(1) {
-		go waitConsoleOutput(context)
-	}
+	context.startSocks()
 	context.DCtx.Launch(context)
 
 	context.loop()
@@ -98,8 +104,8 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 }
 
 func InitNetwork(bIface, bIP string) error {
-	if _, ok := HDriver.(InitNetwork); ok {
-		return HDriver.InitNetwork(bIface, bIP)
+	if err := HDriver.InitNetwork(bIface, bIP); err != nil {
+		return network.InitNetwork(bIface, bIP)
 	}
 
 	return network.InitNetwork(bIface, bIP)

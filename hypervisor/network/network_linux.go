@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	defaultBridgeIface = "hyper0"
-	defaultBridgeIP    = "192.168.123.0/24"
+	DefaultBridgeIface = "hyper0"
+	DefaultBridgeIP    = "192.168.123.0/24"
 )
 
 const (
@@ -41,9 +41,9 @@ const (
 var (
 	native        binary.ByteOrder
 	nextSeqNr     uint32
-	ipAllocator   = ipallocator.New()
-	portMapper    = portmapper.New()
-	bridgeIPv4Net *net.IPNet
+	IpAllocator   = ipallocator.New()
+	PortMapper    = portmapper.New()
+	BridgeIPv4Net *net.IPNet
 	tapFile       *os.File
 	BridgeIface   string
 	BridgeIP      string
@@ -219,13 +219,13 @@ func init() {
 
 func InitNetwork(bIface, bIP string) error {
 	if bIface == "" {
-		BridgeIface = defaultBridgeIface
+		BridgeIface = DefaultBridgeIface
 	} else {
 		BridgeIface = bIface
 	}
 
 	if bIP == "" {
-		BridgeIP = defaultBridgeIP
+		BridgeIP = DefaultBridgeIP
 	} else {
 		BridgeIP = bIP
 	}
@@ -247,23 +247,23 @@ func InitNetwork(bIface, bIP string) error {
 			return err
 		}
 
-		bridgeIPv4Net = addr.(*net.IPNet)
+		BridgeIPv4Net = addr.(*net.IPNet)
 	} else {
 		glog.V(1).Info("bridge exist\n")
 		// Validate that the bridge ip matches the ip specified by BridgeIP
-		bridgeIPv4Net = addr.(*net.IPNet)
+		BridgeIPv4Net = addr.(*net.IPNet)
 
 		if BridgeIP != "" {
 			bip, ipnet, err := net.ParseCIDR(BridgeIP)
 			if err != nil {
 				return err
 			}
-			if !bridgeIPv4Net.Contains(bip) {
+			if !BridgeIPv4Net.Contains(bip) {
 				return fmt.Errorf("Bridge ip (%s) does not match existing bridge configuration %s", addr, BridgeIP)
 			}
 
 			mask1, _ := ipnet.Mask.Size()
-			mask2, _ := bridgeIPv4Net.Mask.Size()
+			mask2, _ := BridgeIPv4Net.Mask.Size()
 
 			if mask1 != mask2 {
 				return fmt.Errorf("Bridge netmask (%d) does not match existing bridge netmask %d", mask1, mask2)
@@ -276,7 +276,7 @@ func InitNetwork(bIface, bIP string) error {
 		return err
 	}
 
-	ipAllocator.RequestIP(bridgeIPv4Net, bridgeIPv4Net.IP)
+	IpAllocator.RequestIP(BridgeIPv4Net, BridgeIPv4Net.IP)
 	return nil
 }
 
@@ -339,9 +339,9 @@ func configureBridge(bridgeIP, bridgeIface string) error {
 	}
 
 	if ipAddr.Equal(ipNet.IP) {
-		ipAddr, err = ipAllocator.RequestIP(ipNet, nil)
+		ipAddr, err = IpAllocator.RequestIP(ipNet, nil)
 	} else {
-		ipAddr, err = ipAllocator.RequestIP(ipNet, ipAddr)
+		ipAddr, err = IpAllocator.RequestIP(ipNet, ipAddr)
 	}
 
 	if err != nil {
@@ -860,7 +860,7 @@ func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
 			return err
 		}
 
-		err = portMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
+		err = PortMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
 		if err != nil {
 			return err
 		}
@@ -884,7 +884,7 @@ func ReleasePortMaps(containerip string, maps []pod.UserContainerPort) error {
 
 	for _, m := range maps {
 		glog.V(1).Infof("release port map %d", m.HostPort)
-		err := portMapper.ReleaseMap(m.Protocol, m.HostPort)
+		err := PortMapper.ReleaseMap(m.Protocol, m.HostPort)
 		if err != nil {
 			continue
 		}
@@ -942,12 +942,12 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		errno syscall.Errno
 	)
 
-	ip, err := ipAllocator.RequestIP(bridgeIPv4Net, net.ParseIP(requestedIP))
+	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
 		return nil, err
 	}
 
-	maskSize, _ := bridgeIPv4Net.Mask.Size()
+	maskSize, _ := BridgeIPv4Net.Mask.Size()
 
 	mac, err := GenRandomMac()
 	if err != nil {
@@ -965,7 +965,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		return &Settings{
 			Mac:         mac,
 			IPAddress:   ip.String(),
-			Gateway:     bridgeIPv4Net.IP.String(),
+			Gateway:     BridgeIPv4Net.IP.String(),
 			Bridge:      BridgeIface,
 			IPPrefixLen: maskSize,
 			Device:      "",
@@ -1022,7 +1022,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
-		Gateway:     bridgeIPv4Net.IP.String(),
+		Gateway:     BridgeIPv4Net.IP.String(),
 		Bridge:      BridgeIface,
 		IPPrefixLen: maskSize,
 		Device:      device,
@@ -1031,12 +1031,12 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 }
 
 // Release an interface for a select ip
-func Release(releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
+func Release(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
 	if file != nil {
 		file.Close()
 	}
 
-	if err := ipAllocator.ReleaseIP(bridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
+	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}
 

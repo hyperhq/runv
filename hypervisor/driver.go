@@ -1,6 +1,11 @@
 package hypervisor
 
-import "errors"
+import (
+	"os"
+	"errors"
+	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/hypervisor/network"
+)
 
 type BootConfig struct {
 	CPU    int
@@ -9,6 +14,7 @@ type BootConfig struct {
 	Initrd string
 	Bios   string
 	Cbfs   string
+	Vbox   string
 }
 
 type HostNicInfo struct {
@@ -30,6 +36,8 @@ type HypervisorDriver interface {
 	InitContext(homeDir string) DriverContext
 
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
+
+	InitNetwork(bIface, bIP string) error
 }
 
 var HDriver HypervisorDriver
@@ -49,7 +57,18 @@ type DriverContext interface {
 	Kill(ctx *VmContext)
 
 	BuildinNetwork() bool
+	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
+	ReleaseNetwork(vmId, releasedIP string, maps[]pod.UserContainerPort, file *os.File) error
+
 	Close()
+}
+
+type LazyDriverContext interface {
+	DriverContext
+
+	LazyLaunch(ctx *VmContext)
+	LazyAddDisk(ctx *VmContext, name, sourceType, filename, format string, id int)
+	LazyAddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
 }
 
 type EmptyDriver struct{}
@@ -93,5 +112,11 @@ func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 func (ec *EmptyContext) Kill(ctx *VmContext) {}
 
 func (ec *EmptyContext) BuildinNetwork() bool { return false }
+
+func (ec *EmptyContext) AllocateNetwork(vmId, requestedIP string,
+		maps []pod.UserContainerPort) (*network.Settings, error) {return nil, nil}
+
+func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string,
+		maps[]pod.UserContainerPort, file *os.File) error {return nil}
 
 func (ec *EmptyContext) Close() {}
