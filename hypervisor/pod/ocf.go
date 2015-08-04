@@ -7,17 +7,7 @@ import (
 	"fmt"
 )
 
-func OCIConvert2Pod(ociData []byte) (*UserPod, error) {
-	var s specs.LinuxSpec
-
-	if err := json.Unmarshal(ociData, &s); err != nil {
-		return nil, err
-	}
-
-	for _, cmd := range s.Process.Args {
-		fmt.Printf("cmd: %s", cmd)
-	}
-
+func OCFSpec2Pod(s specs.Spec, memory int) *UserPod {
 	container := UserContainer {
 		Command:	s.Process.Args,
 		Workdir:	s.Process.Cwd,
@@ -38,11 +28,11 @@ func OCIConvert2Pod(ociData []byte) (*UserPod, error) {
 	userpod := &UserPod {
 		Name:		s.Hostname,
 		Resource:	UserResource {
-			Memory:		int(s.Linux.Resources.Memory.Limit>>20),
+			Memory:		memory,
 			Vcpu:		0,
 		},
 		Tty:		s.Process.Terminal,
-		Type:		"OCI",
+		Type:		"OCF",
 		RestartPolicy:	"never",
 	}
 
@@ -51,5 +41,5 @@ func OCIConvert2Pod(ociData []byte) (*UserPod, error) {
 	userData, _:= json.Marshal(userpod)
 	fmt.Printf("userData:\n%s\n", userData)
 
-	return userpod, nil
+	return userpod
 }

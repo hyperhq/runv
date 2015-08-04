@@ -10,6 +10,10 @@ clean-local:
 	-rm -f runv
 install-exec-local: 
 	$(INSTALL_PROGRAM) runv $(bindir)
-
+if ON_DARWIN
+build-runv:
+	godep go build -tags "static_build $(HYPER_BULD_TAGS)" runv_darwin.go
+else
 build-runv:
 	godep go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go
+endif
