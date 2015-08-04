@@ -83,10 +83,8 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 }
 
 func main() {
-
 	hypervisor.InterfaceCount = 0
-	var containerInfoList []*hypervisor.ContainerInfo
-	var roots []string
+
 	var containerId string
 	var err error
 
@@ -199,37 +197,11 @@ func main() {
 
 	sharedDir := path.Join(hypervisor.BaseDir, vm.Id, hypervisor.ShareDirTag)
 
-	for _, c := range userPod.Containers {
-		var root string
-		containerId = GenerateRandomID()
-
-		rootDir := path.Join(sharedDir, containerId, "rootfs")
-
-		os.MkdirAll(rootDir, 0755)
-
-		if !filepath.IsAbs(c.Image) {
-			root, err = filepath.Abs(c.Image)
-			if err != nil {
-				fmt.Printf("%s\n", err.Error())
-				return
-			}
-		} else {
-			root = c.Image
-		}
-
-		syscall.Mount(root, rootDir, "", syscall.MS_BIND, "")
-		roots = append(roots, rootDir)
-
-		containerInfo := &hypervisor.ContainerInfo {
-			Id:		containerId,
-			Rootfs:		"rootfs",
-			Image:		containerId,
-			Fstype:		"dir",
-		}
-
-		containerInfoList = append(containerInfoList, containerInfo)
-		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
+	containerInfoList, roots := setupContainer(userPod, sharedDir)
+	for _, cInfo := range(containerInfoList) {
+		mypod.AddContainer(cInfo.Id, podId, "", []string{}, types.S_POD_CREATED)
 	}
+
 	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
 	if qemuResponse.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
@@ -260,10 +232,7 @@ func main() {
 	qemuResponse = vm.StopPod(mypod, "yes")
 
 	term.RestoreTerminal(inFd, oldState)
-	for _, root := range roots {
-		syscall.Unmount(root, syscall.MNT_DETACH)
-	}
-
+	cleanupContainer(roots)
 	if qemuResponse.Data == nil {
 		fmt.Printf("StopPod fail: QEMU response data is nil\n")
 		return

@@ -11,7 +11,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
-func setupContainer(userPod *pod.UserPod, sharedDir string) ([]*hypervisor.ContainerInfo, []string) {
+func SetupContainer(userPod *hypervisor.Pod, sharedDir string) ([]*hypervisor.ContainerInfo, []string) {
 	var containerInfoList []*hypervisor.ContainerInfo
 	var roots []string
 
@@ -19,7 +19,7 @@ func setupContainer(userPod *pod.UserPod, sharedDir string) ([]*hypervisor.Conta
 		var root string
 		var err error
 
-		containerId := GenerateRandomID()
+		containerId = GenerateRandomID()
 
 		rootDir := path.Join(sharedDir, containerId, "rootfs")
 
@@ -29,17 +29,13 @@ func setupContainer(userPod *pod.UserPod, sharedDir string) ([]*hypervisor.Conta
 			root, err = filepath.Abs(c.Image)
 			if err != nil {
 				fmt.Printf("%s\n", err.Error())
-				return nil, nil
+				return
 			}
 		} else {
 			root = c.Image
 		}
 
-		err = syscall.Symlink(root, rootDir)
-		if err != nil {
-			fmt.Printf("%s\n", err.Error())
-			return nil, nil
-		}
+		syscall.Mount(root, rootDir, "", syscall.MS_BIND, "")
 		roots = append(roots, rootDir)
 
 		containerInfo := &hypervisor.ContainerInfo {
@@ -55,8 +51,9 @@ func setupContainer(userPod *pod.UserPod, sharedDir string) ([]*hypervisor.Conta
 	return containerInfoList, roots
 }
 
-func cleanupContainer(roots []string) {
+func CleanupContainer(roots []string)
+{
 	for _, root := range roots {
-		syscall.Unlink(root)
+		syscall.Unmount(root, syscall.MNT_DETACH)
 	}
 }

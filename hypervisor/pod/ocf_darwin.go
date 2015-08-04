@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 )
 
-func OCIConvert2Pod(ociData []byte) (*UserPod, error) {
+func OCFConvert2Pod(ociData []byte) (*UserPod, error) {
 	var s specs.Spec
 
 	if err := json.Unmarshal(ociData, &s); err != nil {
