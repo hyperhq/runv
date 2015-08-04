@@ -160,7 +160,7 @@ func main() {
 
 	fmt.Printf("spec: %s", string(ociData))
 
-	userPod, err := pod.OCIConvert2Pod(ociData)
+	userPod, err := pod.OCFConvert2Pod(ociData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return

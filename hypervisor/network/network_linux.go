@@ -15,9 +15,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/hyperhq/runv/hypervisor/network/ipallocator"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
-	"github.com/hyperhq/runv/hypervisor/network/portmapper"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
 )

@@ -12,5 +12,5 @@ func OCFConvert2Pod(ociData []byte) (*UserPod, error) {
 		return nil, err
 	}
 
-	return OCFSpec2Pod(s.(specs.Spec), int(int(s.Linux.Resources.Memory.Limit>>20)), nil
+	return OCFSpec2Pod(s.Spec, int(s.Linux.Resources.Memory.Limit>>20)), nil
 }
