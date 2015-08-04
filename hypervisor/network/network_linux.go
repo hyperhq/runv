@@ -23,11 +23,6 @@ import (
 )
 
 const (
-	DefaultBridgeIface = "hyper0"
-	DefaultBridgeIP    = "192.168.123.0/24"
-)
-
-const (
 	IFNAMSIZ       = 16
 	DEFAULT_CHANGE = 0xFFFFFFFF
 	SIOC_BRADDBR   = 0x89a0
@@ -41,28 +36,14 @@ const (
 var (
 	native        binary.ByteOrder
 	nextSeqNr     uint32
-	IpAllocator   = ipallocator.New()
-	PortMapper    = portmapper.New()
-	BridgeIPv4Net *net.IPNet
+	/* FIXME: tapFile should be local var */
 	tapFile       *os.File
-	BridgeIface   string
-	BridgeIP      string
 )
 
 type ifReq struct {
 	Name  [IFNAMSIZ]byte
 	Flags uint16
 	pad   [0x28 - 0x10 - 2]byte
-}
-
-type Settings struct {
-	Mac         string
-	IPAddress   string
-	IPPrefixLen int
-	Gateway     string
-	Bridge      string
-	Device      string
-	File        *os.File
 }
 
 type IfInfomsg struct {
@@ -1019,7 +1000,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		return nil, err
 	}
 
-	return &Settings{
+	return &Settings {
 		Mac:         mac,
 		IPAddress:   ip.String(),
 		Gateway:     BridgeIPv4Net.IP.String(),
