@@ -243,6 +243,11 @@ func (ctx *VmContext) allocateNetworks() {
 }
 
 func (ctx *VmContext) addBlockDevices() {
+	if len(ctx.progress.adding.blockdevs) == 0 {
+		ctx.Hub <- &BlockdevSkipEvent{}
+		return
+	}
+
 	for blk, _ := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()

@@ -47,7 +47,6 @@ func (ctx *VmContext) detatchDevice() {
 }
 
 func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
-
 	if len(cmd.Spec.Containers) != len(cmd.Containers) {
 		ctx.reportBadRequest("Spec and Container Info mismatch")
 		return false
@@ -207,6 +206,7 @@ func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
 	case EVENT_BLOCK_INSERTED:
 		info := ev.(*BlockdevInsertedEvent)
 		ctx.blockdevInserted(info)
+	case EVENT_BLOCK_SKIP:
 	case EVENT_INTERFACE_ADD:
 		info := ev.(*InterfaceCreated)
 		ctx.interfaceCreated(info)

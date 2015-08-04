@@ -275,7 +275,6 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	containers := make([]VmContainer, len(spec.Containers))
 
 	for i, container := range spec.Containers {
-
 		ctx.initContainerInfo(i, &containers[i], &container)
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 
