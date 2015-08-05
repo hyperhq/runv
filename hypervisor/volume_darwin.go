@@ -2,16 +2,17 @@ package hypervisor
 
 import (
 	"bufio"
+	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"syscall"
 	"time"
 
-	"hyper/lib/glog"
-	"hyper/pod"
-	"hyper/storage/aufs"
-	"hyper/storage/vfs"
+
+	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/lib/glog"
 )
 
 func CreateContainer(userPod *pod.UserPod, sharedDir string, hub chan VmEvent) (string, error) {
@@ -39,12 +40,28 @@ func UmountOverlayContainer(shareDir, image string, index int, hub chan VmEvent)
 	hub <- &ContainerUnmounted{Index: index, Success: success}
 }
 
+func aufsUnmount(target string) error {
+	glog.V(1).Infof("Ready to unmount the target : %s", target)
+	if _, err := os.Stat(target); err != nil && os.IsNotExist(err) {
+		return nil
+	}
+	cmdString := fmt.Sprintf("auplink %s flush", target)
+	cmd := exec.Command("/bin/sh", "-c", cmdString)
+	if err := cmd.Run(); err != nil {
+		glog.Warningf("Couldn't run auplink command : %s\n%s\n", err.Error())
+	}
+	if err := syscall.Unmount(target, 0); err != nil {
+		return err
+	}
+	return nil
+}
+
 func UmountAufsContainer(shareDir, image string, index int, hub chan VmEvent) {
 	mount := path.Join(shareDir, image)
 	success := true
 	for i := 0; i < 10; i++ {
 		time.Sleep(3 * time.Second / 1000)
-		err := aufs.Unmount(mount)
+		err := aufsUnmount(mount)
 		if err != nil {
 			if !strings.Contains(strings.ToLower(err.Error()), "device or resource busy") {
 				success = true
@@ -65,7 +82,7 @@ func UmountVfsContainer(shareDir, image string, index int, hub chan VmEvent) {
 	success := true
 	for i := 0; i < 10; i++ {
 		time.Sleep(3 * time.Second / 1000)
-		err := vfs.Unmount(mount)
+		err := syscall.Unlink(mount)
 		if err != nil {
 			if !strings.Contains(strings.ToLower(err.Error()), "device or resource busy") {
 				success = true

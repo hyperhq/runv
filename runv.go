@@ -85,55 +85,79 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 func main() {
 	hypervisor.InterfaceCount = 0
 
+	var containerInfoList []*hypervisor.ContainerInfo
+	var roots []string
 	var containerId string
 	var err error
 
-	if hypervisor.HDriver, err = driverloader.Probe("kvm"); err != nil {
+	if hypervisor.HDriver, err = driverloader.Probe("vbox"); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
-	ocifile := flag.String("config", "", "oci configure file")
+	ocffile := flag.String("config", "", "ocf configure file")
 	kernel := flag.String("kernel", "", "hyper kernel")
 	initrd := flag.String("initrd", "", "hyper initrd")
+	vbox := flag.String("vbox", "", "vbox boot iso")
 	//bridge := flag.String("br", "", "bridge")
 	//subnet := flag.String("ip", "", "subnet")
 
 	flag.Parse()
 
-	if *ocifile == "" {
-		fmt.Printf("Please specify oci file\n")
-		*ocifile = "config.json"
+	if *ocffile == "" {
+		*ocffile = "config.json"
 	}
 
+	if _, err = os.Stat(*ocffile); os.IsNotExist(err) {
+		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
+		return
+	}
+
+	if *vbox == "" {
+		*vbox = "./vbox.iso"
+	}
+/*
+	if _, err := os.Stat(*vbox); os.IsNotExist(err) {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+
+	*vbox, err = filepath.Abs(*vbox)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error)
+		return
+	}
+*/
 	if *kernel == "" {
 		*kernel = "./kernel"
-		if _, err = os.Stat(*kernel); os.IsNotExist(err) {
-			fmt.Printf("Please specify kernel or put kernel under current working directory\n")
-			return
-		}
+	}
+/*
+	if _, err = os.Stat(*kernel); os.IsNotExist(err) {
+		fmt.Printf("%s\n", err.Error)
+		return
 	}
 
 	*kernel, err = filepath.Abs(*kernel)
 	if err != nil {
-		fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+		fmt.Printf("%s\n", err.Error)
 		return
 	}
-
+*/
 	if *initrd == "" {
 		*initrd = "./initrd.img"
-		if _, err := os.Stat(*initrd); os.IsNotExist(err) {
-			fmt.Printf("Please specify initrd or put initrd.img under current working directory\n")
-			return
-		}
+	}
+/*
+	if _, err := os.Stat(*initrd); os.IsNotExist(err) {
+		fmt.Printf("%s\n", err.Error)
+		return
 	}
 
 	*initrd, err = filepath.Abs(*initrd)
 	if err != nil {
-		fmt.Printf("Cannot get abs path for initrd.img: %s\n", err.Error())
+		fmt.Printf("%s\n", err.Error)
 		return
 	}
-
+*/
 /*
 	err := hypervisor.InitNetwork(hypervisor.HDriver, *bridge, *subnet)
 	if err != nil {
@@ -144,21 +168,15 @@ func main() {
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	_, err = os.Stat(*ocifile)
+	ocfData, err := ioutil.ReadFile(*ocffile)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
-	ociData, err := ioutil.ReadFile(*ocifile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
+	fmt.Printf("spec: %s", string(ocfData))
 
-	fmt.Printf("spec: %s", string(ociData))
-
-	userPod, err := pod.OCFConvert2Pod(ociData)
+	userPod, err := pod.OCFConvert2Pod(ocfData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -179,13 +197,14 @@ func main() {
 		mem = userPod.Resource.Memory
 	}
 
-	b := &hypervisor.BootConfig{
-		CPU:    cpu,
-		Memory: mem,
-		Kernel: *kernel,
+	b := &hypervisor.BootConfig {
+		Kernel:	*kernel,
 		Initrd: *initrd,
-		Bios:   "",
-		Cbfs:   "",
+		Bios:	"",
+		Cbfs:	"",
+		Vbox:	*vbox,
+		CPU:	cpu,
+		Memory:	mem,
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false)
@@ -197,11 +216,47 @@ func main() {
 
 	sharedDir := path.Join(hypervisor.BaseDir, vm.Id, hypervisor.ShareDirTag)
 
-	containerInfoList, roots := setupContainer(userPod, sharedDir)
-	for _, cInfo := range(containerInfoList) {
-		mypod.AddContainer(cInfo.Id, podId, "", []string{}, types.S_POD_CREATED)
+	for _, c := range userPod.Containers {
+		var root string
+		var err error
+
+		containerId := GenerateRandomID()
+		fmt.Printf("containerID %s\n", containerId)
+		rootDir := path.Join(sharedDir, containerId)
+		os.MkdirAll(rootDir, 0755)
+
+		rootDir = path.Join(rootDir, "rootfs")
+
+		if !filepath.IsAbs(c.Image) {
+			root, err = filepath.Abs(c.Image)
+			if err != nil {
+				fmt.Printf("%s\n", err.Error())
+				return
+			}
+		} else {
+			root = c.Image
+		}
+
+		fmt.Printf("mount %s to %s\n", root, rootDir)
+		err = mount(root, rootDir)
+		if err != nil {
+			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+			return
+		}
+		roots = append(roots, rootDir)
+
+		containerInfo := &hypervisor.ContainerInfo {
+			Id:		containerId,
+			Rootfs:		"rootfs",
+			Image:		containerId,
+			Fstype:		"dir",
+		}
+
+		containerInfoList = append(containerInfoList, containerInfo)
+		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
 	}
 
+	fmt.Printf("container info list %d\n", len(containerInfoList))
 	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
 	if qemuResponse.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
@@ -232,7 +287,11 @@ func main() {
 	qemuResponse = vm.StopPod(mypod, "yes")
 
 	term.RestoreTerminal(inFd, oldState)
-	cleanupContainer(roots)
+
+	for _, root := range roots {
+		umount(root)
+	}
+
 	if qemuResponse.Data == nil {
 		fmt.Printf("StopPod fail: QEMU response data is nil\n")
 		return
