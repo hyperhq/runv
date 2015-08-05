@@ -134,7 +134,7 @@ type BlockdevInsertedEvent struct {
 	ScsiId     int
 }
 
-type BlockdevSkipEvent struct {}
+type DevSkipEvent struct {}
 
 type BlockdevRemovedEvent struct {
 	Name    string
@@ -175,8 +175,6 @@ type NetDevRemovedEvent struct {
 	Index int
 }
 
-type NetDevSkipEvent struct {}
-
 type DeviceFailed struct {
 	Session VmEvent
 }
@@ -196,12 +194,11 @@ func (qe *ContainerUnmounted) Event() int	{ return EVENT_CONTAINER_DELETE }
 func (qe *VolumeUnmounted) Event() int		{ return EVENT_BLOCK_EJECTED }
 func (qe *VolumeReadyEvent) Event() int		{ return EVENT_VOLUME_ADD }
 func (qe *BlockdevInsertedEvent) Event() int	{ return EVENT_BLOCK_INSERTED }
-func (qe *BlockdevSkipEvent) Event() int	{ return EVENT_BLOCK_SKIP }
+func (qe *DevSkipEvent) Event() int		{ return EVENT_DEV_SKIP }
 func (qe *BlockdevRemovedEvent) Event() int	{ return EVENT_VOLUME_DELETE }
 func (qe *InterfaceCreated) Event() int		{ return EVENT_INTERFACE_ADD }
 func (qe *InterfaceReleased) Event() int	{ return EVENT_INTERFACE_DELETE }
 func (qe *NetDevInsertedEvent) Event() int	{ return EVENT_INTERFACE_INSERTED }
-func (qe *NetDevSkipEvent) Event() int		{ return EVENT_INTERFACE_SKIP }
 func (qe *NetDevRemovedEvent) Event() int	{ return EVENT_INTERFACE_EJECTED }
 func (qe *RunPodCommand) Event() int		{ return COMMAND_RUN_POD }
 func (qe *StopPodCommand) Event() int		{ return COMMAND_STOP_POD }

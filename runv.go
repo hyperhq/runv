@@ -111,17 +111,41 @@ func main() {
 		*vbox = "./vbox.iso"
 	}
 
+	if _, err = os.Stat(*vbox); err == nil {
+		*vbox, err = filepath.Abs(*vbox)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
+			return
+		}
+	}
+
 	if *kernel == "" {
 		*kernel = "./kernel"
+	}
+
+	if _, err = os.Stat(*kernel); err == nil {
+		*kernel, err = filepath.Abs(*kernel)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+			return
+		}
 	}
 
 	if *initrd == "" {
 		*initrd = "./initrd.img"
 	}
 
+	if _, err = os.Stat(*initrd); err == nil {
+		*initrd, err = filepath.Abs(*initrd)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
+			return
+		}
+	}
+
 	if *driver == "" {
 		*driver = "kvm"
-		fmt.Printf("Use default hypervisor KVM")
+		fmt.Printf("Use default hypervisor KVM\n")
 	}
 
 	if hypervisor.HDriver, err = driverloader.Probe(*driver); err != nil {
@@ -137,8 +161,6 @@ func main() {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-
-	fmt.Printf("spec: %s", string(ocfData))
 
 	userPod, err := pod.OCFConvert2Pod(ocfData)
 	if err != nil {
@@ -185,7 +207,6 @@ func main() {
 		var err error
 
 		containerId = GenerateRandomID()
-		fmt.Printf("containerID %s\n", containerId)
 		rootDir := path.Join(sharedDir, containerId)
 		os.MkdirAll(rootDir, 0755)
 
@@ -201,7 +222,6 @@ func main() {
 			root = c.Image
 		}
 
-		fmt.Printf("mount %s to %s\n", root, rootDir)
 		err = mount(root, rootDir)
 		if err != nil {
 			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())

@@ -59,8 +59,7 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		glog.Info("initial vm spec: ", string(res))
 	}
 
-	ctx.allocateNetworks()
-	ctx.addBlockDevices()
+	ctx.allocateDevices()
 
 	return true
 }
@@ -206,7 +205,7 @@ func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
 	case EVENT_BLOCK_INSERTED:
 		info := ev.(*BlockdevInsertedEvent)
 		ctx.blockdevInserted(info)
-	case EVENT_BLOCK_SKIP:
+	case EVENT_DEV_SKIP:
 	case EVENT_INTERFACE_ADD:
 		info := ev.(*InterfaceCreated)
 		ctx.interfaceCreated(info)
@@ -227,7 +226,6 @@ func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
 	case EVENT_INTERFACE_INSERTED:
 		info := ev.(*NetDevInsertedEvent)
 		ctx.netdevInserted(info)
-	case EVENT_INTERFACE_SKIP:
 	default:
 		processed = false
 	}

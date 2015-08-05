@@ -224,11 +224,6 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 func (ctx *VmContext) allocateNetworks() {
 	var maps []pod.UserContainerPort
 
-	if len(ctx.progress.adding.networks) == 0 {
-		ctx.Hub <- &NetDevSkipEvent{}
-		return
-	}
-
 	for _, c := range ctx.userSpec.Containers {
 		for _, m := range c.Ports {
 			maps = append(maps, m)
@@ -243,11 +238,6 @@ func (ctx *VmContext) allocateNetworks() {
 }
 
 func (ctx *VmContext) addBlockDevices() {
-	if len(ctx.progress.adding.blockdevs) == 0 {
-		ctx.Hub <- &BlockdevSkipEvent{}
-		return
-	}
-
 	for blk, _ := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
@@ -259,6 +249,16 @@ func (ctx *VmContext) addBlockDevices() {
 			continue
 		}
 	}
+}
+
+func (ctx *VmContext) allocateDevices() {
+	if len(ctx.progress.adding.networks) == 0 && len(ctx.progress.adding.blockdevs) == 0 {
+		ctx.Hub <- &DevSkipEvent{}
+		return
+	}
+
+	ctx.allocateNetworks()
+	ctx.addBlockDevices()
 }
 
 func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
