@@ -220,7 +220,7 @@ func main() {
 		var root string
 		var err error
 
-		containerId := GenerateRandomID()
+		containerId = GenerateRandomID()
 		fmt.Printf("containerID %s\n", containerId)
 		rootDir := path.Join(sharedDir, containerId)
 		os.MkdirAll(rootDir, 0755)
