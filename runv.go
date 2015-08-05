@@ -90,17 +90,11 @@ func main() {
 	var containerId string
 	var err error
 
-	if hypervisor.HDriver, err = driverloader.Probe("vbox"); err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
 	ocffile := flag.String("config", "", "ocf configure file")
 	kernel := flag.String("kernel", "", "hyper kernel")
 	initrd := flag.String("initrd", "", "hyper initrd")
 	vbox := flag.String("vbox", "", "vbox boot iso")
-	//bridge := flag.String("br", "", "bridge")
-	//subnet := flag.String("ip", "", "subnet")
+	driver := flag.String("driver", "", "hypervisor driver")
 
 	flag.Parse()
 
@@ -116,55 +110,25 @@ func main() {
 	if *vbox == "" {
 		*vbox = "./vbox.iso"
 	}
-/*
-	if _, err := os.Stat(*vbox); os.IsNotExist(err) {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
 
-	*vbox, err = filepath.Abs(*vbox)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error)
-		return
-	}
-*/
 	if *kernel == "" {
 		*kernel = "./kernel"
 	}
-/*
-	if _, err = os.Stat(*kernel); os.IsNotExist(err) {
-		fmt.Printf("%s\n", err.Error)
-		return
-	}
 
-	*kernel, err = filepath.Abs(*kernel)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error)
-		return
-	}
-*/
 	if *initrd == "" {
 		*initrd = "./initrd.img"
 	}
-/*
-	if _, err := os.Stat(*initrd); os.IsNotExist(err) {
-		fmt.Printf("%s\n", err.Error)
-		return
+
+	if *driver == "" {
+		*driver = "kvm"
+		fmt.Printf("Use default hypervisor KVM")
 	}
 
-	*initrd, err = filepath.Abs(*initrd)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error)
-		return
-	}
-*/
-/*
-	err := hypervisor.InitNetwork(hypervisor.HDriver, *bridge, *subnet)
-	if err != nil {
+	if hypervisor.HDriver, err = driverloader.Probe(*driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-*/
+
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
@@ -256,7 +220,6 @@ func main() {
 		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
 	}
 
-	fmt.Printf("container info list %d\n", len(containerInfoList))
 	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
 	if qemuResponse.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
