@@ -17,7 +17,8 @@ type Vm struct {
 	Status            uint
 	Cpu               int
 	Mem               int
-	Lazy		  bool
+	Lazy              bool
+	Keep              int
 	QemuChan          interface{}
 	QemuClientChan    interface{}
 	SubQemuClientChan interface{}

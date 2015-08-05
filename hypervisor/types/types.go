@@ -27,6 +27,12 @@ const (
 	S_VM_ASSOCIATED
 )
 
+const (
+	VM_KEEP_NONE = iota
+	VM_KEEP_AFTER_FINISH
+	VM_KEEP_AFTER_SHUTDOWN
+)
+
 type QemuResponse struct {
 	VmId  string
 	Code  int
