@@ -1,8 +1,8 @@
 package hypervisor
 
 import (
-	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/glog"
 
 	"sync"
@@ -31,8 +31,8 @@ func (ctx *VmContext) loop() {
 	}
 }
 
-func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig) {
-	context, err := InitContext(vmId, hub, client, nil, boot)
+func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig, keep int) {
+	context, err := InitContext(vmId, hub, client, nil, boot, keep)
 	if err != nil {
 		client <- &types.QemuResponse{
 			VmId:  vmId,

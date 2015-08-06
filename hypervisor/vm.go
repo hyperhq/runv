@@ -55,9 +55,9 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 	)
 
 	if vm.Lazy {
-		go LazyVmLoop(vm.Id, PodEvent, Status, b)
+		go LazyVmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	} else {
-		go VmLoop(vm.Id, PodEvent, Status, b)
+		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
 	if err := vm.SetQemuChan(PodEvent, Status, subStatus); err != nil {
@@ -382,13 +382,14 @@ func (vm *Vm) Tty(tag string, row, column int) error {
 	return nil
 }
 
-func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
-	return &Vm {
+func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
+	return &Vm{
 		Id:     vmId,
 		Pod:    nil,
-		Lazy:	lazy,
+		Lazy:   lazy,
 		Status: types.S_VM_IDLE,
 		Cpu:    cpu,
 		Mem:    memory,
+		Keep:   keep,
 	}
 }

@@ -46,7 +46,7 @@ type VmContext struct {
 	scsiId   int    //next available scsi id for scsi hotplug
 	attachId uint64 //next available attachId for attached tty
 
-	InterfaceCount	int
+	InterfaceCount int
 
 	ptys        *pseudoTtys
 	ttySessions map[string]uint64
@@ -66,11 +66,12 @@ type VmContext struct {
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
 	wait bool
+	Keep int
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)
 
-func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
+func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, dc DriverContext, boot *BootConfig, keep int) (*VmContext, error) {
 	var err error = nil
 
 	vmChannel := make(chan *DecodedMessage, 128)
@@ -97,7 +98,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		}
 	}()
 
-	return &VmContext {
+	return &VmContext{
 		Id:              id,
 		Boot:            boot,
 		pciAddr:         PciAddrFrom,
@@ -114,7 +115,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		TtySockName:     ttySockName,
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
-		InterfaceCount:	 InterfaceCount,
+		InterfaceCount:  InterfaceCount,
 		timer:           nil,
 		handler:         stateInit,
 		userSpec:        nil,
@@ -123,6 +124,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		progress:        newProcessingList(),
 		lock:            &sync.Mutex{},
 		wait:            false,
+		Keep:            keep,
 	}, nil
 }
 

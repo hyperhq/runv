@@ -172,7 +172,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.QemuRes
 		return nil, err
 	}
 
-	ctx, err := InitContext(pinfo.Id, hub, client, dc, &BootConfig{})
+	ctx, err := InitContext(pinfo.Id, hub, client, dc, &BootConfig{}, types.VM_KEEP_NONE)
 	if err != nil {
 		return nil, err
 	}

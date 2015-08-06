@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/glog"
 )
 
-func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig) {
+func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig, keep int) {
 
 	glog.V(1).Infof("Start VM %s in lazy mode, not started yet actually", vmId)
 
-	context, err := InitContext(vmId, hub, client, nil, boot)
+	context, err := InitContext(vmId, hub, client, nil, boot, keep)
 	if err != nil {
 		client <- &types.QemuResponse{
 			VmId:  vmId,
