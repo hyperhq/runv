@@ -145,7 +145,7 @@ static inline int  hyperxl_initialize_driver(hyperxl_driver** pdriver, bool verb
         goto free_ctx;
     }
 
-    libxl_event_register_callbacks(driver->ctx, &ev_hooks, driver);
+    libxl_event_register_callbacks(driver->ctx, &ev_hooks, driver->ctx);
 
     return 0;
 
@@ -276,7 +276,7 @@ static inline void hyperxl_sigchld_handler(libxl_ctx* ctx) {
 }
 
 static inline void hyperxl_domain_event_handler(void *data, HYPERXL_EVENT_CONST libxl_event *event) {
-    hyperxl_driver* driver = (hyperxl_driver*)data;
+    libxl_ctx *ctx = (libxl_ctx *)data;
     libxl_shutdown_reason xl_reason = event->u.domain_shutdown.shutdown_reason;
 
     if (event->type != LIBXL_EVENT_TYPE_DOMAIN_SHUTDOWN) {
@@ -289,7 +289,7 @@ static inline void hyperxl_domain_event_handler(void *data, HYPERXL_EVENT_CONST 
     DomainDeath_cgo((uint32_t)event->domid);
 
 ignore:
-    libxl_event_free(driver->ctx, (libxl_event *)event);
+    libxl_event_free(ctx, (libxl_event *)event);
 }
 
 static inline int  hyperxl_domain_destroy(libxl_ctx* ctx, uint32_t domid) {
