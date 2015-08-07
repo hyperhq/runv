@@ -199,6 +199,12 @@ func (vm *Vm) handlePodEvent(mypod *Pod) {
 	subStatus := ret3.(chan *types.QemuResponse)
 
 	for {
+		defer func() {
+			err := recover()
+			if err != nil {
+				glog.Warning("panic during send shutdown message to channel")
+			}
+		}()
 		Response := <-Status
 		subStatus <- Response
 

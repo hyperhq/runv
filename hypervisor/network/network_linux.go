@@ -915,7 +915,7 @@ func UpAndAddToBridge(name string) error {
 	return nil
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
 	var (
 		req   ifReq
 		errno syscall.Errno
@@ -1010,7 +1010,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 }
 
 // Release an interface for a select ip
-func Release(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
+func Release(vmId, releasedIP string, index int, maps []pod.UserContainerPort, file *os.File) error {
 	if file != nil {
 		file.Close()
 	}

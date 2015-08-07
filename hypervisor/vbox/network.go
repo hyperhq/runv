@@ -23,6 +23,7 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 
 	bip, ipnet, err := net.ParseCIDR(network.BridgeIP)
 	if err != nil {
+		glog.Errorf(err.Error())
 		return err
 	}
 
@@ -30,13 +31,16 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 	inc(gateway, 2)
 
 	if !ipnet.Contains(gateway) {
+		glog.Errorf(err.Error())
 		return fmt.Errorf("get Gateway from BridgeIP %s failed", network.BridgeIP)
 	}
 
 	_, network.BridgeIPv4Net, err = net.ParseCIDR(gateway.String())
 	if err != nil {
+		glog.Errorf(err.Error())
 		return err
 	}
+	glog.Warningf(network.BridgeIPv4Net.String())
 
 	for bip = bip.Mask(ipnet.Mask); ipnet.Contains(bip) && i < 15; inc(bip, 1) {
 		i++

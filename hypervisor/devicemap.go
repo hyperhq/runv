@@ -176,7 +176,7 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
-		} else if vol.Driver == "raw" || vol.Driver == "qcow2" {
+		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
 				info: &blockDescriptor{
 					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
@@ -437,7 +437,7 @@ func (ctx *VmContext) releaseAufsDir() {
 
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.format == "raw" || vol.info.format == "qcow2" {
+		if vol.info.format == "raw" || vol.info.format == "qcow2" || vol.info.format == "vdi" {
 			glog.V(1).Infof("need detach volume %s (%s) ", name, vol.info.deviceName)
 			ctx.DCtx.RemoveDisk(ctx, vol.info.filename, vol.info.format, vol.info.scsiId, &VolumeUnmounted{Name: name, Success: true})
 			ctx.progress.deleting.volumes[name] = true
@@ -495,8 +495,8 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
 	var inf *network.Settings
 	var err error
 
-	if inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps); err != nil { 
-		inf, err = network.Allocate(ctx.Id, "", ctx.DCtx.BuildinNetwork(), maps)
+	if inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps); err != nil {
+		inf, err = network.Allocate(ctx.Id, "", index, ctx.DCtx.BuildinNetwork(), maps)
 	}
 
 	if err != nil {
@@ -526,7 +526,7 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 	success := true
 
 	if err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file); err != nil {
-		err = network.Release(ctx.Id, ipAddr, maps, file)
+		err = network.Release(ctx.Id, ipAddr, index, maps, file)
 	}
 
 	if err != nil {
