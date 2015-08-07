@@ -34,20 +34,24 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 		glog.Errorf(err.Error())
 		return fmt.Errorf("get Gateway from BridgeIP %s failed", network.BridgeIP)
 	}
-
-	_, network.BridgeIPv4Net, err = net.ParseCIDR(gateway.String())
+	prefixSize, _ := ipnet.Mask.Size()
+	_, network.BridgeIPv4Net, err = net.ParseCIDR(gateway.String() + fmt.Sprintf("/%d", prefixSize))
 	if err != nil {
 		glog.Errorf(err.Error())
 		return err
 	}
 	glog.Warningf(network.BridgeIPv4Net.String())
-
-	for bip = bip.Mask(ipnet.Mask); ipnet.Contains(bip) && i < 15; inc(bip, 1) {
+	bip = bip.Mask(ipnet.Mask)
+	inc(bip, 3)
+	for ; ipnet.Contains(bip) && i < 15; inc(bip, 1) {
 		i++
+		glog.V(3).Infof("Try %s", bip.String())
 		_, err = network.IpAllocator.RequestIP(network.BridgeIPv4Net, bip)
-
 		if err != nil {
+			glog.Errorf(err.Error())
 			return err
+		} else {
+			break
 		}
 	}
 
