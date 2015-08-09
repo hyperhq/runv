@@ -1,10 +1,7 @@
 package hypervisor
 
 import (
-	"bufio"
-	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"syscall"
@@ -20,61 +17,11 @@ func CreateContainer(userPod *pod.UserPod, sharedDir string, hub chan VmEvent) (
 }
 
 func UmountOverlayContainer(shareDir, image string, index int, hub chan VmEvent) {
-	mount := path.Join(shareDir, image)
-	success := true
-	for i := 0; i < 10; i++ {
-		time.Sleep(3 * time.Second / 1000)
-		err := syscall.Unmount(mount, 0)
-		if err != nil {
-			if !strings.Contains(strings.ToLower(err.Error()), "device or resource busy") {
-				success = true
-				break
-			}
-			glog.Warningf("Cannot umount overlay %s: %s", mount, err.Error())
-			success = false
-		} else {
-			success = true
-			break
-		}
-	}
-	hub <- &ContainerUnmounted{Index: index, Success: success}
-}
-
-func aufsUnmount(target string) error {
-	glog.V(1).Infof("Ready to unmount the target : %s", target)
-	if _, err := os.Stat(target); err != nil && os.IsNotExist(err) {
-		return nil
-	}
-	cmdString := fmt.Sprintf("auplink %s flush", target)
-	cmd := exec.Command("/bin/sh", "-c", cmdString)
-	if err := cmd.Run(); err != nil {
-		glog.Warningf("Couldn't run auplink command : %s\n%s\n", err.Error())
-	}
-	if err := syscall.Unmount(target, 0); err != nil {
-		return err
-	}
-	return nil
+	glog.Warningf("Non support")
 }
 
 func UmountAufsContainer(shareDir, image string, index int, hub chan VmEvent) {
-	mount := path.Join(shareDir, image)
-	success := true
-	for i := 0; i < 10; i++ {
-		time.Sleep(3 * time.Second / 1000)
-		err := aufsUnmount(mount)
-		if err != nil {
-			if !strings.Contains(strings.ToLower(err.Error()), "device or resource busy") {
-				success = true
-				break
-			}
-			glog.Warningf("Cannot umount aufs %s: %s", mount, err.Error())
-			success = false
-		} else {
-			success = true
-			break
-		}
-	}
-	hub <- &ContainerUnmounted{Index: index, Success: success}
+	glog.Warningf("Non support")
 }
 
 func UmountVfsContainer(shareDir, image string, index int, hub chan VmEvent) {
@@ -119,33 +66,9 @@ func UmountDMDevice(deviceFullPath, name string, hub chan VmEvent) {
 }
 
 func supportAufs() bool {
-	f, err := os.Open("/proc/filesystems")
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		if strings.Contains(s.Text(), "aufs") {
-			return true
-		}
-	}
 	return false
 }
 
 func supportOverlay() bool {
-	f, err := os.Open("/proc/filesystems")
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		if strings.Contains(s.Text(), "overlay") {
-			return true
-		}
-	}
 	return false
 }
