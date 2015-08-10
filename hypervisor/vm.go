@@ -19,28 +19,28 @@ type Vm struct {
 	Mem               int
 	Lazy              bool
 	Keep              int
-	QemuChan          interface{}
-	QemuClientChan    interface{}
-	SubQemuClientChan interface{}
+	VmChan          interface{}
+	VmClientChan    interface{}
+	SubVmClientChan interface{}
 }
 
-func (vm *Vm) GetQemuChan() (interface{}, interface{}, interface{}, error) {
-	if vm.QemuChan != nil && vm.QemuClientChan != nil {
-		return vm.QemuChan, vm.QemuClientChan, vm.SubQemuClientChan, nil
+func (vm *Vm) GetVmChan() (interface{}, interface{}, interface{}, error) {
+	if vm.VmChan != nil && vm.VmClientChan != nil {
+		return vm.VmChan, vm.VmClientChan, vm.SubVmClientChan, nil
 	}
-	return nil, nil, nil, fmt.Errorf("Can not find the Qemu chan for pod: %s!", vm.Id)
+	return nil, nil, nil, fmt.Errorf("Can not find the VM chan for pod: %s!", vm.Id)
 }
 
-func (vm *Vm) SetQemuChan(qemuchan, qemuclient, subQemuClient interface{}) error {
-	if vm.QemuChan == nil {
-		if qemuchan != nil {
-			vm.QemuChan = qemuchan
+func (vm *Vm) SetVmChan(vmchan, vmclient, subVmClient interface{}) error {
+	if vm.VmChan == nil {
+		if vmchan != nil {
+			vm.VmChan = vmchan
 		}
-		if qemuclient != nil {
-			vm.QemuClientChan = qemuclient
+		if vmclient != nil {
+			vm.VmClientChan = vmclient
 		}
-		if subQemuClient != nil {
-			vm.SubQemuClientChan = subQemuClient
+		if subVmClient != nil {
+			vm.SubVmClientChan = subVmClient
 		}
 		return nil
 	}
@@ -50,8 +50,8 @@ func (vm *Vm) SetQemuChan(qemuchan, qemuclient, subQemuClient interface{}) error
 func (vm *Vm) Launch(b *BootConfig) (err error) {
 	var (
 		PodEvent  = make(chan VmEvent, 128)
-		Status    = make(chan *types.QemuResponse, 128)
-		subStatus = make(chan *types.QemuResponse, 128)
+		Status    = make(chan *types.VmResponse, 128)
+		subStatus = make(chan *types.VmResponse, 128)
 	)
 
 	if vm.Lazy {
@@ -60,8 +60,8 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
-	if err := vm.SetQemuChan(PodEvent, Status, subStatus); err != nil {
-		glog.V(1).Infof("SetQemuChan error: %s", err.Error())
+	if err := vm.SetVmChan(PodEvent, Status, subStatus); err != nil {
+		glog.V(1).Infof("SetVmChan error: %s", err.Error())
 		return err
 	}
 
@@ -69,23 +69,23 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 }
 
 func (vm *Vm) Kill() (int, string, error) {
-	PodEvent, Status, subStatus, err := vm.GetQemuChan()
+	PodEvent, Status, subStatus, err := vm.GetVmChan()
 	if err != nil {
 		return -1, "", err
 	}
-	var Response *types.QemuResponse
+	var Response *types.VmResponse
 	shutdownPodEvent := &ShutdownCommand{Wait: false}
 	PodEvent.(chan VmEvent) <- shutdownPodEvent
-	// wait for the qemu response
+	// wait for the VM response
 	for {
 		stop := 0
 		select {
-		case Response = <-Status.(chan *types.QemuResponse):
+		case Response = <-Status.(chan *types.VmResponse):
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_VM_SHUTDOWN {
 				stop = 1
 			}
-		case Response = <-subStatus.(chan *types.QemuResponse):
+		case Response = <-subStatus.(chan *types.VmResponse):
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_VM_SHUTDOWN {
 				stop = 1
@@ -95,8 +95,8 @@ func (vm *Vm) Kill() (int, string, error) {
 			break
 		}
 	}
-	close(Status.(chan *types.QemuResponse))
-	close(subStatus.(chan *types.QemuResponse))
+	close(Status.(chan *types.VmResponse))
+	close(subStatus.(chan *types.VmResponse))
 
 	return Response.Code, Response.Cause, nil
 }
@@ -106,8 +106,8 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
 	var (
 		PodEvent  = make(chan VmEvent, 128)
-		Status    = make(chan *types.QemuResponse, 128)
-		subStatus = make(chan *types.QemuResponse, 128)
+		Status    = make(chan *types.VmResponse, 128)
+		subStatus = make(chan *types.VmResponse, 128)
 	)
 
 	go VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
@@ -120,8 +120,8 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 		return errors.New("load vm status failed")
 	}
 
-	if err := vm.SetQemuChan(PodEvent, Status, subStatus); err != nil {
-		glog.V(1).Infof("SetQemuChan error: %s", err.Error())
+	if err := vm.SetVmChan(PodEvent, Status, subStatus); err != nil {
+		glog.V(1).Infof("SetVmChan error: %s", err.Error())
 		return err
 	}
 
@@ -135,8 +135,8 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 }
 
 func (vm *Vm) ReleaseVm() (int, error) {
-	var Response *types.QemuResponse
-	PodEvent, _, Status, err := vm.GetQemuChan()
+	var Response *types.VmResponse
+	PodEvent, _, Status, err := vm.GetVmChan()
 	if err != nil {
 		return -1, err
 	}
@@ -144,17 +144,17 @@ func (vm *Vm) ReleaseVm() (int, error) {
 		shutdownPodEvent := &ShutdownCommand{Wait: false}
 		PodEvent.(chan VmEvent) <- shutdownPodEvent
 		for {
-			Response = <-Status.(chan *types.QemuResponse)
+			Response = <-Status.(chan *types.VmResponse)
 			if Response.Code == types.E_VM_SHUTDOWN {
 				break
 			}
 		}
-		close(Status.(chan *types.QemuResponse))
+		close(Status.(chan *types.VmResponse))
 	} else {
 		releasePodEvent := &ReleaseVMCommand{}
 		PodEvent.(chan VmEvent) <- releasePodEvent
 		for {
-			Response = <-Status.(chan *types.QemuResponse)
+			Response = <-Status.(chan *types.VmResponse)
 			if Response.Code == types.E_VM_SHUTDOWN ||
 				Response.Code == types.E_OK {
 				break
@@ -168,7 +168,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
-func defaultHandlePodEvent(Response *types.QemuResponse, data interface{},
+func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 	mypod *Pod, vm *Vm) bool {
 	if Response.Code == types.E_POD_FINISHED {
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
@@ -189,14 +189,14 @@ func defaultHandlePodEvent(Response *types.QemuResponse, data interface{},
 func (vm *Vm) handlePodEvent(mypod *Pod) {
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
 
-	_, ret2, ret3, err := vm.GetQemuChan()
+	_, ret2, ret3, err := vm.GetVmChan()
 	if err != nil {
 		return
 	}
 
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
-	Status := ret2.(chan *types.QemuResponse)
-	subStatus := ret3.(chan *types.QemuResponse)
+	Status := ret2.(chan *types.VmResponse)
+	subStatus := ret3.(chan *types.VmResponse)
 
 	for {
 		defer func() {
@@ -216,17 +216,17 @@ func (vm *Vm) handlePodEvent(mypod *Pod) {
 }
 
 func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
-	cList []*ContainerInfo, vList []*VolumeInfo) *types.QemuResponse {
+	cList []*ContainerInfo, vList []*VolumeInfo) *types.VmResponse {
 	mypod.Vm = vm.Id
 
 	vm.Pod = mypod
 	vm.Status = types.S_VM_ASSOCIATED
 
-	var response *types.QemuResponse
+	var response *types.VmResponse
 
 	if mypod.Status == types.S_POD_RUNNING {
 		err := fmt.Errorf("The pod(%s) is running, can not start it", mypod.Id)
-		response = &types.QemuResponse{
+		response = &types.VmResponse{
 			Code:  -1,
 			Cause: err.Error(),
 			Data:  nil,
@@ -237,7 +237,7 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	if mypod.Type == "kubernetes" && mypod.Status != types.S_POD_CREATED {
 		err := fmt.Errorf("The pod(%s) is finished with kubernetes type, can not start it again",
 			mypod.Id)
-		response = &types.QemuResponse{
+		response = &types.VmResponse{
 			Code:  -1,
 			Cause: err.Error(),
 			Data:  nil,
@@ -245,9 +245,9 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 		return response
 	}
 
-	ret1, _, ret3, err := vm.GetQemuChan()
+	ret1, _, ret3, err := vm.GetVmChan()
 	if err != nil {
-		response = &types.QemuResponse{
+		response = &types.VmResponse{
 			Code:  -1,
 			Cause: err.Error(),
 			Data:  nil,
@@ -256,7 +256,7 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	}
 
 	PodEvent := ret1.(chan VmEvent)
-	subStatus := ret3.(chan *types.QemuResponse)
+	subStatus := ret3.(chan *types.VmResponse)
 
 	go vm.handlePodEvent(mypod)
 
@@ -273,10 +273,10 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 
 	PodEvent <- runPodEvent
 
-	// wait for the qemu response
+	// wait for the VM response
 	for {
 		response = <-subStatus
-		glog.V(1).Infof("Get the response from QEMU, VM id is %s!", response.VmId)
+		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
 		if response.Code == types.E_VM_RUNNING {
 			continue
 		}
@@ -288,12 +288,12 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	return response
 }
 
-func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.QemuResponse {
-	var Response *types.QemuResponse
+func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
+	var Response *types.VmResponse
 
-	PodEvent, _, Status, err := vm.GetQemuChan()
+	PodEvent, _, Status, err := vm.GetVmChan()
 	if err != nil {
-		Response = &types.QemuResponse{
+		Response = &types.VmResponse{
 			Code:  -1,
 			Cause: err.Error(),
 			Data:  nil,
@@ -305,24 +305,24 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.QemuResponse {
 		mypod.Wg.Add(1)
 		shutdownPodEvent := &ShutdownCommand{Wait: true}
 		PodEvent.(chan VmEvent) <- shutdownPodEvent
-		// wait for the qemu response
+		// wait for the VM response
 		for {
-			Response = <-Status.(chan *types.QemuResponse)
+			Response = <-Status.(chan *types.VmResponse)
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_VM_SHUTDOWN {
 				mypod.Vm = ""
 				break
 			}
 		}
-		close(Status.(chan *types.QemuResponse))
+		close(Status.(chan *types.VmResponse))
 		// wait for goroutines exit
 		mypod.Wg.Wait()
 	} else {
 		stopPodEvent := &StopPodCommand{}
 		PodEvent.(chan VmEvent) <- stopPodEvent
-		// wait for the qemu response
+		// wait for the VM response
 		for {
-			Response = <-Status.(chan *types.QemuResponse)
+			Response = <-Status.(chan *types.VmResponse)
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_POD_STOPPED || Response.Code == types.E_BAD_REQUEST || Response.Code == types.E_FAILED {
 				mypod.Vm = ""
@@ -340,7 +340,7 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.QemuResponse {
 
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
 	var command []string
-	Callback := make(chan *types.QemuResponse, 1)
+	Callback := make(chan *types.VmResponse, 1)
 
 	if cmd == "" {
 		return fmt.Errorf("'exec' without command")
@@ -361,7 +361,7 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 		},
 	}
 
-	Event, _, _, err := vm.GetQemuChan()
+	Event, _, _, err := vm.GetVmChan()
 	if err != nil {
 		return err
 	}
@@ -379,7 +379,7 @@ func (vm *Vm) Tty(tag string, row, column int) error {
 		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
-	Event, _, _, err := vm.GetQemuChan()
+	Event, _, _, err := vm.GetVmChan()
 	if err != nil {
 		return err
 	}

@@ -17,8 +17,8 @@ func (ctx *VmContext) timedKill(seconds int) {
 	})
 }
 
-func (ctx *VmContext) onQemuExit(reclaim bool) bool {
-	glog.V(1).Info("qemu has exit...")
+func (ctx *VmContext) onVmExit(reclaim bool) bool {
+	glog.V(1).Info("VM has exit...")
 	ctx.reportVmShutdown()
 	ctx.setTimeout(60)
 
@@ -91,7 +91,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
-		cmd.Streams.Callback <- &types.QemuResponse{
+		cmd.Streams.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
 			Cause: fmt.Sprintf("command %s parse failed", cmd.Command), Data: cmd.Sequence,
 		}
@@ -109,7 +109,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	idx := ctx.Lookup(cmd.Container)
 	if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {
 		ctx.reportBadRequest(fmt.Sprintf("tty is not configured for %s", cmd.Container))
-		cmd.Streams.Callback <- &types.QemuResponse{
+		cmd.Streams.Callback <- &types.VmResponse{
 			VmId:  ctx.Id,
 			Code:  types.E_NO_TTY,
 			Cause: fmt.Sprintf("tty is not configured for %s", cmd.Container),
@@ -184,7 +184,7 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 	case EVENT_VM_EXIT:
 		glog.Info("Got VM shutdown event, go to cleaning up")
 		ctx.unsetTimeout()
-		if closed := ctx.onQemuExit(hasPod); !closed {
+		if closed := ctx.onVmExit(hasPod); !closed {
 			ctx.Become(stateDestroying, "DESTROYING")
 		}
 	case ERROR_INTERRUPTED:
@@ -270,7 +270,7 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 func initFailureHandler(ctx *VmContext, ev VmEvent) bool {
 	processed := true
 	switch ev.Event() {
-	case ERROR_INIT_FAIL: // Qemu connection Failure
+	case ERROR_INIT_FAIL: // VM connection Failure
 		reason := ev.(*InitFailedEvent).Reason
 		glog.Error(reason)
 	case ERROR_QMP_FAIL: // Device allocate and insert Failure
@@ -294,8 +294,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 	} else {
 		switch ev.Event() {
 		case EVENT_VM_START_FAILED:
-			glog.Error("Qemu did not start up properly, go to cleaning up")
-			ctx.reportVmFault("Qemu did not start up properly, go to cleaning up")
+			glog.Error("VM did not start up properly, go to cleaning up")
+			ctx.reportVmFault("VM did not start up properly, go to cleaning up")
 			ctx.Close()
 		case EVENT_INIT_CONNECTED:
 			glog.Info("begin to wait vm commands")
@@ -336,8 +336,8 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 	} else {
 		switch ev.Event() {
 		case EVENT_VM_START_FAILED:
-			glog.Info("Qemu did not start up properly, go to cleaning up")
-			if closed := ctx.onQemuExit(true); !closed {
+			glog.Info("VM did not start up properly, go to cleaning up")
+			if closed := ctx.onVmExit(true); !closed {
 				ctx.Become(stateDestroying, "DESTROYING")
 			}
 		case EVENT_INIT_CONNECTED:
@@ -400,7 +400,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.stopPod()
 			ctx.Become(statePodStopping, "STOPPING")
 		case COMMAND_RELEASE:
-			glog.Info("pod is running, got release command, let qemu fly")
+			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, "NONE")
 			ctx.reportSuccess("", nil)
 		case COMMAND_EXEC:
@@ -478,13 +478,13 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	case EVENT_VM_EXIT:
 		glog.Info("Got VM shutdown event while terminating, go to cleaning up")
 		ctx.unsetTimeout()
-		if closed := ctx.onQemuExit(true); !closed {
+		if closed := ctx.onVmExit(true); !closed {
 			ctx.Become(stateDestroying, "DESTROYING")
 		}
 	case EVENT_VM_KILL:
-		glog.Info("Got Qemu force killed message, go to cleaning up")
+		glog.Info("Got VM force killed message, go to cleaning up")
 		ctx.unsetTimeout()
-		if closed := ctx.onQemuExit(true); !closed {
+		if closed := ctx.onVmExit(true); !closed {
 			ctx.Become(stateDestroying, "DESTROYING")
 		}
 	case COMMAND_RELEASE:
@@ -504,7 +504,7 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 			ctx.poweroffVM(true, "Destroy pod failed")
 		}
 	case EVENT_VM_TIMEOUT:
-		glog.Warning("Qemu did not exit in time, try to stop it")
+		glog.Warning("VM did not exit in time, try to stop it")
 		ctx.poweroffVM(true, "vm terminating timeout")
 	case ERROR_INTERRUPTED:
 		glog.V(1).Info("Connection interrupted while terminating")
@@ -542,7 +542,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			ctx.reportVmShutdown()
 			ctx.Become(stateDestroying, "DESTROYING")
 		case EVENT_VM_TIMEOUT:
-			glog.Warning("Qemu did not exit in time, try to stop it")
+			glog.Warning("VM did not exit in time, try to stop it")
 			ctx.poweroffVM(true, "pod stopp/unplug timeout")
 			ctx.Become(stateDestroying, "DESTROYING")
 		case COMMAND_ACK:
@@ -571,13 +571,13 @@ func stateDestroying(ctx *VmContext, ev VmEvent) {
 		case EVENT_VM_EXIT:
 			glog.Info("Got VM shutdown event")
 			ctx.unsetTimeout()
-			if closed := ctx.onQemuExit(false); closed {
+			if closed := ctx.onVmExit(false); closed {
 				glog.Info("VM Context closed.")
 			}
 		case EVENT_VM_KILL:
-			glog.Info("Got Qemu force killed message")
+			glog.Info("Got VM force killed message")
 			ctx.unsetTimeout()
-			if closed := ctx.onQemuExit(true); closed {
+			if closed := ctx.onVmExit(true); closed {
 				glog.Info("VM Context closed.")
 			}
 		case ERROR_INTERRUPTED:

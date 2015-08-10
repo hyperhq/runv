@@ -9,7 +9,7 @@ import (
 //    1. Vm has been running.
 //    2. Init is ready for accepting commands
 func (ctx *VmContext) reportVmRun() {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_VM_RUNNING,
 		Cause: "Vm runs",
@@ -25,15 +25,15 @@ func (ctx *VmContext) reportVmShutdown() {
 			glog.Warning("panic during send shutdown message to channel")
 		}
 	}()
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_VM_SHUTDOWN,
-		Cause: "qemu shut down",
+		Cause: "VM shut down",
 	}
 }
 
 func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_POD_RUNNING,
 		Cause: msg,
@@ -42,7 +42,7 @@ func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
 }
 
 func (ctx *VmContext) reportPodStopped() {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_POD_STOPPED,
 		Cause: "All device detached successful",
@@ -50,7 +50,7 @@ func (ctx *VmContext) reportPodStopped() {
 }
 
 func (ctx *VmContext) reportPodFinished(result *PodFinished) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_POD_FINISHED,
 		Cause: "POD run finished",
@@ -59,7 +59,7 @@ func (ctx *VmContext) reportPodFinished(result *PodFinished) {
 }
 
 func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_OK,
 		Cause: msg,
@@ -68,7 +68,7 @@ func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
 }
 
 func (ctx *VmContext) reportBusy(msg string) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_BUSY,
 		Cause: msg,
@@ -78,7 +78,7 @@ func (ctx *VmContext) reportBusy(msg string) {
 // reportBadRequest send report to daemon, notify about that:
 //   1. anything wrong in the request, such as json format, slice length, etc.
 func (ctx *VmContext) reportBadRequest(cause string) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_BAD_REQUEST,
 		Cause: cause,
@@ -88,7 +88,7 @@ func (ctx *VmContext) reportBadRequest(cause string) {
 // reportVmFault send report to daemon, notify about that:
 //   1. vm op failed due to some reason described in `cause`
 func (ctx *VmContext) reportVmFault(cause string) {
-	ctx.client <- &types.QemuResponse{
+	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_FAILED,
 		Cause: cause,

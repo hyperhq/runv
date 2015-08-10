@@ -33,7 +33,7 @@ const (
 	VM_KEEP_AFTER_SHUTDOWN
 )
 
-type QemuResponse struct {
+type VmResponse struct {
 	VmId  string
 	Code  int
 	Cause string

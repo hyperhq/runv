@@ -163,7 +163,7 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 	return json.Marshal(pinfo)
 }
 
-func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.QemuResponse,
+func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse,
 	wg *sync.WaitGroup) (*VmContext, error) {
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)

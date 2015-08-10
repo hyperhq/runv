@@ -56,7 +56,7 @@ func newProcessingMap() *processingMap {
 	return &processingMap{
 		containers: make(map[int]bool),    //to be create, and get images,
 		volumes:    make(map[string]bool), //to be create, and get volume
-		blockdevs:  make(map[string]bool), //to be insert to qemu, both volume and images
+		blockdevs:  make(map[string]bool), //to be insert to VM, both volume and images
 		networks:   make(map[int]bool),
 	}
 }

@@ -9,13 +9,13 @@ import (
 	"github.com/hyperhq/runv/lib/glog"
 )
 
-func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig, keep int) {
+func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *BootConfig, keep int) {
 
 	glog.V(1).Infof("Start VM %s in lazy mode, not started yet actually", vmId)
 
 	context, err := InitContext(vmId, hub, client, nil, boot, keep)
 	if err != nil {
-		client <- &types.QemuResponse{
+		client <- &types.VmResponse{
 			VmId:  vmId,
 			Code:  types.E_BAD_REQUEST,
 			Cause: err.Error(),

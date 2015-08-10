@@ -31,7 +31,7 @@ type VmContext struct {
 
 	// Communication Context
 	Hub    chan VmEvent
-	client chan *types.QemuResponse
+	client chan *types.VmResponse
 	vm     chan *DecodedMessage
 
 	DCtx DriverContext
@@ -71,7 +71,7 @@ type VmContext struct {
 
 type stateHandler func(ctx *VmContext, event VmEvent)
 
-func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, dc DriverContext, boot *BootConfig, keep int) (*VmContext, error) {
+func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig, keep int) (*VmContext, error) {
 	var err error = nil
 
 	vmChannel := make(chan *DecodedMessage, 128)

@@ -31,10 +31,10 @@ func (ctx *VmContext) loop() {
 	}
 }
 
-func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot *BootConfig, keep int) {
+func VmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *BootConfig, keep int) {
 	context, err := InitContext(vmId, hub, client, nil, boot, keep)
 	if err != nil {
-		client <- &types.QemuResponse{
+		client <- &types.VmResponse{
 			VmId:  vmId,
 			Code:  types.E_BAD_REQUEST,
 			Cause: err.Error(),
@@ -49,7 +49,7 @@ func VmLoop(vmId string, hub chan VmEvent, client chan *types.QemuResponse, boot
 	context.loop()
 }
 
-func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
+func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 	wg *sync.WaitGroup, pack []byte) {
 
 	if glog.V(1) {
@@ -58,7 +58,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 
 	pinfo, err := vmDeserialize(pack)
 	if err != nil {
-		client <- &types.QemuResponse{
+		client <- &types.VmResponse{
 			VmId:  vmId,
 			Code:  types.E_BAD_REQUEST,
 			Cause: err.Error(),
@@ -67,7 +67,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 	}
 
 	if pinfo.Id != vmId {
-		client <- &types.QemuResponse{
+		client <- &types.VmResponse{
 			VmId:  vmId,
 			Code:  types.E_BAD_REQUEST,
 			Cause: "VM ID mismatch",
@@ -77,7 +77,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 
 	context, err := pinfo.vmContext(hub, client, wg)
 	if err != nil {
-		client <- &types.QemuResponse{
+		client <- &types.VmResponse{
 			VmId:  vmId,
 			Code:  types.E_BAD_REQUEST,
 			Cause: err.Error(),
@@ -85,7 +85,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.QemuResponse,
 		return
 	}
 
-	client <- &types.QemuResponse{
+	client <- &types.VmResponse{
 		VmId: vmId,
 		Code: types.E_OK,
 	}
