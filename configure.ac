@@ -51,9 +51,6 @@ case $host_os in
 	linux*)
 		# Do something specific for linux
 		;;
-	*BSD*)
-		# Do something specific for BSD
-		;;
 	*)
 		#Default Case
 		AC_MSG_ERROR([Your platform is not currently supported])
