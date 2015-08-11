@@ -6,8 +6,8 @@ import (
 
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/qemu"
-	"github.com/hyperhq/runv/hypervisor/xen"
 	"github.com/hyperhq/runv/hypervisor/vbox"
+	"github.com/hyperhq/runv/hypervisor/xen"
 )
 
 func Probe(driver string) (hypervisor.HypervisorDriver, error) {

@@ -1,12 +1,12 @@
 package hypervisor
 
 import (
-	"net"
 	"fmt"
-	"os"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
+	"net"
+	"os"
 )
 
 type deviceMap struct {
@@ -230,7 +230,7 @@ func (ctx *VmContext) allocateNetworks() {
 		}
 	}
 
-	for i, _ := range ctx.progress.adding.networks {
+	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
 		go ctx.CreateInterface(i, addr, name, maps)
@@ -238,7 +238,7 @@ func (ctx *VmContext) allocateNetworks() {
 }
 
 func (ctx *VmContext) addBlockDevices() {
-	for blk, _ := range ctx.progress.adding.blockdevs {
+	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
 			ctx.DCtx.AddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
@@ -509,7 +509,7 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
 }
 
 func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
-			maps []pod.UserContainerPort) {
+	maps []pod.UserContainerPort) {
 	session, err := ctx.allocateInterface(index, pciAddr, name, maps)
 
 	if err != nil {
@@ -521,7 +521,7 @@ func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
 }
 
 func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
-			maps []pod.UserContainerPort) {
+	maps []pod.UserContainerPort) {
 	var err error
 	success := true
 
@@ -536,7 +536,7 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 	ctx.Hub <- &InterfaceReleased{Index: index, Success: success}
 }
 
-func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error){
+func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
 	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
 	if err != nil {
 		glog.Error("can not parse cidr")

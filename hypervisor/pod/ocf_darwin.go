@@ -1,8 +1,8 @@
 package pod
 
 import (
-	"github.com/opencontainers/specs"
 	"encoding/json"
+	"github.com/opencontainers/specs"
 )
 
 func OCFConvert2Pod(ociData []byte) (*UserPod, error) {

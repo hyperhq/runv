@@ -18,11 +18,11 @@ type QemuDriver struct {
 
 //implement the hypervisor.DriverContext interface
 type QemuContext struct {
-	driver		*QemuDriver
-	qmp		chan QmpInteraction
-	wdt		chan string
-	qmpSockName	string
-	process		*os.Process
+	driver      *QemuDriver
+	qmp         chan QmpInteraction
+	wdt         chan string
+	qmpSockName string
+	process     *os.Process
 }
 
 func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
@@ -35,18 +35,18 @@ func InitDriver() *QemuDriver {
 		return nil
 	}
 
-	return &QemuDriver {
-		executable:	cmd,
+	return &QemuDriver{
+		executable: cmd,
 	}
 }
 
 func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
-	return &QemuContext {
-		driver:		qd,
-		qmp:		make(chan QmpInteraction, 128),
-		wdt:		make(chan string, 16),
-		qmpSockName:	homeDir + QmpSockName,
-		process:	nil,
+	return &QemuContext{
+		driver:      qd,
+		qmp:         make(chan QmpInteraction, 128),
+		wdt:         make(chan string, 16),
+		qmpSockName: homeDir + QmpSockName,
+		process:     nil,
 	}
 }
 

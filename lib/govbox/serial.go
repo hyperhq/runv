@@ -1,7 +1,5 @@
 package virtualbox
 
-import ()
-
 type PortMode int
 
 const (

@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/lib/term"
 )
 
@@ -62,7 +62,7 @@ func monitorTtySize(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)
 	go func() {
-		for _ = range sigchan {
+		for range sigchan {
 			resizeTty(vm, tag, outFd, isTerminalOut)
 		}
 	}()
@@ -183,14 +183,14 @@ func main() {
 		mem = userPod.Resource.Memory
 	}
 
-	b := &hypervisor.BootConfig {
-		Kernel:	*kernel,
+	b := &hypervisor.BootConfig{
+		Kernel: *kernel,
 		Initrd: *initrd,
-		Bios:	"",
-		Cbfs:	"",
-		Vbox:	*vbox,
-		CPU:	cpu,
-		Memory:	mem,
+		Bios:   "",
+		Cbfs:   "",
+		Vbox:   *vbox,
+		CPU:    cpu,
+		Memory: mem,
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
@@ -229,11 +229,11 @@ func main() {
 		}
 		roots = append(roots, rootDir)
 
-		containerInfo := &hypervisor.ContainerInfo {
-			Id:		containerId,
-			Rootfs:		"rootfs",
-			Image:		containerId,
-			Fstype:		"dir",
+		containerInfo := &hypervisor.ContainerInfo{
+			Id:     containerId,
+			Rootfs: "rootfs",
+			Image:  containerId,
+			Fstype: "dir",
 		}
 
 		containerInfoList = append(containerInfoList, containerInfo)
@@ -255,10 +255,10 @@ func main() {
 		return
 	}
 
-	height , width := getTtySize(outFd, isTerminalOut)
-	winSize := &hypervisor.WindowSize {
-		Row:	uint16(height),
-		Column:	uint16(width),
+	height, width := getTtySize(outFd, isTerminalOut)
+	winSize := &hypervisor.WindowSize{
+		Row:    uint16(height),
+		Column: uint16(width),
 	}
 
 	tag := pod.RandStr(8, "alphanum")

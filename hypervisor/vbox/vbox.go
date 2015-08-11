@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
-	"github.com/hyperhq/runv/lib/govbox"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/govbox"
 )
 
 //implement the hypervisor.HypervisorDriver interface
@@ -20,10 +20,10 @@ type VBoxDriver struct {
 }
 
 type VBoxContext struct {
-	Driver		*VBoxDriver
-	Machine		*virtualbox.Machine
-	mediums		[]*virtualbox.StorageMedium
-	callbacks	[]hypervisor.VmEvent
+	Driver    *VBoxDriver
+	Machine   *virtualbox.Machine
+	mediums   []*virtualbox.StorageMedium
+	callbacks []hypervisor.VmEvent
 }
 
 func vboxContext(ctx *hypervisor.VmContext) *VBoxContext {
@@ -42,9 +42,9 @@ func InitDriver() *VBoxDriver {
 }
 
 func (vd *VBoxDriver) InitContext(homeDir string) hypervisor.DriverContext {
-	return &VBoxContext {
-		Driver:		vd,
-		Machine:	nil,
+	return &VBoxContext{
+		Driver:  vd,
+		Machine: nil,
 	}
 }
 
@@ -67,7 +67,7 @@ func (vd *VBoxDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 		}
 	}
 
-	return &VBoxContext {
+	return &VBoxContext{
 		Driver:  vd,
 		Machine: m,
 	}, nil
@@ -105,7 +105,7 @@ func (vc *VBoxContext) Launch(ctx *hypervisor.VmContext) {
 		m.Flag = m.Flag | virtualbox.F_longmode | virtualbox.F_vtxux | virtualbox.F_hwvirtex | virtualbox.F_vtxvpid | virtualbox.F_acpi | virtualbox.F_ioapic
 		m.Modify([]string{})
 
-		nic := virtualbox.NIC {
+		nic := virtualbox.NIC{
 			Network:  virtualbox.NICNetNAT,
 			Hardware: virtualbox.IntelPro1000MTServer,
 			NatNet:   network.BridgeIP,

@@ -10,7 +10,7 @@ import (
 
 func qmpQemuQuit(qc *QemuContext) {
 	commands := []*QmpCommand{
-		&QmpCommand{Execute: "quit", Arguments: map[string]interface{}{}},
+		{Execute: "quit", Arguments: map[string]interface{}{}},
 	}
 	qc.qmp <- &QmpSession{commands: commands, callback: nil}
 }

@@ -7,7 +7,6 @@ import (
 	"syscall"
 	"time"
 
-
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
 )

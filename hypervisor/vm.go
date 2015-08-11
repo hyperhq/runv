@@ -12,13 +12,13 @@ import (
 )
 
 type Vm struct {
-	Id                string
-	Pod               *Pod
-	Status            uint
-	Cpu               int
-	Mem               int
-	Lazy              bool
-	Keep              int
+	Id              string
+	Pod             *Pod
+	Status          uint
+	Cpu             int
+	Mem             int
+	Lazy            bool
+	Keep            int
 	VmChan          interface{}
 	VmClientChan    interface{}
 	SubVmClientChan interface{}

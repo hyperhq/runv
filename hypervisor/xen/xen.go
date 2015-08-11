@@ -27,9 +27,9 @@ type XenDriver struct {
 }
 
 type XenContext struct {
-	driver		*XenDriver
-	domId		int
-	ev		unsafe.Pointer
+	driver *XenDriver
+	domId  int
+	ev     unsafe.Pointer
 }
 
 type DomainConfig struct {
@@ -88,11 +88,11 @@ func InitDriver() *XenDriver {
 	}()
 	signal.Notify(sigchan, syscall.SIGCHLD)
 
-	xd := &XenDriver {
-		Ctx:		ctx.Ctx,
-		Logger:		ctx.Logger,
-		Version:	ctx.Version,
-		Capabilities:	ctx.Capabilities,
+	xd := &XenDriver{
+		Ctx:          ctx.Ctx,
+		Logger:       ctx.Logger,
+		Version:      ctx.Version,
+		Capabilities: ctx.Capabilities,
 	}
 
 	xd.domains = make(map[uint32]*hypervisor.VmContext)
@@ -104,10 +104,10 @@ func InitDriver() *XenDriver {
 //judge if the xl is available and if the version and cap is acceptable
 
 func (xd *XenDriver) InitContext(homeDir string) hypervisor.DriverContext {
-	return &XenContext {
-			driver:	xd,
-			domId:	-1,
-		}
+	return &XenContext{
+		driver: xd,
+		domId:  -1,
+	}
 }
 
 func (xd *XenDriver) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {

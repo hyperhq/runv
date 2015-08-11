@@ -253,7 +253,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					end = 512
 				}
 
-				wrote, _:= init.Write(data[:end])
+				wrote, _ := init.Write(data[:end])
 				glog.V(1).Infof("write %d to init, payload: '%s'.", wrote, data[:end])
 				index += wrote
 			}
@@ -261,8 +261,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			if timeout && pongTimer == nil {
 				glog.V(1).Info("message sent, set pong timer")
 				pongTimer = time.AfterFunc(30*time.Second, func() {
-					ctx.Hub <- &Interrupted{Reason:
-							"init not reply ping mesg"}
+					ctx.Hub <- &Interrupted{Reason: "init not reply ping mesg"}
 				})
 			}
 		}

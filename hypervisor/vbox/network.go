@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/govbox"
-	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/network"
 )
 
 func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
@@ -109,7 +109,7 @@ func ReleasePortMaps(vmId string, containerip string, maps []pod.UserContainerPo
 }
 
 func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
-			maps []pod.UserContainerPort) (*network.Settings, error) {
+	maps []pod.UserContainerPort) (*network.Settings, error) {
 	ip, err := network.IpAllocator.RequestIP(network.BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
 		return nil, err
 	}
 
-	return &network.Settings {
+	return &network.Settings{
 		Mac:         "",
 		IPAddress:   ip.String(),
 		Gateway:     network.BridgeIPv4Net.IP.String(),
@@ -136,7 +136,7 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
 
 // Release an interface for a select ip
 func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
-				file *os.File) error {
+	file *os.File) error {
 	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}

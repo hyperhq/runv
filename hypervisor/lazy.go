@@ -111,7 +111,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 		}
 	}
 
-	for i, _ := range ctx.progress.adding.networks {
+	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
 		nic, err := ctx.allocateInterface(i, addr, name, maps)
@@ -127,7 +127,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 }
 
 func (ctx *VmContext) lazyAddBlockDevices() {
-	for blk, _ := range ctx.progress.adding.blockdevs {
+	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
 			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)

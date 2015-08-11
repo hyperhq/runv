@@ -325,7 +325,7 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
-		     container string, size *WindowSize) error {
+	container string, size *WindowSize) error {
 	vmCallback := make(chan *types.VmResponse, 1)
 
 	ttyIO := &TtyIO{

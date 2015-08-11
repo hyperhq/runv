@@ -47,7 +47,7 @@ func TestParseSpec(t *testing.T) {
 	}
 
 	cs := []*ContainerInfo{
-		&ContainerInfo{},
+		{},
 	}
 
 	ctx, _ := InitContext(dr, "vmid", nil, nil, nil, b)
@@ -107,7 +107,7 @@ func TestParseVolumes(t *testing.T) {
 	}
 
 	cs := []*ContainerInfo{
-		&ContainerInfo{},
+		{},
 	}
 
 	ctx.InitDeviceContext(&spec, cs, nil)

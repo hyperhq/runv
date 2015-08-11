@@ -1,8 +1,8 @@
 package network
 
 import (
-	"os"
 	"net"
+	"os"
 
 	"github.com/hyperhq/runv/hypervisor/network/ipallocator"
 	"github.com/hyperhq/runv/hypervisor/network/portmapper"

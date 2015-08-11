@@ -32,10 +32,10 @@ const (
 )
 
 var (
-	native        binary.ByteOrder
-	nextSeqNr     uint32
+	native    binary.ByteOrder
+	nextSeqNr uint32
 	/* FIXME: tapFile should be local var */
-	tapFile       *os.File
+	tapFile *os.File
 )
 
 type ifReq struct {
@@ -998,7 +998,7 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 		return nil, err
 	}
 
-	return &Settings {
+	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
 		Gateway:     BridgeIPv4Net.IP.String(),

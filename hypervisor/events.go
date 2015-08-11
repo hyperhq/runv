@@ -134,7 +134,7 @@ type BlockdevInsertedEvent struct {
 	ScsiId     int
 }
 
-type DevSkipEvent struct {}
+type DevSkipEvent struct{}
 
 type BlockdevRemovedEvent struct {
 	Name    string
@@ -183,33 +183,33 @@ type Interrupted struct {
 	Reason string
 }
 
-func (qe *VmStartFailEvent) Event() int		{ return EVENT_VM_START_FAILED }
-func (qe *VmExit) Event() int			{ return EVENT_VM_EXIT }
-func (qe *VmKilledEvent) Event() int		{ return EVENT_VM_KILL }
-func (qe *VmTimeout) Event() int		{ return EVENT_VM_TIMEOUT }
-func (qe *PodFinished) Event() int		{ return EVENT_POD_FINISH }
-func (qe *InitConnectedEvent) Event() int	{ return EVENT_INIT_CONNECTED }
-func (qe *ContainerCreatedEvent) Event() int	{ return EVENT_CONTAINER_ADD }
-func (qe *ContainerUnmounted) Event() int	{ return EVENT_CONTAINER_DELETE }
-func (qe *VolumeUnmounted) Event() int		{ return EVENT_BLOCK_EJECTED }
-func (qe *VolumeReadyEvent) Event() int		{ return EVENT_VOLUME_ADD }
-func (qe *BlockdevInsertedEvent) Event() int	{ return EVENT_BLOCK_INSERTED }
-func (qe *DevSkipEvent) Event() int		{ return EVENT_DEV_SKIP }
-func (qe *BlockdevRemovedEvent) Event() int	{ return EVENT_VOLUME_DELETE }
-func (qe *InterfaceCreated) Event() int		{ return EVENT_INTERFACE_ADD }
-func (qe *InterfaceReleased) Event() int	{ return EVENT_INTERFACE_DELETE }
-func (qe *NetDevInsertedEvent) Event() int	{ return EVENT_INTERFACE_INSERTED }
-func (qe *NetDevRemovedEvent) Event() int	{ return EVENT_INTERFACE_EJECTED }
-func (qe *RunPodCommand) Event() int		{ return COMMAND_RUN_POD }
-func (qe *StopPodCommand) Event() int		{ return COMMAND_STOP_POD }
-func (qe *ReplacePodCommand) Event() int	{ return COMMAND_REPLACE_POD }
-func (qe *ExecCommand) Event() int		{ return COMMAND_EXEC }
-func (qe *AttachCommand) Event() int		{ return COMMAND_ATTACH }
-func (qe *WindowSizeCommand) Event() int	{ return COMMAND_WINDOWSIZE }
-func (qe *ShutdownCommand) Event() int		{ return COMMAND_SHUTDOWN }
-func (qe *ReleaseVMCommand) Event() int		{ return COMMAND_RELEASE }
-func (qe *CommandAck) Event() int		{ return COMMAND_ACK }
-func (qe *InitFailedEvent) Event() int		{ return ERROR_INIT_FAIL }
-func (qe *DeviceFailed) Event() int		{ return ERROR_QMP_FAIL }
-func (qe *Interrupted) Event() int		{ return ERROR_INTERRUPTED }
-func (qe *CommandError) Event() int		{ return ERROR_CMD_FAIL }
+func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
+func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
+func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
+func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
+func (qe *PodFinished) Event() int           { return EVENT_POD_FINISH }
+func (qe *InitConnectedEvent) Event() int    { return EVENT_INIT_CONNECTED }
+func (qe *ContainerCreatedEvent) Event() int { return EVENT_CONTAINER_ADD }
+func (qe *ContainerUnmounted) Event() int    { return EVENT_CONTAINER_DELETE }
+func (qe *VolumeUnmounted) Event() int       { return EVENT_BLOCK_EJECTED }
+func (qe *VolumeReadyEvent) Event() int      { return EVENT_VOLUME_ADD }
+func (qe *BlockdevInsertedEvent) Event() int { return EVENT_BLOCK_INSERTED }
+func (qe *DevSkipEvent) Event() int          { return EVENT_DEV_SKIP }
+func (qe *BlockdevRemovedEvent) Event() int  { return EVENT_VOLUME_DELETE }
+func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
+func (qe *InterfaceReleased) Event() int     { return EVENT_INTERFACE_DELETE }
+func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
+func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
+func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
+func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
+func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
+func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
+func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
+func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
+func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
+func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
+func (qe *CommandAck) Event() int            { return COMMAND_ACK }
+func (qe *InitFailedEvent) Event() int       { return ERROR_INIT_FAIL }
+func (qe *DeviceFailed) Event() int          { return ERROR_QMP_FAIL }
+func (qe *Interrupted) Event() int           { return ERROR_INTERRUPTED }
+func (qe *CommandError) Event() int          { return ERROR_CMD_FAIL }

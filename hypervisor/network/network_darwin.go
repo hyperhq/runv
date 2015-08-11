@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hyperhq/runv/lib/glog"
-	"github.com/hyperhq/runv/lib/govbox"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
 	"github.com/hyperhq/runv/hypervisor/network/portmapper"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/govbox"
 )
 
 var (
@@ -99,7 +99,7 @@ func ReleasePortMaps(vmId string, index int, containerip string, maps []pod.User
 	return nil
 }
 
-func Allocate(vmId, requestedIP string, index int,  addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
 	ip, ipnet, err := net.ParseCIDR(BridgeIP)
 	if err != nil {
 		return nil, err
