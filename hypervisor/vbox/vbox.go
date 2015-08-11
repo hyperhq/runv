@@ -11,6 +11,7 @@ import (
 	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/govbox"
 	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 //implement the hypervisor.HypervisorDriver interface
@@ -186,7 +187,7 @@ func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {
 		if err := vc.detachDisk(name, 0); err != nil {
 			glog.Warningf("failed to detach the disk of VBox(%s), %s", name, err.Error())
 		}
-		if m.Name != "hyper-mac-pull-vm" {
+		if ctx.Keep < types.VM_KEEP_AFTER_SHUTDOWN {
 			if err := m.Delete(); err != nil {
 				glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
 			}
@@ -209,7 +210,7 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 		if err := vc.detachDisk(m.Name, 0); err != nil {
 			glog.Warningf("failed to detach the disk of VBox(%s), %s", name, err.Error())
 		}
-		if m.Name != "hyper-mac-pull-vm" {
+		if ctx.Keep < types.VM_KEEP_AFTER_SHUTDOWN {
 			if err := m.Delete(); err != nil {
 				glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
 			}

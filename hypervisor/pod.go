@@ -23,6 +23,7 @@ type Pod struct {
 	Status        uint
 	Type          string
 	RestartPolicy string
+	Autoremove    bool
 	Handler       HandleEvent
 }
 
@@ -142,6 +143,7 @@ func NewPod(podId string, userPod *pod.UserPod) *Pod {
 		Status:        types.S_POD_CREATED,
 		Type:          userPod.Type,
 		RestartPolicy: userPod.RestartPolicy,
+		Autoremove:    false,
 		Handler: HandleEvent{
 			Handle: defaultHandlePodEvent,
 			Data:   nil,
