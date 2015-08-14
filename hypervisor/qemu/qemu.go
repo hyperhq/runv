@@ -29,13 +29,15 @@ func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
 	return ctx.DCtx.(*QemuContext)
 }
 
-func (qd *QemuDriver) Initialize() error {
+func InitDriver() *QemuDriver {
 	cmd, err := exec.LookPath("qemu-system-x86_64")
 	if err != nil {
-		return err
+		return nil
 	}
-	qd.executable = cmd
-	return nil
+
+	return &QemuDriver{
+		executable: cmd,
+	}
 }
 
 func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
@@ -49,7 +51,6 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 }
 
 func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {
-
 	if t, ok := persisted["hypervisor"]; !ok || t != "qemu" {
 		return nil, errors.New("wrong driver type in persist info")
 	}
@@ -179,13 +180,13 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	} else if boot.Bios != "" {
 		params = append(params,
 			"-bios", boot.Bios,
-			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1\"")
+			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	} else if boot.Cbfs != "" {
 		params = append(params,
 			"-drive", fmt.Sprintf("if=pflash,file=%s,readonly=on", boot.Cbfs))
 	} else {
 		params = append(params,
-			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1\"")
+			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	}
 
 	return append(params,

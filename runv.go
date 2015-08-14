@@ -14,33 +14,12 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
-	//"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/qemu"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/hypervisor/xen"
 	"github.com/hyperhq/runv/lib/term"
 )
-
-func DriversProbe() hypervisor.HypervisorDriver {
-	xd := xen.InitDriver()
-	if xd != nil {
-		fmt.Printf("Xen Driver Loaded.\n")
-		return xd
-	}
-
-	qd := &qemu.QemuDriver{}
-	if err := qd.Initialize(); err == nil {
-		fmt.Printf("Qemu Driver Loaded\n")
-		return qd
-	} else {
-		fmt.Printf("Qemu Driver Load failed: %s\n", err.Error())
-	}
-
-	fmt.Printf("No driver available\n")
-	return nil
-}
 
 const shortLen = 12
 
@@ -83,7 +62,7 @@ func monitorTtySize(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)
 	go func() {
-		for _ = range sigchan {
+		for range sigchan {
 			resizeTty(vm, tag, outFd, isTerminalOut)
 		}
 	}()
@@ -104,79 +83,86 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 }
 
 func main() {
-	hypervisor.HDriver = DriversProbe()
 	hypervisor.InterfaceCount = 0
+
 	var containerInfoList []*hypervisor.ContainerInfo
 	var roots []string
 	var containerId string
 	var err error
 
-	ocifile := flag.String("config", "", "oci configure file")
+	ocffile := flag.String("config", "", "ocf configure file")
 	kernel := flag.String("kernel", "", "hyper kernel")
 	initrd := flag.String("initrd", "", "hyper initrd")
-	//bridge := flag.String("br", "", "bridge")
-	//subnet := flag.String("ip", "", "subnet")
+	vbox := flag.String("vbox", "", "vbox boot iso")
+	driver := flag.String("driver", "", "hypervisor driver")
 
 	flag.Parse()
 
-	if *ocifile == "" {
-		fmt.Printf("Please specify oci file\n")
-		*ocifile = "config.json"
+	if *ocffile == "" {
+		*ocffile = "config.json"
+	}
+
+	if _, err = os.Stat(*ocffile); os.IsNotExist(err) {
+		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
+		return
+	}
+
+	if *vbox == "" {
+		*vbox = "./vbox.iso"
+	}
+
+	if _, err = os.Stat(*vbox); err == nil {
+		*vbox, err = filepath.Abs(*vbox)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
+			return
+		}
 	}
 
 	if *kernel == "" {
 		*kernel = "./kernel"
-		if _, err = os.Stat(*kernel); os.IsNotExist(err) {
-			fmt.Printf("Please specify kernel or put kernel under current working directory\n")
-			return
-		}
 	}
 
-	*kernel, err = filepath.Abs(*kernel)
-	if err != nil {
-		fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
-		return
+	if _, err = os.Stat(*kernel); err == nil {
+		*kernel, err = filepath.Abs(*kernel)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+			return
+		}
 	}
 
 	if *initrd == "" {
 		*initrd = "./initrd.img"
-		if _, err := os.Stat(*initrd); os.IsNotExist(err) {
-			fmt.Printf("Please specify initrd or put initrd.img under current working directory\n")
+	}
+
+	if _, err = os.Stat(*initrd); err == nil {
+		*initrd, err = filepath.Abs(*initrd)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
 			return
 		}
 	}
 
-	*initrd, err = filepath.Abs(*initrd)
-	if err != nil {
-		fmt.Printf("Cannot get abs path for initrd.img: %s\n", err.Error())
-		return
+	if *driver == "" {
+		*driver = "kvm"
+		fmt.Printf("Use default hypervisor KVM\n")
 	}
 
-/*
-	err := network.InitNetwork(*bridge, *subnet)
-	if err != nil {
+	if hypervisor.HDriver, err = driverloader.Probe(*driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-*/
+
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	_, err = os.Stat(*ocifile)
+	ocfData, err := ioutil.ReadFile(*ocffile)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
-	ociData, err := ioutil.ReadFile(*ocifile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	fmt.Printf("spec: %s", string(ociData))
-
-	userPod, err := pod.OCIConvert2Pod(ociData)
+	userPod, err := pod.OCFConvert2Pod(ocfData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -198,15 +184,16 @@ func main() {
 	}
 
 	b := &hypervisor.BootConfig{
-		CPU:    cpu,
-		Memory: mem,
 		Kernel: *kernel,
 		Initrd: *initrd,
 		Bios:   "",
 		Cbfs:   "",
+		Vbox:   *vbox,
+		CPU:    cpu,
+		Memory: mem,
 	}
 
-	vm := hypervisor.NewVm(vmId, cpu, mem)
+	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
 	err = vm.Launch(b)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
@@ -217,11 +204,13 @@ func main() {
 
 	for _, c := range userPod.Containers {
 		var root string
+		var err error
+
 		containerId = GenerateRandomID()
-
-		rootDir := path.Join(sharedDir, containerId, "rootfs")
-
+		rootDir := path.Join(sharedDir, containerId)
 		os.MkdirAll(rootDir, 0755)
+
+		rootDir = path.Join(rootDir, "rootfs")
 
 		if !filepath.IsAbs(c.Image) {
 			root, err = filepath.Abs(c.Image)
@@ -233,19 +222,24 @@ func main() {
 			root = c.Image
 		}
 
-		syscall.Mount(root, rootDir, "", syscall.MS_BIND, "")
+		err = mount(root, rootDir)
+		if err != nil {
+			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+			return
+		}
 		roots = append(roots, rootDir)
 
-		containerInfo := &hypervisor.ContainerInfo {
-			Id:		containerId,
-			Rootfs:		"rootfs",
-			Image:		containerId,
-			Fstype:		"dir",
+		containerInfo := &hypervisor.ContainerInfo{
+			Id:     containerId,
+			Rootfs: "rootfs",
+			Image:  containerId,
+			Fstype: "dir",
 		}
 
 		containerInfoList = append(containerInfoList, containerInfo)
 		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
 	}
+
 	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
 	if qemuResponse.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
@@ -261,10 +255,10 @@ func main() {
 		return
 	}
 
-	height , width := getTtySize(outFd, isTerminalOut)
-	winSize := &hypervisor.WindowSize {
-		Row:	uint16(height),
-		Column:	uint16(width),
+	height, width := getTtySize(outFd, isTerminalOut)
+	winSize := &hypervisor.WindowSize{
+		Row:    uint16(height),
+		Column: uint16(width),
 	}
 
 	tag := pod.RandStr(8, "alphanum")
@@ -276,8 +270,9 @@ func main() {
 	qemuResponse = vm.StopPod(mypod, "yes")
 
 	term.RestoreTerminal(inFd, oldState)
+
 	for _, root := range roots {
-		syscall.Unmount(root, syscall.MNT_DETACH)
+		umount(root)
 	}
 
 	if qemuResponse.Data == nil {

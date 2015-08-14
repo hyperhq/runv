@@ -18,7 +18,7 @@ type TtyIO struct {
 	Stdin     io.ReadCloser
 	Stdout    io.WriteCloser
 	ClientTag string
-	Callback  chan *types.QemuResponse
+	Callback  chan *types.VmResponse
 }
 
 type ttyAttachments struct {
@@ -210,7 +210,7 @@ func (tty *TtyIO) Close() string {
 		tty.Stdout.Close()
 	}
 	if tty.Callback != nil {
-		tty.Callback <- &types.QemuResponse{
+		tty.Callback <- &types.VmResponse{
 			Code:  types.E_EXEC_FINISH,
 			Cause: "Command finished",
 		}
@@ -325,14 +325,14 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
-		     container string, size *WindowSize) error {
-	qemuCallback := make(chan *types.QemuResponse, 1)
+	container string, size *WindowSize) error {
+	vmCallback := make(chan *types.VmResponse, 1)
 
 	ttyIO := &TtyIO{
 		Stdin:     Stdin,
 		Stdout:    Stdout,
 		ClientTag: tag,
-		Callback:  qemuCallback,
+		Callback:  vmCallback,
 	}
 
 	var attachCommand = &AttachCommand{
@@ -341,13 +341,13 @@ func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
 		Container: container,
 	}
 
-	qemuEvent, _, _, err := vm.GetQemuChan()
+	vmEvent, _, _, err := vm.GetVmChan()
 	if err != nil {
 		return err
 	}
 
-	qemuEvent.(chan VmEvent) <- attachCommand
+	vmEvent.(chan VmEvent) <- attachCommand
 
-	<-qemuCallback
+	<-vmCallback
 	return nil
 }

@@ -31,7 +31,7 @@ type VmContext struct {
 
 	// Communication Context
 	Hub    chan VmEvent
-	client chan *types.QemuResponse
+	client chan *types.VmResponse
 	vm     chan *DecodedMessage
 
 	DCtx DriverContext
@@ -45,6 +45,8 @@ type VmContext struct {
 	pciAddr  int    //next available pci addr for pci hotplug
 	scsiId   int    //next available scsi id for scsi hotplug
 	attachId uint64 //next available attachId for attached tty
+
+	InterfaceCount int
 
 	ptys        *pseudoTtys
 	ttySessions map[string]uint64
@@ -64,12 +66,12 @@ type VmContext struct {
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
 	wait bool
+	Keep int
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)
 
-func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
-
+func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig, keep int) (*VmContext, error) {
 	var err error = nil
 
 	vmChannel := make(chan *DecodedMessage, 128)
@@ -113,6 +115,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		TtySockName:     ttySockName,
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
+		InterfaceCount:  InterfaceCount,
 		timer:           nil,
 		handler:         stateInit,
 		userSpec:        nil,
@@ -121,6 +124,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.QemuResponse, d
 		progress:        newProcessingList(),
 		lock:            &sync.Mutex{},
 		wait:            false,
+		Keep:            keep,
 	}, nil
 }
 
@@ -246,7 +250,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
-	for i := 0; i < InterfaceCount; i++ {
+	for i := 0; i < ctx.InterfaceCount; i++ {
 		ctx.progress.adding.networks[i] = true
 	}
 
@@ -273,7 +277,6 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	containers := make([]VmContainer, len(spec.Containers))
 
 	for i, container := range spec.Containers {
-
 		ctx.initContainerInfo(i, &containers[i], &container)
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 

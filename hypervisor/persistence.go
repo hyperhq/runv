@@ -163,7 +163,7 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 	return json.Marshal(pinfo)
 }
 
-func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.QemuResponse,
+func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse,
 	wg *sync.WaitGroup) (*VmContext, error) {
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
@@ -172,7 +172,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.QemuRes
 		return nil, err
 	}
 
-	ctx, err := InitContext(pinfo.Id, hub, client, dc, &BootConfig{})
+	ctx, err := InitContext(pinfo.Id, hub, client, dc, &BootConfig{}, types.VM_KEEP_NONE)
 	if err != nil {
 		return nil, err
 	}

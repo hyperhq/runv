@@ -47,30 +47,18 @@ type DomainConfig struct {
 var globalDriver *XenDriver = nil
 
 func InitDriver() *XenDriver {
-	xd := &XenDriver{}
-	if err := xd.Initialize(); err == nil {
-		glog.Info("Xen Driver Loaded.")
-		globalDriver = xd
-		return globalDriver
-	} else {
-		glog.Info("Xen Driver Load failed: ", err.Error())
-		return nil
-	}
-}
-
-//judge if the xl is available and if the version and cap is acceptable
-
-func (xd *XenDriver) Initialize() error {
-
 	if probeXend() {
-		return errors.New("xend is running, can not start with xl.")
+		glog.Info("xend is running, can not start with xl.")
+		return nil
 	}
 
 	ctx, res := HyperxlInitializeDriver()
 	if res != 0 {
-		return errors.New("failed to initialize xen context")
+		glog.Info("failed to initialize xen context")
+		return nil
 	} else if ctx.Version < REQUIRED_VERSION {
-		return fmt.Errorf("Xen version is not new enough (%d), need 4.5 or higher", ctx.Version)
+		glog.Info("Xen version is not new enough (%d), need 4.5 or higher", ctx.Version)
+		return nil
 	} else {
 		glog.V(1).Info("Xen capabilities: ", ctx.Capabilities)
 		hvm := false
@@ -82,7 +70,8 @@ func (xd *XenDriver) Initialize() error {
 			}
 		}
 		if !hvm {
-			return fmt.Errorf("Xen installation does not support HVM, current capabilities: %s", ctx.Capabilities)
+			glog.Info("Xen installation does not support HVM, current capabilities: %s", ctx.Capabilities)
+			return nil
 		}
 	}
 
@@ -99,17 +88,26 @@ func (xd *XenDriver) Initialize() error {
 	}()
 	signal.Notify(sigchan, syscall.SIGCHLD)
 
-	xd.Ctx = ctx.Ctx
-	xd.Logger = ctx.Logger
-	xd.Version = ctx.Version
-	xd.Capabilities = ctx.Capabilities
+	xd := &XenDriver{
+		Ctx:          ctx.Ctx,
+		Logger:       ctx.Logger,
+		Version:      ctx.Version,
+		Capabilities: ctx.Capabilities,
+	}
+
 	xd.domains = make(map[uint32]*hypervisor.VmContext)
 
-	return nil
+	globalDriver = xd
+	return globalDriver
 }
 
+//judge if the xl is available and if the version and cap is acceptable
+
 func (xd *XenDriver) InitContext(homeDir string) hypervisor.DriverContext {
-	return &XenContext{driver: xd, domId: -1}
+	return &XenContext{
+		driver: xd,
+		domId:  -1,
+	}
 }
 
 func (xd *XenDriver) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {
