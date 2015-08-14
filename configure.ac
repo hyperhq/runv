@@ -91,7 +91,7 @@ fi
 
 AM_CONDITIONAL([WITH_XEN], [test "x$with_xen" == "xyes"])
 
-AC_CONFIG_FILES([Makefile mac_installer/Makefile])
+AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT
 
