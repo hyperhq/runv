@@ -40,18 +40,19 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 		glog.Errorf(err.Error())
 		return err
 	}
+	network.BridgeIPv4Net.IP = gateway
 	glog.Warningf(network.BridgeIPv4Net.String())
+	/*
+	 * Filter the IPs which can not be used for VMs
+	 */
 	bip = bip.Mask(ipnet.Mask)
-	inc(bip, 3)
-	for ; ipnet.Contains(bip) && i < 15; inc(bip, 1) {
+	for inc(bip, 1); ipnet.Contains(bip) && i < 2; inc(bip, 1) {
 		i++
 		glog.V(3).Infof("Try %s", bip.String())
 		_, err = network.IpAllocator.RequestIP(network.BridgeIPv4Net, bip)
 		if err != nil {
 			glog.Errorf(err.Error())
 			return err
-		} else {
-			break
 		}
 	}
 
