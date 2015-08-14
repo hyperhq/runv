@@ -2,8 +2,11 @@ package hypervisor
 
 import (
 	"fmt"
+	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
+	"net"
+	"os"
 )
 
 type deviceMap struct {
@@ -53,7 +56,7 @@ func newProcessingMap() *processingMap {
 	return &processingMap{
 		containers: make(map[int]bool),    //to be create, and get images,
 		volumes:    make(map[string]bool), //to be create, and get volume
-		blockdevs:  make(map[string]bool), //to be insert to qemu, both volume and images
+		blockdevs:  make(map[string]bool), //to be insert to VM, both volume and images
 		networks:   make(map[int]bool),
 	}
 }
@@ -173,7 +176,7 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
-		} else if vol.Driver == "raw" || vol.Driver == "qcow2" {
+		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
 				info: &blockDescriptor{
 					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
@@ -221,26 +224,21 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 func (ctx *VmContext) allocateNetworks() {
 	var maps []pod.UserContainerPort
 
-	if len(ctx.progress.adding.networks) == 0 {
-		ctx.Hub <- &NetDevSkipEvent{}
-		return
-	}
-
 	for _, c := range ctx.userSpec.Containers {
 		for _, m := range c.Ports {
 			maps = append(maps, m)
 		}
 	}
 
-	for i, _ := range ctx.progress.adding.networks {
+	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		go CreateInterface(i, addr, name, i == 0, ctx.DCtx.BuildinNetwork(), maps, ctx.Hub)
+		go ctx.CreateInterface(i, addr, name, maps)
 	}
 }
 
 func (ctx *VmContext) addBlockDevices() {
-	for blk, _ := range ctx.progress.adding.blockdevs {
+	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
 			ctx.DCtx.AddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
@@ -251,6 +249,16 @@ func (ctx *VmContext) addBlockDevices() {
 			continue
 		}
 	}
+}
+
+func (ctx *VmContext) allocateDevices() {
+	if len(ctx.progress.adding.networks) == 0 && len(ctx.progress.adding.blockdevs) == 0 {
+		ctx.Hub <- &DevSkipEvent{}
+		return
+	}
+
+	ctx.allocateNetworks()
+	ctx.addBlockDevices()
 }
 
 func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
@@ -429,7 +437,7 @@ func (ctx *VmContext) releaseAufsDir() {
 
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.format == "raw" || vol.info.format == "qcow2" {
+		if vol.info.format == "raw" || vol.info.format == "qcow2" || vol.info.format == "vdi" {
 			glog.V(1).Infof("need detach volume %s (%s) ", name, vol.info.deviceName)
 			ctx.DCtx.RemoveDisk(ctx, vol.info.filename, vol.info.format, vol.info.scsiId, &VolumeUnmounted{Name: name, Success: true})
 			ctx.progress.deleting.volumes[name] = true
@@ -459,7 +467,7 @@ func (ctx *VmContext) releaseNetwork() {
 	for idx, nic := range ctx.devices.networkMap {
 		glog.V(1).Infof("remove network card %d: %s", idx, nic.IpAddr)
 		ctx.progress.deleting.networks[idx] = true
-		go ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
+		go ctx.ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps)
 		maps = nil
 	}
 }
@@ -476,8 +484,85 @@ func (ctx *VmContext) removeInterface() {
 	for idx, nic := range ctx.devices.networkMap {
 		glog.V(1).Infof("remove network card %d: %s", idx, nic.IpAddr)
 		ctx.progress.deleting.networks[idx] = true
-		go ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps, ctx.Hub)
+		go ctx.ReleaseInterface(idx, nic.IpAddr, nic.Fd, maps)
 		ctx.DCtx.RemoveNic(ctx, nic.DeviceName, nic.MacAddr, &NetDevRemovedEvent{Index: idx})
 		maps = nil
 	}
+}
+
+func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
+	maps []pod.UserContainerPort) (*InterfaceCreated, error) {
+	var inf *network.Settings
+	var err error
+
+	if inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps); err != nil {
+		inf, err = network.Allocate(ctx.Id, "", index, ctx.DCtx.BuildinNetwork(), maps)
+	}
+
+	if err != nil {
+		glog.Error("interface creating failed: ", err.Error())
+
+		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
+	}
+
+	return interfaceGot(index, pciAddr, name, inf)
+}
+
+func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
+	maps []pod.UserContainerPort) {
+	session, err := ctx.allocateInterface(index, pciAddr, name, maps)
+
+	if err != nil {
+		ctx.Hub <- &DeviceFailed{Session: session}
+		return
+	}
+
+	ctx.Hub <- session
+}
+
+func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
+	maps []pod.UserContainerPort) {
+	var err error
+	success := true
+
+	if err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file); err != nil {
+		err = network.Release(ctx.Id, ipAddr, index, maps, file)
+	}
+
+	if err != nil {
+		glog.Warning("Unable to release network interface, address: ", ipAddr, err)
+		success = false
+	}
+	ctx.Hub <- &InterfaceReleased{Index: index, Success: success}
+}
+
+func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
+	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
+	if err != nil {
+		glog.Error("can not parse cidr")
+		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
+	}
+	var tmp []byte = nw.Mask
+	var mask net.IP = tmp
+
+	rt := []*RouteRule{}
+	if index == 0 {
+		rt = append(rt, &RouteRule{
+			Destination: "0.0.0.0/0",
+			Gateway:     inf.Gateway, ViaThis: true,
+		})
+	}
+
+	return &InterfaceCreated{
+		Index:      index,
+		PCIAddr:    pciAddr,
+		Bridge:     inf.Bridge,
+		HostDevice: inf.Device,
+		DeviceName: name,
+		Fd:         inf.File,
+		MacAddr:    inf.Mac,
+		IpAddr:     ip.String(),
+		NetMask:    mask.String(),
+		RouteTable: rt,
+	}, nil
 }
