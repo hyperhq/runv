@@ -32,3 +32,7 @@ func (xd *XenDriver) InitContext(homeDir string) hypervisor.DriverContext {
 func (xd *XenDriver) LoadContext(persisted map[string]interface{}) (hypervisor.DriverContext, error) {
 	return nil, errors.New("Did not built with xen support")
 }
+
+func (xd *XenDriver) SupportLazyMode() bool {
+	return false
+}

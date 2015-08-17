@@ -409,6 +409,10 @@ func (vc *VBoxContext) detachDisk(disk string, port int) error {
 	return nil
 }
 
+func (vc *VBoxDriver) SupportLazyMode() bool {
+	return true
+}
+
 func scsiId2Name(id int) string {
 	return "sd" + hypervisor.DiskId2Name(id)
 }

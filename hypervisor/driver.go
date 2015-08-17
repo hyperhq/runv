@@ -38,6 +38,8 @@ type HypervisorDriver interface {
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
 
 	InitNetwork(bIface, bIP string) error
+
+	SupportLazyMode() bool
 }
 
 var HDriver HypervisorDriver
@@ -88,6 +90,10 @@ func (ed *EmptyDriver) LoadContext(persisted map[string]interface{}) (DriverCont
 		return nil, errors.New("wrong driver type in persist info")
 	}
 	return &EmptyContext{}, nil
+}
+
+func (ed *EmptyDriver) SupportLazyMode() bool {
+	return false
 }
 
 func (ec *EmptyContext) Launch(ctx *VmContext) {}
