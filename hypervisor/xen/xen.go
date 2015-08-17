@@ -268,6 +268,10 @@ func (xc *XenContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, c
 	}()
 }
 
+func (xd *XenDriver) SupportLazyMode() bool {
+	return false
+}
+
 func diskRoutine(add bool, xc *XenContext, ctx *hypervisor.VmContext,
 	name, sourceType, filename, format string, id int, callback hypervisor.VmEvent) {
 	backend := LIBXL_DISK_BACKEND_TAP
