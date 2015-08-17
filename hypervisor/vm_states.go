@@ -190,7 +190,7 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 	case ERROR_INTERRUPTED:
 		glog.Info("Connection interrupted, quit...")
 		ctx.exitVM(true, "connection to VM broken", false, false)
-		ctx.onVmExit(true)
+		ctx.onVmExit(hasPod)
 	case COMMAND_SHUTDOWN:
 		glog.Info("got shutdown command, shutting down")
 		ctx.exitVM(false, "", hasPod, ev.(*ShutdownCommand).Wait)
@@ -417,8 +417,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
 			if ctx.Keep == types.VM_KEEP_NONE {
-				ctx.shutdownVM(false, "")
-				ctx.Become(stateTerminating, "TERMINATING")
+				ctx.exitVM(false, "", true, false)
 			}
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)

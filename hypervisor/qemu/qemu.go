@@ -20,6 +20,7 @@ type QemuDriver struct {
 type QemuContext struct {
 	driver      *QemuDriver
 	qmp         chan QmpInteraction
+	waitQmp     chan int
 	wdt         chan string
 	qmpSockName string
 	process     *os.Process
@@ -90,6 +91,7 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 		driver:      qd,
 		qmp:         make(chan QmpInteraction, 128),
 		wdt:         make(chan string, 16),
+		waitQmp:     make(chan int, 1),
 		qmpSockName: sock,
 		process:     proc,
 	}, nil
@@ -135,6 +137,7 @@ func (qc *QemuContext) BuildinNetwork() bool { return false }
 
 func (qc *QemuContext) Close() {
 	qc.wdt <- "quit"
+	_ = <- qc.waitQmp
 	close(qc.qmp)
 	close(qc.wdt)
 }

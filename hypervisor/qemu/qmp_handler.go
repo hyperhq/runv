@@ -131,13 +131,14 @@ func qmpFail(err string, callback hypervisor.VmEvent) *QmpFinish {
 	}
 }
 
-func qmpReceiver(ch chan QmpInteraction, decoder *json.Decoder) {
+func qmpReceiver(ch chan QmpInteraction, wait chan int, decoder *json.Decoder) {
 	glog.V(0).Info("Begin receive QMP message")
 	for {
 		rsp := &QmpResponse{}
 		if err := decoder.Decode(rsp); err == io.EOF {
 			glog.Info("QMP exit as got EOF")
 			ch <- &QmpInternalError{cause: err.Error()}
+			wait <- 1
 			return
 		} else if err != nil {
 			glog.Error("QMP receive and decode error: ", err.Error())
@@ -349,7 +350,7 @@ func qmpHandler(ctx *hypervisor.VmContext) {
 			glog.Info("QMP initialzed, go into main QMP loop")
 
 			//routine for get message
-			go qmpReceiver(qc.qmp, init.decoder)
+			go qmpReceiver(qc.qmp, qc.waitQmp, init.decoder)
 			if len(buf) > 0 {
 				go qmpCommander(qc.qmp, conn, buf[0], res)
 			}

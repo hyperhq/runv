@@ -171,6 +171,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 	mypod *Pod, vm *Vm) bool {
 	if Response.Code == types.E_POD_FINISHED {
+		mypod.Status = types.S_POD_SUCCEEDED
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
 		mypod.Vm = ""
 		vm.Status = types.S_VM_IDLE
@@ -296,6 +297,15 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 		Response = &types.VmResponse{
 			Code:  -1,
 			Cause: err.Error(),
+			Data:  nil,
+		}
+		return Response
+	}
+
+	if mypod.Status != types.S_POD_RUNNING {
+		Response = &types.VmResponse{
+			Code:  -1,
+			Cause: "The POD has already stoppod",
 			Data:  nil,
 		}
 		return Response
