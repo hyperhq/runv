@@ -417,8 +417,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
 			if ctx.Keep == types.VM_KEEP_NONE {
-				ctx.shutdownVM(false, "")
-				ctx.Become(stateTerminating, "TERMINATING")
+				ctx.exitVM(false, "", true, false)
 			}
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
