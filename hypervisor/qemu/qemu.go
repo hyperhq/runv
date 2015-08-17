@@ -155,6 +155,10 @@ func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, 
 	newNetworkDelSession(qc, device, callback)
 }
 
+func (qc *QemuDriver) SupportLazyMode() bool {
+	return false
+}
+
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	if ctx.Boot == nil {
 		ctx.Boot = &hypervisor.BootConfig{

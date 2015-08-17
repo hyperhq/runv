@@ -110,3 +110,7 @@ func InitNetwork(bIface, bIP string) error {
 
 	return network.InitNetwork(bIface, bIP)
 }
+
+func SupportLazyMode() bool {
+	return HDriver.SupportLazyMode()
+}
