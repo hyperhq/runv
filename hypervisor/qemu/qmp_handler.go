@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/glog"
-	"io"
 	"net"
 	"syscall"
 	"time"
@@ -131,21 +130,20 @@ func qmpFail(err string, callback hypervisor.VmEvent) *QmpFinish {
 	}
 }
 
-func qmpReceiver(ch chan QmpInteraction, decoder *json.Decoder) {
+func qmpReceiver(qmp chan QmpInteraction, wait chan int, decoder *json.Decoder) {
 	glog.V(0).Info("Begin receive QMP message")
 	for {
 		rsp := &QmpResponse{}
-		if err := decoder.Decode(rsp); err == io.EOF {
-			glog.Info("QMP exit as got EOF")
-			ch <- &QmpInternalError{cause: err.Error()}
-			return
-		} else if err != nil {
-			glog.Error("QMP receive and decode error: ", err.Error())
-			ch <- &QmpInternalError{cause: err.Error()}
+		if err := decoder.Decode(rsp); err != nil {
+			glog.Info("QMP exit as got error:", err.Error())
+			qmp <- &QmpInternalError{cause: err.Error()}
+			/* After Error report, send wait notification to close qmp channel */
+			wait <- 1
 			return
 		}
+
 		msg := rsp.msg
-		ch <- msg
+		qmp <- msg
 
 		if msg.MessageType() == QMP_EVENT && msg.(*QmpEvent).Type == QMP_EVENT_SHUTDOWN {
 			glog.V(0).Info("Shutdown, quit QMP receiver")
@@ -349,7 +347,7 @@ func qmpHandler(ctx *hypervisor.VmContext) {
 			glog.Info("QMP initialzed, go into main QMP loop")
 
 			//routine for get message
-			go qmpReceiver(qc.qmp, init.decoder)
+			go qmpReceiver(qc.qmp, qc.waitQmp, init.decoder)
 			if len(buf) > 0 {
 				go qmpCommander(qc.qmp, conn, buf[0], res)
 			}

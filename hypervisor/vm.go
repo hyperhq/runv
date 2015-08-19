@@ -301,6 +301,15 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 		return Response
 	}
 
+	if mypod.Status != types.S_POD_RUNNING {
+		Response = &types.VmResponse{
+			Code:  -1,
+			Cause: "The POD has already stoppod",
+			Data:  nil,
+		}
+		return Response
+	}
+
 	if stopVm == "yes" {
 		mypod.Wg.Add(1)
 		shutdownPodEvent := &ShutdownCommand{Wait: true}
