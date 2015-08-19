@@ -37,7 +37,7 @@ func (ctx *VmContext) reclaimDevice() {
 	ctx.releaseNetwork()
 }
 
-func (ctx *VmContext) detatchDevice() {
+func (ctx *VmContext) detachDevice() {
 	ctx.releaseVolumeDir()
 	ctx.releaseOverlayDir()
 	ctx.releaseAufsDir()
@@ -451,7 +451,7 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply)
 			if ack.reply == INIT_STOPPOD {
 				glog.Info("POD stopped ", string(ack.msg))
-				ctx.detatchDevice()
+				ctx.detachDevice()
 				ctx.Become(stateCleaning, "CLEANING")
 			}
 		case ERROR_CMD_FAIL:
