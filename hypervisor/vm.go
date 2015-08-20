@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"encoding/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -126,6 +127,7 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 	}
 
 	mypod.Status = types.S_POD_RUNNING
+	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
 	mypod.SetContainerStatus(types.S_POD_RUNNING)
 
 	vm.Status = types.S_VM_ASSOCIATED
@@ -261,6 +263,7 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	go vm.handlePodEvent(mypod)
 
 	mypod.Status = types.S_POD_RUNNING
+	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
 	// Set the container status to online
 	mypod.SetContainerStatus(types.S_POD_RUNNING)
 

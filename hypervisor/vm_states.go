@@ -317,6 +317,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				ctx.setTimeout(60)
 				ctx.Become(stateStarting, "STARTING")
 			}
+		case COMMAND_GET_POD_IP:
+			ctx.reportPodIP()
 		default:
 			glog.Warning("got event during pod initiating")
 		}
@@ -430,6 +432,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.ptys.Close(ctx, cmd.Sequence)
 				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
 			}
+		case COMMAND_GET_POD_IP:
+			ctx.reportPodIP()
 		default:
 			glog.Warning("got unexpected event during pod running")
 		}
