@@ -161,6 +161,13 @@ func RandStr(strSize int, randType string) string {
 // 3. container should not use volume/file not in volume/file list
 // 4. environment var should be uniq in one container
 func (pod *UserPod) Validate() error {
+	var volume_drivers = map[string]bool {
+		"raw":		true,
+		"qcow2":	true,
+		"vdi":		true,
+		"vfs":		true,
+	}
+
 	uniq, vset := keySet(pod.Volumes)
 	if !uniq {
 		if len(vset) > 0 {
@@ -203,6 +210,16 @@ func (pod *UserPod) Validate() error {
 			if _, ok := vset[v.Volume]; !ok {
 				return fmt.Errorf("in container %d, volume %s does not exist in volume list.", idx, v.Volume)
 			}
+		}
+	}
+
+	for idx, v := range pod.Volumes {
+		if v.Driver == "" {
+			continue
+		}
+
+		if _, ok := volume_drivers[v.Driver]; !ok {
+			return fmt.Errorf("in volume %d, volume does not support driver %s.", idx, v.Driver)
 		}
 	}
 
