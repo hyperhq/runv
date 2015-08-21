@@ -176,7 +176,7 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
-		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
+		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" || vol.Driver == "rbd" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
 				info: &blockDescriptor{
 					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
@@ -437,7 +437,7 @@ func (ctx *VmContext) releaseAufsDir() {
 
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.format == "raw" || vol.info.format == "qcow2" || vol.info.format == "vdi" {
+		if vol.info.format == "raw" || vol.info.format == "qcow2" || vol.info.format == "vdi" || vol.info.format == "rbd" {
 			glog.V(1).Infof("need detach volume %s (%s) ", name, vol.info.deviceName)
 			ctx.DCtx.RemoveDisk(ctx, vol.info.filename, vol.info.format, vol.info.scsiId, &VolumeUnmounted{Name: name, Success: true})
 			ctx.progress.deleting.volumes[name] = true
