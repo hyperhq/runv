@@ -104,8 +104,8 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 }
 
 func InitNetwork(bIface, bIP string, disableIptables bool) error {
-	if err := HDriver.InitNetwork(bIface, bIP); err != nil {
-		return network.InitNetwork(bIface, bIP, disableIptables)
+	if HDriver.BuildinNetwork() {
+		return HDriver.InitNetwork(bIface, bIP)
 	}
 
 	return network.InitNetwork(bIface, bIP, disableIptables)

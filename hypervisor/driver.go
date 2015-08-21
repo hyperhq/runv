@@ -37,6 +37,8 @@ type HypervisorDriver interface {
 
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
 
+	BuildinNetwork() bool
+
 	InitNetwork(bIface, bIP string) error
 
 	SupportLazyMode() bool
@@ -58,7 +60,6 @@ type DriverContext interface {
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
 
-	BuildinNetwork() bool
 	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
 	ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error
 

@@ -12,6 +12,10 @@ import (
 	"github.com/hyperhq/runv/lib/govbox"
 )
 
+func (vd *VBoxDriver) BuildinNetwork() bool {
+	return true
+}
+
 func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
 	var i = 0
 

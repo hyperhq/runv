@@ -959,7 +959,6 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 			Device:      "",
 			File:        nil,
 		}, nil
-
 	}
 
 	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
