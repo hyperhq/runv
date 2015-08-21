@@ -103,12 +103,12 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 	context.loop()
 }
 
-func InitNetwork(bIface, bIP string) error {
+func InitNetwork(bIface, bIP string, disableIptables bool) error {
 	if err := HDriver.InitNetwork(bIface, bIP); err != nil {
-		return network.InitNetwork(bIface, bIP)
+		return network.InitNetwork(bIface, bIP, disableIptables)
 	}
 
-	return network.InitNetwork(bIface, bIP)
+	return network.InitNetwork(bIface, bIP, disableIptables)
 }
 
 func SupportLazyMode() bool {
