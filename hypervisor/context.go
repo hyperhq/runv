@@ -63,6 +63,8 @@ type VmContext struct {
 	current string
 	timer   *time.Timer
 
+	ip	*string
+
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
 	wait bool
@@ -244,7 +246,7 @@ func (ctx *VmContext) Become(handler stateHandler, desc string) {
 }
 
 // InitDeviceContext will init device info in context
-func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
+func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup, ip *string,
 	cInfo []*ContainerInfo, vInfo []*VolumeInfo) {
 
 	ctx.lock.Lock()
@@ -301,4 +303,5 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 
 	ctx.userSpec = spec
 	ctx.wg = wg
+	ctx.ip = ip
 }
