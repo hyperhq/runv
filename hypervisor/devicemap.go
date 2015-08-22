@@ -2,11 +2,13 @@ package hypervisor
 
 import (
 	"fmt"
+	"net"
+	"os"
+	"strings"
+
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/glog"
-	"net"
-	"os"
 )
 
 type deviceMap struct {
@@ -176,6 +178,7 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
+
 		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" || vol.Driver == "rbd" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
 				info: &blockDescriptor{
@@ -191,6 +194,31 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
+		} else if vol.Driver == "rbd" {
+			user := vol.Option.User
+			keyring := vol.Option.Keyring
+
+			if keyring != "" && user != "" {
+				vol.Source += ":id=" + user + ":key=" + keyring
+			}
+
+			for i, m := range vol.Option.Monitors {
+				monitor := strings.Replace(m, ":", "\\:", -1)
+				if i == 0 {
+					vol.Source += ":mon_host=" + monitor
+					continue
+				}
+				vol.Source += ";" + monitor
+			}
+
+			glog.V(1).Infof("volume %s, Source %s", vol.Name, vol.Source)
+			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
+				info: &blockDescriptor{
+					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
+				pos:      make(map[int]string),
+				readOnly: make(map[int]bool),
+			}
+			ctx.progress.adding.blockdevs[vol.Name] = true
 		}
 	}
 }
