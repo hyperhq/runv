@@ -35,8 +35,6 @@ var (
 	native    binary.ByteOrder
 	nextSeqNr uint32
 	disableIptables	bool
-	/* FIXME: tapFile should be local var */
-	tapFile *os.File
 )
 
 type ifReq struct {
@@ -961,6 +959,7 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 		}, nil
 	}
 
+	tapFile := new(os.File)
 	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
