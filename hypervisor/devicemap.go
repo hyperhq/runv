@@ -495,8 +495,10 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
 	var inf *network.Settings
 	var err error
 
-	if inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps); err != nil {
-		inf, err = network.Allocate(ctx.Id, "", index, ctx.DCtx.BuildinNetwork(), maps)
+	if HDriver.BuildinNetwork() {
+		inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps)
+	} else {
+		inf, err = network.Allocate(ctx.Id, "", index, false, maps)
 	}
 
 	if err != nil {
@@ -525,7 +527,9 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 	var err error
 	success := true
 
-	if err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file); err != nil {
+	if HDriver.BuildinNetwork() {
+		err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file)
+	} else {
 		err = network.Release(ctx.Id, ipAddr, index, maps, file)
 	}
 

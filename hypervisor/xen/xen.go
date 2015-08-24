@@ -195,8 +195,6 @@ func (xc *XenContext) Kill(ctx *hypervisor.VmContext) {
 	}()
 }
 
-func (xc *XenContext) BuildinNetwork() bool { return false }
-
 func (xc *XenContext) Close() {}
 
 func (xc *XenContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {

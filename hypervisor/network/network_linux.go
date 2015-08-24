@@ -34,8 +34,7 @@ const (
 var (
 	native    binary.ByteOrder
 	nextSeqNr uint32
-	/* FIXME: tapFile should be local var */
-	tapFile *os.File
+	disableIptables	bool
 )
 
 type ifReq struct {
@@ -96,8 +95,11 @@ type ifaces struct {
 }
 
 func setupIPTables(addr net.Addr) error {
-	// Enable NAT
+	if disableIptables {
+		return nil
+	}
 
+	// Enable NAT
 	natArgs := []string{"-s", addr.String(), "!", "-o", BridgeIface, "-j", "MASQUERADE"}
 
 	if !iptables.Exists(iptables.Nat, "POSTROUTING", natArgs...) {
@@ -196,7 +198,7 @@ func init() {
 	}
 }
 
-func InitNetwork(bIface, bIP string) error {
+func InitNetwork(bIface, bIP string, disable bool) error {
 	if bIface == "" {
 		BridgeIface = DefaultBridgeIface
 	} else {
@@ -207,6 +209,11 @@ func InitNetwork(bIface, bIP string) error {
 		BridgeIP = DefaultBridgeIP
 	} else {
 		BridgeIP = bIP
+	}
+
+	disableIptables = disable
+	if disableIptables {
+		glog.V(1).Info("Iptables is disabled")
 	}
 
 	addr, err := GetIfaceAddr(BridgeIface)
@@ -809,7 +816,7 @@ func Modprobe(module string) error {
 }
 
 func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
-	if len(maps) == 0 {
+	if disableIptables || len(maps) == 0 {
 		return nil
 	}
 
@@ -857,7 +864,7 @@ func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
 }
 
 func ReleasePortMaps(containerip string, maps []pod.UserContainerPort) error {
-	if len(maps) == 0 {
+	if disableIptables || len(maps) == 0 {
 		return nil
 	}
 
@@ -950,9 +957,9 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 			Device:      "",
 			File:        nil,
 		}, nil
-
 	}
 
+	tapFile := new(os.File)
 	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
 		return nil, err

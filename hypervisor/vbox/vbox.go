@@ -227,8 +227,6 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 	}()
 }
 
-func (qc *VBoxContext) BuildinNetwork() bool { return false }
-
 func (vc *VBoxContext) Close() {}
 
 func (vc *VBoxContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
