@@ -445,7 +445,7 @@ func (vc *VBoxContext) LazyAddNic(ctx *hypervisor.VmContext, host *hypervisor.Ho
 	vc.callbacks = append(vc.callbacks, callback)
 }
 
-func (vc *VBoxContext) initVM(ctx *hypervisor.VmContext) error {
+func (vc *VBoxContext) InitVM(ctx *hypervisor.VmContext) error {
 	vmRootPath := path.Join(hypervisor.BaseDir, "vm")
 	os.MkdirAll(vmRootPath, 0755)
 	m, err := virtualbox.GetMachine(ctx.Id)
@@ -501,14 +501,6 @@ func (vc *VBoxContext) LazyLaunch(ctx *hypervisor.VmContext) {
 			glog.Errorf("fail to start %s, should I delete it?", ctx.Id)
 		}
 	}()
-
-	err = vc.initVM(ctx)
-	if err != nil {
-		estr := fmt.Sprintf("failed to create VM(%s): %s", ctx.Id, err.Error())
-		glog.Error(estr)
-		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: estr}
-		return
-	}
 
 	m := vc.Machine
 

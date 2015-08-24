@@ -29,6 +29,17 @@ func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, bo
 		return
 	}
 
+	err = context.DCtx.(LazyDriverContext).InitVM(context)
+	if err != nil {
+		estr := fmt.Sprintf("failed to create VM(%s): %s", vmId, err.Error())
+		glog.Error(estr)
+		client <- &types.VmResponse{
+			VmId:  vmId,
+			Code:  types.E_BAD_REQUEST,
+			Cause: estr,
+		}
+		return
+	}
 	context.Become(statePreparing, "PREPARING")
 
 	context.loop()

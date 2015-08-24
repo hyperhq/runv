@@ -370,6 +370,10 @@ func (m *Machine) NicConf(n int, nic NIC) []string {
 	if nic.Network == "bridged" {
 		args = append(args, fmt.Sprintf("--bridgeadapter%d", n), nic.BridgedAdapter)
 	}
+	if nic.Network == "nat" {
+		args = append(args, fmt.Sprintf("--natdnshostresolver%d", n), "on")
+	}
+
 	if nic.NatNet != "" {
 		args = append(args, fmt.Sprintf("--natnet%d", n), nic.NatNet)
 	}

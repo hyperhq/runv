@@ -69,6 +69,7 @@ type LazyDriverContext interface {
 	DriverContext
 
 	LazyLaunch(ctx *VmContext)
+	InitVM(ctx *VmContext) error
 	LazyAddDisk(ctx *VmContext, name, sourceType, filename, format string, id int)
 	LazyAddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
 }
