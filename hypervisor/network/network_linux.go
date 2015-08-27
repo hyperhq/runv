@@ -956,6 +956,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 			IPPrefixLen: maskSize,
 			Device:      "",
 			File:        nil,
+			Automatic:   true,
 		}, nil
 	}
 
@@ -1012,6 +1013,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
+		Automatic:   true,
 	}, nil
 }
 
@@ -1055,6 +1057,7 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 			IPPrefixLen: maskSize,
 			Device:      "",
 			File:        nil,
+			Automatic:   false,
 		}, nil
 	}
 
@@ -1114,6 +1117,7 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
+		Automatic:   false,
 	}, nil
 }
 
