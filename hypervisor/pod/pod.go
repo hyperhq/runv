@@ -63,10 +63,17 @@ type UserFile struct {
 	Contents string `json:"content"`
 }
 
+type UserVolumeOption struct {
+	Monitors []string `json:"monitors"`
+	User     string   `json:"user"`
+	Keyring  string   `json:"keyring"`
+}
+
 type UserVolume struct {
-	Name   string `json:"name"`
-	Source string `json:"source"`
-	Driver string `json:"driver"`
+	Name   string           `json:"name"`
+	Source string           `json:"source"`
+	Driver string           `json:"driver"`
+	Option UserVolumeOption `json:"option,omitempty"`
 }
 
 type UserPod struct {
@@ -161,11 +168,12 @@ func RandStr(strSize int, randType string) string {
 // 3. container should not use volume/file not in volume/file list
 // 4. environment var should be uniq in one container
 func (pod *UserPod) Validate() error {
-	var volume_drivers = map[string]bool {
-		"raw":		true,
-		"qcow2":	true,
-		"vdi":		true,
-		"vfs":		true,
+	var volume_drivers = map[string]bool{
+		"raw":   true,
+		"qcow2": true,
+		"vdi":   true,
+		"vfs":   true,
+		"rbd":   true,
 	}
 
 	uniq, vset := keySet(pod.Volumes)
