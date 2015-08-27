@@ -186,6 +186,17 @@ func (pod *UserPod) Validate() error {
 		"rbd":   true,
 	}
 
+	hasGw := false
+	for idx, config := range pod.Interfaces {
+		if config.Gw == "" {
+			continue
+		}
+		if hasGw {
+			return fmt.Errorf("in interface %d, Other interface already configured Gateway", idx)
+		}
+		hasGw = true
+	}
+
 	uniq, vset := keySet(pod.Volumes)
 	if !uniq {
 		if len(vset) > 0 {
