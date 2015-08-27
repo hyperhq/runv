@@ -92,6 +92,7 @@ type VmPod struct {
 	Hostname   string         `json:"hostname"`
 	Containers []VmContainer  `json:"containers"`
 	Interfaces []VmNetworkInf `json:"interfaces,omitempty"`
+	Dns        []string       `json:"dns,omitempty"`
 	Routes     []VmRoute      `json:"routes,omitempty"`
 	ShareDir   string         `json:"shareDir"`
 }

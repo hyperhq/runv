@@ -296,6 +296,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	ctx.vmSpec = &VmPod{
 		Hostname:   spec.Name,
 		Containers: containers,
+		Dns:        spec.Dns,
 		Interfaces: nil,
 		Routes:     nil,
 		ShareDir:   ShareDirTag,
