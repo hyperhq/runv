@@ -507,6 +507,8 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
 		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
 	}
 
+	*ctx.ip = inf.IPAddress
+	glog.Infof("ctx ip %s, inf ip %s", ctx.ip, inf.IPAddress)
 	return interfaceGot(index, pciAddr, name, inf)
 }
 

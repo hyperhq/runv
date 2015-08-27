@@ -15,16 +15,17 @@ type HandleEvent struct {
 }
 
 type Pod struct {
-	Id            string
-	Name          string
-	Vm            string
-	Wg            *sync.WaitGroup
-	Containers    []*Container
-	Status        uint
-	Type          string
-	RestartPolicy string
-	Autoremove    bool
-	Handler       HandleEvent
+	Id		string
+	Name		string
+	Vm		string
+	Wg		*sync.WaitGroup
+	Ip		string
+	Containers	[]*Container
+	Status		uint
+	Type		string
+	RestartPolicy	string
+	Autoremove	bool
+	Handler		HandleEvent
 }
 
 type Container struct {

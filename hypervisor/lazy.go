@@ -81,7 +81,7 @@ func (ctx *VmContext) lazyPrepareDevice(cmd *RunPodCommand) bool {
 		return false
 	}
 
-	ctx.InitDeviceContext(cmd.Spec, cmd.Wg, cmd.Containers, cmd.Volumes)
+	ctx.InitDeviceContext(cmd.Spec, cmd.Wg, cmd.Ip, cmd.Containers, cmd.Volumes)
 
 	if glog.V(2) {
 		res, _ := json.MarshalIndent(*ctx.vmSpec, "    ", "    ")

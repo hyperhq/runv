@@ -265,10 +265,11 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	mypod.SetContainerStatus(types.S_POD_RUNNING)
 
 	runPodEvent := &RunPodCommand{
-		Spec:       userPod,
-		Containers: cList,
-		Volumes:    vList,
-		Wg:         mypod.Wg,
+		Spec:		userPod,
+		Containers:	cList,
+		Volumes:	vList,
+		Wg:		mypod.Wg,
+		Ip:		&mypod.Ip,
 	}
 
 	PodEvent <- runPodEvent

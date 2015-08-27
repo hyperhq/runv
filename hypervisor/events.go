@@ -36,10 +36,11 @@ type InitConnectedEvent struct {
 }
 
 type RunPodCommand struct {
-	Spec       *pod.UserPod
-	Containers []*ContainerInfo
-	Volumes    []*VolumeInfo
-	Wg         *sync.WaitGroup
+	Spec		*pod.UserPod
+	Containers	[]*ContainerInfo
+	Volumes		[]*VolumeInfo
+	Wg		*sync.WaitGroup
+	Ip		*string
 }
 
 type ReplacePodCommand RunPodCommand
