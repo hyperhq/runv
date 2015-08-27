@@ -1,9 +1,12 @@
 package hypervisor
 
 import (
+	"sync"
+	"time"
+
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"sync"
+	"github.com/hyperhq/runv/lib/glog"
 )
 
 //change first letter to uppercase and add json tag (thanks GNU sed):
@@ -25,15 +28,18 @@ type Pod struct {
 	RestartPolicy string
 	Autoremove    bool
 	Handler       HandleEvent
+	StartedAt     string
+	FinishedAt    string
 }
 
 type Container struct {
-	Id     string
-	Name   string
-	PodId  string
-	Image  string
-	Cmds   []string
-	Status uint32
+	Id       string
+	Name     string
+	PodId    string
+	Image    string
+	Cmds     []string
+	Status   uint32
+	ExitCode int
 }
 
 // Vm DataStructure
@@ -107,12 +113,14 @@ func (mypod *Pod) SetPodContainerStatus(data []uint32) {
 		} else {
 			c.Status = types.S_POD_SUCCEEDED
 		}
+		c.ExitCode = int(data[i])
 	}
 	if failure == 0 {
 		mypod.Status = types.S_POD_SUCCEEDED
 	} else {
 		mypod.Status = types.S_POD_FAILED
 	}
+	mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
 }
 
 func (mypod *Pod) SetContainerStatus(status uint32) {
@@ -132,6 +140,36 @@ func (mypod *Pod) AddContainer(containerId, name, image string, cmds []string, s
 	}
 
 	mypod.Containers = append(mypod.Containers, container)
+}
+
+func (mypod *Pod) GetPodIP(vm *Vm) []string {
+	if mypod.Vm == "" {
+		return nil
+	}
+	var response *types.VmResponse
+	ret1, _, ret3, err := vm.GetVmChan()
+	if err != nil {
+		return nil
+	}
+	PodEvent := ret1.(chan VmEvent)
+	subStatus := ret3.(chan *types.VmResponse)
+
+	getPodIPEvent := &GetPodIPCommand{
+		Id: mypod.Vm,
+	}
+	PodEvent <- getPodIPEvent
+	// wait for the VM response
+	for {
+		response = <-subStatus
+		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
+		if response.VmId == vm.Id {
+			break
+		}
+	}
+	if response.Data == nil {
+		return []string{}
+	}
+	return response.Data.([]string)
 }
 
 func NewPod(podId string, userPod *pod.UserPod) *Pod {

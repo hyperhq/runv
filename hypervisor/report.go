@@ -94,3 +94,16 @@ func (ctx *VmContext) reportVmFault(cause string) {
 		Cause: cause,
 	}
 }
+
+func (ctx *VmContext) reportPodIP() {
+	ips := []string{}
+	for _, i := range ctx.vmSpec.Interfaces {
+		ips = append(ips, i.IpAddress)
+	}
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_OK,
+		Cause: "",
+		Data:  ips,
+	}
+}
