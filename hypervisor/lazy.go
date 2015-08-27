@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/glog"
 )
@@ -114,18 +113,10 @@ func networkConfigure(info *InterfaceCreated) (*HostNicInfo, *GuestNicInfo) {
 }
 
 func (ctx *VmContext) lazyAllocateNetworks() error {
-	var maps []pod.UserContainerPort
-
-	for _, c := range ctx.userSpec.Containers {
-		for _, m := range c.Ports {
-			maps = append(maps, m)
-		}
-	}
-
 	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		nic, err := ctx.allocateInterface(i, addr, name, maps)
+		nic, err := ctx.allocateInterface(i, addr, name)
 		if err != nil {
 			return err
 		}

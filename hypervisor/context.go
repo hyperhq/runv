@@ -250,6 +250,12 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
+	/* Update interface count accourding to user pod */
+	ret := len(spec.Interfaces)
+	if ret != 0 {
+		ctx.InterfaceCount = ret
+	}
+
 	for i := 0; i < ctx.InterfaceCount; i++ {
 		ctx.progress.adding.networks[i] = true
 	}

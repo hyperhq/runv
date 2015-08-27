@@ -60,6 +60,7 @@ type DriverContext interface {
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
 
+	ConfigureNetwork(vmId, requestedIP string, maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error)
 	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
 	ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error
 
@@ -120,6 +121,11 @@ func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 func (ec *EmptyContext) Kill(ctx *VmContext) {}
 
 func (ec *EmptyContext) BuildinNetwork() bool { return false }
+
+func (ec *EmptyContext) ConfigureNetwork(vmId, requestedIP string,
+	maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error) {
+	return nil, nil
+}
 
 func (ec *EmptyContext) AllocateNetwork(vmId, requestedIP string,
 	maps []pod.UserContainerPort) (*network.Settings, error) {

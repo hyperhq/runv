@@ -11,8 +11,13 @@ func (xd *XenDriver) BuildinNetwork() bool {
 	return false
 }
 
-func (xd *XenDriver) InitNetwork(bIface, bIP string) (error) {
+func (xd *XenDriver) InitNetwork(bIface, bIP string) error {
 	return nil
+}
+
+func (xc *XenContext) ConfigureNetwork(vmId, requestedIP string,
+	maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error) {
+	return nil, nil
 }
 
 func (xc *XenContext) AllocateNetwork(vmId, requestedIP string,
