@@ -12,8 +12,8 @@ install-exec-local:
 	$(INSTALL_PROGRAM) runv $(bindir)
 if ON_DARWIN
 build-runv:
-	godep go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_darwin.go
+	go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_darwin.go
 else
 build-runv:
-	godep go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_linux.go
+	go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_linux.go
 endif
