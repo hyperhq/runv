@@ -15,9 +15,9 @@ function die
 
 test -f hypervisor/xen/libxl_wrapper.go || die "You must run this script in the top-level hyper directory."
 
+aclocal --version < /dev/null > /dev/null 2>&1 || die "You must have aclocal installed to generate the hyper."
 autoconf --version < /dev/null > /dev/null 2>&1 || die "You must have autoconf installed to generate the hyper."
 automake --version < /dev/null > /dev/null 2>&1 || die "You must have automake installed to generate the hyper."
-autoreconf --version < /dev/null > /dev/null 2>&1 || die "You must have autoreconf installed to generate the hyper."
 
 echo
 echo "Generating build-system with:"
