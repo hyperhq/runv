@@ -139,6 +139,35 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
 	}, nil
 }
 
+func (vc *VBoxContext) ConfigureNetwork(vmId,
+	requestedIP string,
+	maps []pod.UserContainerPort,
+	config pod.UserInterface) (*network.Settings, error) {
+	ip, ipnet, err := net.ParseCIDR(config.Ip)
+	if err != nil {
+		glog.Errorf("Parse interface IP failed %s", err)
+		return nil, err
+	}
+
+	maskSize, _ := ipnet.Mask.Size()
+
+	err = SetupPortMaps(vmId, ip.String(), maps)
+	if err != nil {
+		glog.Errorf("Setup Port Map failed %s", err)
+		return nil, err
+	}
+
+	return &network.Settings{
+		Mac:         config.Mac,
+		IPAddress:   ip.String(),
+		Gateway:     config.Gw,
+		Bridge:      "",
+		IPPrefixLen: maskSize,
+		Device:      "",
+		File:        nil,
+	}, nil
+}
+
 // Release an interface for a select ip
 func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
 	file *os.File) error {

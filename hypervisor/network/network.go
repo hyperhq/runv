@@ -16,6 +16,7 @@ type Settings struct {
 	Bridge      string
 	Device      string
 	File        *os.File
+	Automatic   bool
 }
 
 const (

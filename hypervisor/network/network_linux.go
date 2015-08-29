@@ -32,9 +32,9 @@ const (
 )
 
 var (
-	native    binary.ByteOrder
-	nextSeqNr uint32
-	disableIptables	bool
+	native          binary.ByteOrder
+	nextSeqNr       uint32
+	disableIptables bool
 )
 
 type ifReq struct {
@@ -922,7 +922,7 @@ func UpAndAddToBridge(name string) error {
 	return nil
 }
 
-func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
 	var (
 		req   ifReq
 		errno syscall.Errno
@@ -956,11 +956,11 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 			IPPrefixLen: maskSize,
 			Device:      "",
 			File:        nil,
+			Automatic:   true,
 		}, nil
 	}
 
-	tapFile := new(os.File)
-	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,11 +1013,116 @@ func Allocate(vmId, requestedIP string, index int, addrOnly bool, maps []pod.Use
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
+		Automatic:   true,
+	}, nil
+}
+
+func Configure(vmId, requestedIP string, addrOnly bool,
+	maps []pod.UserContainerPort, config pod.UserInterface) (*Settings, error) {
+	var (
+		req   ifReq
+		errno syscall.Errno
+	)
+
+	ip, ipnet, err := net.ParseCIDR(config.Ip)
+	if err != nil {
+		glog.Errorf("Parse config IP failed %s", err)
+		return nil, err
+	}
+
+	BridgeIface := config.Bridge
+	maskSize, _ := ipnet.Mask.Size()
+
+	err = SetupPortMaps(ip.String(), maps)
+	if err != nil {
+		glog.Errorf("Setup Port Map failed %s", err)
+		return nil, err
+	}
+
+	mac := config.Mac
+	if mac == "" {
+		mac, err = GenRandomMac()
+		if err != nil {
+			glog.Errorf("Generate Random Mac address failed")
+			return nil, err
+		}
+	}
+
+	if addrOnly {
+		return &Settings{
+			Mac:         mac,
+			IPAddress:   ip.String(),
+			Gateway:     config.Gw,
+			Bridge:      config.Bridge,
+			IPPrefixLen: maskSize,
+			Device:      "",
+			File:        nil,
+			Automatic:   false,
+		}, nil
+	}
+
+	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
+	if config.Ifname != "" {
+		copy(req.Name[:len(req.Name)-1], []byte(config.Ifname))
+	}
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
+		uintptr(syscall.TUNSETIFF),
+		uintptr(unsafe.Pointer(&req)))
+	if errno != 0 {
+		err = fmt.Errorf("create tap device failed\n")
+		tapFile.Close()
+		return nil, err
+	}
+
+	device := strings.Trim(string(req.Name[:]), "\x00")
+
+	tapIface, err := net.InterfaceByName(device)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed %s", device, err)
+		tapFile.Close()
+		return nil, err
+	}
+
+	bIface, err := net.InterfaceByName(BridgeIface)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed", BridgeIface)
+		tapFile.Close()
+		return nil, err
+	}
+
+	err = AddToBridge(tapIface, bIface)
+	if err != nil {
+		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
+		tapFile.Close()
+		return nil, err
+	}
+
+	err = NetworkLinkUp(tapIface)
+	if err != nil {
+		glog.Errorf("Link up device %s failed", tapIface)
+		tapFile.Close()
+		return nil, err
+	}
+
+	return &Settings{
+		Mac:         mac,
+		IPAddress:   ip.String(),
+		Gateway:     config.Gw,
+		Bridge:      BridgeIface,
+		IPPrefixLen: maskSize,
+		Device:      device,
+		File:        tapFile,
+		Automatic:   false,
 	}, nil
 }
 
 // Release an interface for a select ip
-func Release(vmId, releasedIP string, index int, maps []pod.UserContainerPort, file *os.File) error {
+func Release(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
 	if file != nil {
 		file.Close()
 	}

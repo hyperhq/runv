@@ -76,12 +76,22 @@ type UserVolume struct {
 	Option UserVolumeOption `json:"option,omitempty"`
 }
 
+type UserInterface struct {
+	Bridge string `json:"bridge"`
+	Ip     string `json:"ip"`
+	Ifname string `json:"ifname,omitempty"`
+	Mac    string `json:"mac,omitempty"`
+	Gw     string `json:"gateway,omitempty"`
+}
+
 type UserPod struct {
 	Name          string          `json:"id"`
 	Containers    []UserContainer `json:"containers"`
 	Resource      UserResource    `json:"resource"`
 	Files         []UserFile      `json:"files"`
 	Volumes       []UserVolume    `json:"volumes"`
+	Interfaces    []UserInterface `json:"interfaces,omitempty"`
+	Dns           []string        `json:"dns,omitempty"`
 	Tty           bool            `json:"tty"`
 	Type          string          `json:"type"`
 	RestartPolicy string
@@ -174,6 +184,17 @@ func (pod *UserPod) Validate() error {
 		"vdi":   true,
 		"vfs":   true,
 		"rbd":   true,
+	}
+
+	hasGw := false
+	for idx, config := range pod.Interfaces {
+		if config.Gw == "" {
+			continue
+		}
+		if hasGw {
+			return fmt.Errorf("in interface %d, Other interface already configured Gateway", idx)
+		}
+		hasGw = true
 	}
 
 	uniq, vset := keySet(pod.Volumes)

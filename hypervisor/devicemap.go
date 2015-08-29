@@ -250,18 +250,14 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 }
 
 func (ctx *VmContext) allocateNetworks() {
-	var maps []pod.UserContainerPort
-
-	for _, c := range ctx.userSpec.Containers {
-		for _, m := range c.Ports {
-			maps = append(maps, m)
-		}
-	}
-
 	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
-		go ctx.CreateInterface(i, addr, name, maps)
+		if len(ctx.userSpec.Interfaces) > 0 {
+			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i])
+		} else {
+			go ctx.CreateInterface(i, addr, name)
+		}
 	}
 }
 
@@ -518,15 +514,23 @@ func (ctx *VmContext) removeInterface() {
 	}
 }
 
-func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
-	maps []pod.UserContainerPort) (*InterfaceCreated, error) {
-	var inf *network.Settings
+func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string) (*InterfaceCreated, error) {
 	var err error
+	var inf *network.Settings
+	var maps []pod.UserContainerPort
+
+	if index == 0 {
+		for _, c := range ctx.userSpec.Containers {
+			for _, m := range c.Ports {
+				maps = append(maps, m)
+			}
+		}
+	}
 
 	if HDriver.BuildinNetwork() {
 		inf, err = ctx.DCtx.AllocateNetwork(ctx.Id, "", maps)
 	} else {
-		inf, err = network.Allocate(ctx.Id, "", index, false, maps)
+		inf, err = network.Allocate(ctx.Id, "", false, maps)
 	}
 
 	if err != nil {
@@ -538,9 +542,44 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string,
 	return interfaceGot(index, pciAddr, name, inf)
 }
 
-func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string,
-	maps []pod.UserContainerPort) {
-	session, err := ctx.allocateInterface(index, pciAddr, name, maps)
+func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, config pod.UserInterface) {
+	var err error
+	var inf *network.Settings
+	var maps []pod.UserContainerPort
+
+	if index == 0 {
+		for _, c := range ctx.userSpec.Containers {
+			for _, m := range c.Ports {
+				maps = append(maps, m)
+			}
+		}
+	}
+
+	if HDriver.BuildinNetwork() {
+		/* VBox doesn't support join to bridge */
+		inf, err = ctx.DCtx.ConfigureNetwork(ctx.Id, "", maps, config)
+	} else {
+		inf, err = network.Configure(ctx.Id, "", false, maps, config)
+	}
+
+	if err != nil {
+		glog.Error("interface creating failed: ", err.Error())
+		session := &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}
+		ctx.Hub <- &DeviceFailed{Session: session}
+		return
+	}
+
+	session, err := interfaceGot(index, pciAddr, name, inf)
+	if err != nil {
+		ctx.Hub <- &DeviceFailed{Session: session}
+		return
+	}
+
+	ctx.Hub <- session
+}
+
+func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string) {
+	session, err := ctx.allocateInterface(index, pciAddr, name)
 
 	if err != nil {
 		ctx.Hub <- &DeviceFailed{Session: session}
@@ -558,7 +597,7 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 	if HDriver.BuildinNetwork() {
 		err = ctx.DCtx.ReleaseNetwork(ctx.Id, ipAddr, maps, file)
 	} else {
-		err = network.Release(ctx.Id, ipAddr, index, maps, file)
+		err = network.Release(ctx.Id, ipAddr, maps, file)
 	}
 
 	if err != nil {
@@ -578,7 +617,9 @@ func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*
 	var mask net.IP = tmp
 
 	rt := []*RouteRule{}
-	if index == 0 {
+	/* Route rule is generated automaticly on first interface,
+	 * or generated on the gateway configured interface. */
+	if (index == 0 && inf.Automatic) || (!inf.Automatic && inf.Gateway != "") {
 		rt = append(rt, &RouteRule{
 			Destination: "0.0.0.0/0",
 			Gateway:     inf.Gateway, ViaThis: true,

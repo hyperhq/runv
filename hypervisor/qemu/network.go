@@ -15,6 +15,11 @@ func (qd *QemuDriver) InitNetwork(bIface, bIP string) error {
 	return nil
 }
 
+func (qc *QemuContext) ConfigureNetwork(vmId, requestedIP string,
+	maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error) {
+	return nil, nil
+}
+
 func (qc *QemuContext) AllocateNetwork(vmId, requestedIP string,
 	maps []pod.UserContainerPort) (*network.Settings, error) {
 	return nil, nil
