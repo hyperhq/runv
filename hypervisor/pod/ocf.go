@@ -16,7 +16,7 @@ func OCFSpec2Pod(s specs.Spec, memory int) *UserPod {
 	}
 
 	for _, value := range s.Process.Env {
-		fmt.Printf("evn: %s", value)
+		fmt.Printf("env: %s\n", value)
 		values := strings.Split(value, "=")
 		tmp := UserEnvironmentVar{
 			Env:   values[0],
