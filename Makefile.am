@@ -10,10 +10,6 @@ clean-local:
 	-rm -f runv
 install-exec-local: 
 	$(INSTALL_PROGRAM) runv $(bindir)
-if ON_DARWIN
+
 build-runv:
-	go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_darwin.go
-else
-build-runv:
-	go build -tags "static_build $(HYPER_BULD_TAGS)" runv.go runv_linux.go
-endif
+	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
