@@ -135,7 +135,7 @@ func (qc *QemuContext) Kill(ctx *hypervisor.VmContext) {
 
 func (qc *QemuContext) Close() {
 	qc.wdt <- "quit"
-	_ = <- qc.waitQmp
+	_ = <-qc.waitQmp
 	close(qc.waitQmp)
 	close(qc.qmp)
 	close(qc.wdt)
