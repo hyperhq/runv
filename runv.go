@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +13,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -82,7 +82,7 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 	return int(ws.Height), int(ws.Width)
 }
 
-func main() {
+func startVContainer(context *cli.Context) {
 	hypervisor.InterfaceCount = 0
 
 	var containerInfoList []*hypervisor.ContainerInfo
@@ -90,65 +90,45 @@ func main() {
 	var containerId string
 	var err error
 
-	ocffile := flag.String("config", "", "ocf configure file")
-	kernel := flag.String("kernel", "", "hyper kernel")
-	initrd := flag.String("initrd", "", "hyper initrd")
-	vbox := flag.String("vbox", "", "vbox boot iso")
-	driver := flag.String("driver", "", "hypervisor driver")
-
-	flag.Parse()
-
-	if *ocffile == "" {
-		*ocffile = "config.json"
+	ocffile := context.Args().First()
+	if ocffile == "" {
+		ocffile = "config.json"
 	}
 
-	if _, err = os.Stat(*ocffile); os.IsNotExist(err) {
+	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
 		return
 	}
 
-	if *vbox == "" {
-		*vbox = "./vbox.iso"
-	}
-
-	if _, err = os.Stat(*vbox); err == nil {
-		*vbox, err = filepath.Abs(*vbox)
+	vbox := context.GlobalString("vbox")
+	if _, err = os.Stat(vbox); err == nil {
+		vbox, err = filepath.Abs(vbox)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
 			return
 		}
 	}
 
-	if *kernel == "" {
-		*kernel = "./kernel"
-	}
-
-	if _, err = os.Stat(*kernel); err == nil {
-		*kernel, err = filepath.Abs(*kernel)
+	kernel := context.GlobalString("kernel")
+	if _, err = os.Stat(kernel); err == nil {
+		kernel, err = filepath.Abs(kernel)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
 			return
 		}
 	}
 
-	if *initrd == "" {
-		*initrd = "./initrd.img"
-	}
-
-	if _, err = os.Stat(*initrd); err == nil {
-		*initrd, err = filepath.Abs(*initrd)
+	initrd := context.GlobalString("initrd")
+	if _, err = os.Stat(initrd); err == nil {
+		initrd, err = filepath.Abs(initrd)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
 			return
 		}
 	}
 
-	if *driver == "" {
-		*driver = "kvm"
-		fmt.Printf("Use default hypervisor KVM\n")
-	}
-
-	if hypervisor.HDriver, err = driverloader.Probe(*driver); err != nil {
+	driver := context.GlobalString("driver")
+	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
@@ -156,7 +136,7 @@ func main() {
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	ocfData, err := ioutil.ReadFile(*ocffile)
+	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -184,11 +164,11 @@ func main() {
 	}
 
 	b := &hypervisor.BootConfig{
-		Kernel: *kernel,
-		Initrd: *initrd,
+		Kernel: kernel,
+		Initrd: initrd,
 		Bios:   "",
 		Cbfs:   "",
-		Vbox:   *vbox,
+		Vbox:   vbox,
 		CPU:    cpu,
 		Memory: mem,
 	}
@@ -280,4 +260,10 @@ func main() {
 		return
 	}
 	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
+}
+
+var startCommand = cli.Command{
+	Name:   "start",
+	Usage:  "create and run a container",
+	Action: startVContainer,
 }
