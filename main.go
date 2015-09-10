@@ -57,7 +57,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "initrd",
-			Value: "./initrd",
+			Value: "./initrd.img",
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
