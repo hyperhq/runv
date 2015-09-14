@@ -98,6 +98,8 @@ func startVContainer(context *cli.Context) {
 		ocffile = "config.json"
 	}
 
+	runtimefile := "runtime.json"
+
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
 		return
@@ -145,7 +147,22 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	userPod, err := pod.OCFConvert2Pod(ocfData)
+	var runtimeData []byte = nil
+	_, err = os.Stat(runtimefile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
+			return
+		}
+	} else {
+		runtimeData, err = ioutil.ReadFile(runtimefile)
+		if err != nil {
+			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
+			return
+		}
+	}
+
+	userPod, err := pod.OCFConvert2Pod(ocfData, runtimeData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
