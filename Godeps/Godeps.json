@@ -9,7 +9,8 @@
 		},
 		{
 			"ImportPath": "github.com/opencontainers/specs",
-			"Rev": "9ad789fa16156841074275172530fe7db6bcb26b"
+			"Comment": "v0.1.1-4-gdca1dfd",
+			"Rev": "dca1dfdd92405129fba7ba0c91cfade2dae1d615"
 		}
 	]
 }
