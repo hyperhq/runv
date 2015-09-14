@@ -68,6 +68,7 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		startCommand,
+		specCommand,
 	}
 	// Default to 'start' is no command is specified
 	app.Action = startCommand.Action

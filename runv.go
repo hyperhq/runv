@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/opencontainers/specs"
 )
 
 const shortLen = 12
@@ -266,4 +269,54 @@ var startCommand = cli.Command{
 	Name:   "start",
 	Usage:  "create and run a container",
 	Action: startVContainer,
+}
+
+var specCommand = cli.Command{
+	Name:  "spec",
+	Usage: "create a new specification file",
+	Action: func(context *cli.Context) {
+		spec := specs.Spec{
+			Version: specs.Version,
+			Platform: specs.Platform{
+				OS:   runtime.GOOS,
+				Arch: runtime.GOARCH,
+			},
+			Root: specs.Root{
+				Path:     "rootfs",
+				Readonly: true,
+			},
+			Process: specs.Process{
+				Terminal: true,
+				User:     specs.User{},
+				Args: []string{
+					"sh",
+				},
+				Env: []string{
+					"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+					"TERM=xterm",
+				},
+			},
+			Hostname: "shell",
+		}
+
+		data, err := json.MarshalIndent(&spec, "", "\t")
+		if err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		fmt.Printf("config.json:\n%s\n", data)
+
+		rt := specs.LinuxRuntimeSpec{
+			Linux: specs.LinuxRuntime{
+				Resources: &specs.Resources{},
+			},
+		}
+
+		data, err = json.MarshalIndent(&rt, "", "\t")
+		if err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		fmt.Printf("\nruntime.json:\n%s\n", data)
+	},
 }
