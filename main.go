@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	version = "0.2"
+	version = "0.4.0"
 	usage   = `Open Container Initiative hypervisor-based runtime
 
 runv is a command line client for running applications packaged according to
