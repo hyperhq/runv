@@ -13,6 +13,7 @@ const (
 	E_BUSY
 	E_NO_TTY
 	E_JSON_PARSE_FAIL
+	E_FILE
 )
 
 // status for POD or container

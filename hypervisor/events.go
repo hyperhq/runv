@@ -57,13 +57,13 @@ type ExecCommand struct {
 
 type WriteFileCommand struct {
 	Container string `json:"container"`
-	File      string `json:"container"`
-	Data      string `json:"container,omitempty"`
+	File      string `json:"file"`
+	Data      []byte `json:"-"`
 }
 
 type ReadFileCommand struct {
 	Container string `json:"container"`
-	File      string `json:"container"`
+	File      string `json:"file"`
 }
 
 type StopPodCommand struct{}

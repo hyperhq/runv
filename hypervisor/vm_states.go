@@ -95,6 +95,7 @@ func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
 		}
 		return
 	}
+	writeCmd = append(writeCmd, cmd.Data[:]...)
 	ctx.vm <- &DecodedMessage{
 		code:    INIT_WRITEFILE,
 		message: writeCmd,
@@ -336,10 +337,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.reportVmShutdown()
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
-		case COMMAND_WRITEFILE:
-			ctx.writeFile(ev.(*WriteFileCommand))
-		case COMMAND_READFILE:
-			ctx.readFile(ev.(*ReadFileCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -447,6 +444,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			if ctx.userSpec.Tty {
 				ctx.setWindowSize(cmd.ClientTag, cmd.Size)
 			}
+		case COMMAND_WRITEFILE:
+			ctx.writeFile(ev.(*WriteFileCommand))
+		case COMMAND_READFILE:
+			ctx.readFile(ev.(*ReadFileCommand))
 		case EVENT_POD_FINISH:
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
@@ -455,6 +456,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			}
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
+			if ack.reply == INIT_READFILE || ack.reply == INIT_WRITEFILE {
+				ctx.reportFile(ack.msg)
+				glog.Info("Get ack for write/read data: %s", string(ack.msg))
+			}
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)

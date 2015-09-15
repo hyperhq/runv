@@ -350,9 +350,7 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 	return Response
 }
 
-func (vm *Vm) WriteFile(container, target, data string) error {
-	Callback := make(chan *types.VmResponse, 1)
-
+func (vm *Vm) WriteFile(container, target string, data []byte) error {
 	if target == "" {
 		return fmt.Errorf("'write' without file")
 	}
@@ -360,26 +358,31 @@ func (vm *Vm) WriteFile(container, target, data string) error {
 	writeEvent := &WriteFileCommand{
 		Container: container,
 		File:      target,
-		Data:      data,
+		Data:      []byte{},
 	}
 
-	Event, _, _, err := vm.GetVmChan()
+	writeEvent.Data = append(writeEvent.Data, data[:]...)
+	Event, _, responseEvent, err := vm.GetVmChan()
 	if err != nil {
 		return err
 	}
 
 	Event.(chan VmEvent) <- writeEvent
 
-	<-Callback
+	for {
+		Response := <-responseEvent.(chan *types.VmResponse)
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_FILE {
+			break
+		}
+	}
 
 	return nil
 }
 
-func (vm *Vm) ReadFile(container, target string) error {
-	Callback := make(chan *types.VmResponse, 1)
-
+func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 	if target == "" {
-		return fmt.Errorf("'read' without file")
+		return nil, fmt.Errorf("'read' without file")
 	}
 
 	readEvent := &ReadFileCommand{
@@ -387,16 +390,22 @@ func (vm *Vm) ReadFile(container, target string) error {
 		File:      target,
 	}
 
-	Event, _, _, err := vm.GetVmChan()
+	Event, _, responseEvent, err := vm.GetVmChan()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	Event.(chan VmEvent) <- readEvent
 
-	<-Callback
+	for {
+		Response := <-responseEvent.(chan *types.VmResponse)
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_FILE {
+			return Response.Data.([]byte), nil
+		}
+	}
 
-	return nil
+	return nil, nil
 }
 
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
