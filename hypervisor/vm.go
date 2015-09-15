@@ -350,6 +350,55 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 	return Response
 }
 
+func (vm *Vm) WriteFile(container, target, data string) error {
+	Callback := make(chan *types.VmResponse, 1)
+
+	if target == "" {
+		return fmt.Errorf("'write' without file")
+	}
+
+	writeEvent := &WriteFileCommand{
+		Container: container,
+		File:      target,
+		Data:      data,
+	}
+
+	Event, _, _, err := vm.GetVmChan()
+	if err != nil {
+		return err
+	}
+
+	Event.(chan VmEvent) <- writeEvent
+
+	<-Callback
+
+	return nil
+}
+
+func (vm *Vm) ReadFile(container, target string) error {
+	Callback := make(chan *types.VmResponse, 1)
+
+	if target == "" {
+		return fmt.Errorf("'read' without file")
+	}
+
+	readEvent := &ReadFileCommand{
+		Container: container,
+		File:      target,
+	}
+
+	Event, _, _, err := vm.GetVmChan()
+	if err != nil {
+		return err
+	}
+
+	Event.(chan VmEvent) <- readEvent
+
+	<-Callback
+
+	return nil
+}
+
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
 	var command []string
 	Callback := make(chan *types.VmResponse, 1)
