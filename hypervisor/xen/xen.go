@@ -52,6 +52,11 @@ func InitDriver() *XenDriver {
 		return nil
 	}
 
+	if err := loadXenLib(); err != nil {
+		glog.Info("Failed to  load xen library")
+		return nil
+	}
+
 	ctx, res := HyperxlInitializeDriver()
 	if res != 0 {
 		glog.Info("failed to initialize xen context")

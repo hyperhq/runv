@@ -3,7 +3,9 @@
 package xen
 
 /*
-#cgo LDFLAGS: -lxenlight -lxenctrl
+#cgo LDFLAGS: -ldl
+
+#include <dlfcn.h>
 
 #include <libxl.h>
 #include <libxl_utils.h>
@@ -64,6 +66,8 @@ static inline int  hyperxl_initialize_driver(hyperxl_driver** pdriver, bool verb
 
 static inline void hyperxl_destroy_driver(hyperxl_driver* driver);
 
+static inline int hyperxl_ctx_free(libxl_ctx* ctx);
+
 static inline int  hyperxl_domain_start(libxl_ctx* ctx, hyperxl_domain_config* config);
 
 static inline void hyperxl_domain_cleanup(libxl_ctx *ctx, void* ev);
@@ -99,6 +103,249 @@ static const struct libxl_event_hooks ev_hooks = {
 typedef struct xentoollog_logger_hyperxl xentoollog_logger_hyperxl;
 static inline xentoollog_logger_hyperxl* xtl_createlogger_hyperxl(xentoollog_level min_level, unsigned flags);
 
+typedef struct hyperxl_xen_fn {
+  int (*libxl_bitmap_count_set)(const libxl_bitmap *cpumap);
+  void (*libxl_bitmap_set)(libxl_bitmap *bitmap, int bit);
+  int (*libxl_childproc_reaped)(libxl_ctx *ctx, pid_t, int status)
+                             LIBXL_EXTERNAL_CALLERS_ONLY;
+  void (*libxl_childproc_setmode)(libxl_ctx *ctx, const libxl_childproc_hooks *hooks,
+                               void *user);
+  int (*libxl_cpu_bitmap_alloc)(libxl_ctx *ctx, libxl_bitmap *cpumap, int max_cpus);
+  int (*libxl_ctx_alloc)(libxl_ctx **pctx, int version,
+                      unsigned flags,
+                      xentoollog_logger *lg);
+  int (*libxl_ctx_free)(libxl_ctx *ctx);
+  void (*libxl_defbool_set)(libxl_defbool *db, bool b);
+  int (*libxl_device_disk_add)(libxl_ctx *ctx, uint32_t domid,
+                            libxl_device_disk *disk,
+                            const libxl_asyncop_how *ao_how)
+                            LIBXL_EXTERNAL_CALLERS_ONLY;
+  void (*libxl_device_disk_dispose)(libxl_device_disk *p);
+  void (*libxl_device_disk_init)(libxl_device_disk *p);
+  int (*libxl_device_disk_remove)(libxl_ctx *ctx, uint32_t domid,
+                               libxl_device_disk *disk,
+                               const libxl_asyncop_how *ao_how)
+                               LIBXL_EXTERNAL_CALLERS_ONLY;
+  int (*libxl_device_nic_add)(libxl_ctx *ctx, uint32_t domid, libxl_device_nic *nic,
+                           const libxl_asyncop_how *ao_how)
+                           LIBXL_EXTERNAL_CALLERS_ONLY;
+  void (*libxl_device_nic_dispose)(libxl_device_nic *p);
+  void (*libxl_device_nic_init)(libxl_device_nic *p);
+  int (*libxl_device_nic_remove)(libxl_ctx *ctx, uint32_t domid,
+                              libxl_device_nic *nic,
+                              const libxl_asyncop_how *ao_how)
+                              LIBXL_EXTERNAL_CALLERS_ONLY;
+  void (*libxl_domain_build_info_init_type)(libxl_domain_build_info *p, libxl_domain_type type);
+  void (*libxl_domain_config_dispose)(libxl_domain_config *d_config);
+  void (*libxl_domain_config_init)(libxl_domain_config *d_config);
+  void (*libxl_domain_create_info_init)(libxl_domain_create_info *p);
+  int (*libxl_domain_create_new)(libxl_ctx *ctx, libxl_domain_config *d_config,
+                              uint32_t *domid,
+                              const libxl_asyncop_how *ao_how,
+                              const libxl_asyncprogress_how *aop_console_how)
+                              LIBXL_EXTERNAL_CALLERS_ONLY;
+  int (*libxl_domain_destroy)(libxl_ctx *ctx, uint32_t domid,
+                           const libxl_asyncop_how *ao_how)
+                           LIBXL_EXTERNAL_CALLERS_ONLY;
+  int (*libxl_domain_info)(libxl_ctx*, libxl_dominfo *info_r,
+                        uint32_t domid);
+  int (*libxl_domain_unpause)(libxl_ctx *ctx, uint32_t domid);
+  void (*libxl_evdisable_domain_death)(libxl_ctx *ctx, libxl_evgen_domain_death*);
+  int (*libxl_evenable_domain_death)(libxl_ctx *ctx, uint32_t domid,
+                           libxl_ev_user, libxl_evgen_domain_death **evgen_out);
+  void (*libxl_event_free)(libxl_ctx *ctx, libxl_event *event);
+  void (*libxl_event_register_callbacks)(libxl_ctx *ctx,
+                                      const libxl_event_hooks *hooks, void *user);
+  int (*libxl_get_free_memory)(libxl_ctx *ctx, uint32_t *memkb);
+  unsigned long (*libxl_get_required_shadow_memory)(unsigned long maxmem_kb, unsigned int smp_cpus);
+  const libxl_version_info* (*libxl_get_version_info)(libxl_ctx *ctx);
+  void (*libxl_mac_copy)(libxl_ctx *ctx, libxl_mac *dst, libxl_mac *src);
+  int (*libxl_mac_to_device_nic)(libxl_ctx *ctx, uint32_t domid,
+                              const char *mac, libxl_device_nic *nic);
+  void (*libxl_string_list_copy)(libxl_ctx *ctx, libxl_string_list *dst,
+                              libxl_string_list *src);
+  void (*libxl_uuid_generate)(libxl_uuid *uuid);
+  void (*xtl_logger_destroy)(struct xentoollog_logger *logger);
+  const char *(*xtl_level_to_string)(xentoollog_level);
+  void (*xtl_log)(struct xentoollog_logger *logger,
+             xentoollog_level level,
+             int errnoval,
+             const char *context,
+             const char *format,
+             ...) __attribute__((format(printf,5,6)));
+} hyperxl_xen_fn;
+
+static hyperxl_xen_fn xen_fns;
+
+static inline int hyperxl_load_libraries() {
+    void* handle = NULL;
+    char* error = NULL;
+
+    handle = dlopen("libxenlight.so", RTLD_LAZY);
+    if (!handle)
+        return -1;
+
+    xen_fns.libxl_bitmap_count_set = dlsym(handle, "libxl_bitmap_count_set");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_bitmap_set = dlsym(handle, "libxl_bitmap_set");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_childproc_reaped = dlsym(handle, "libxl_childproc_reaped");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_childproc_setmode = dlsym(handle, "libxl_childproc_setmode");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_cpu_bitmap_alloc = dlsym(handle, "libxl_cpu_bitmap_alloc");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_ctx_alloc = dlsym(handle, "libxl_ctx_alloc");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_ctx_free = dlsym(handle, "libxl_ctx_free");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_defbool_set = dlsym(handle, "libxl_defbool_set");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_disk_add = dlsym(handle, "libxl_device_disk_add");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_disk_dispose = dlsym(handle, "libxl_device_disk_dispose");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_disk_init = dlsym(handle, "libxl_device_disk_init");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_disk_remove = dlsym(handle, "libxl_device_disk_remove");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_nic_add = dlsym(handle, "libxl_device_nic_add");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_nic_dispose = dlsym(handle, "libxl_device_nic_dispose");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_nic_init = dlsym(handle, "libxl_device_nic_init");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_device_nic_remove = dlsym(handle, "libxl_device_nic_remove");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_build_info_init_type = dlsym(handle, "libxl_domain_build_info_init_type");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_config_dispose = dlsym(handle, "libxl_domain_config_dispose");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_config_init = dlsym(handle, "libxl_domain_config_init");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_create_info_init = dlsym(handle, "libxl_domain_create_info_init");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_create_new = dlsym(handle, "libxl_domain_create_new");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_destroy = dlsym(handle, "libxl_domain_destroy");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_info = dlsym(handle, "libxl_domain_info");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_domain_unpause = dlsym(handle, "libxl_domain_unpause");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_evdisable_domain_death = dlsym(handle, "libxl_evdisable_domain_death");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_evenable_domain_death = dlsym(handle, "libxl_evenable_domain_death");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_event_free = dlsym(handle, "libxl_event_free");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_event_register_callbacks = dlsym(handle, "libxl_event_register_callbacks");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_get_free_memory = dlsym(handle, "libxl_get_free_memory");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_get_required_shadow_memory = dlsym(handle, "libxl_get_required_shadow_memory");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_get_version_info = dlsym(handle, "libxl_get_version_info");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_mac_copy = dlsym(handle, "libxl_mac_copy");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_mac_to_device_nic = dlsym(handle, "libxl_mac_to_device_nic");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_string_list_copy = dlsym(handle, "libxl_string_list_copy");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.libxl_uuid_generate = dlsym(handle, "libxl_uuid_generate");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+
+    handle = dlopen("libxenctrl.so", RTLD_LAZY);
+    if (!handle){
+      return -1;
+    }
+    xen_fns.xtl_logger_destroy = dlsym(handle, "xtl_logger_destroy");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.xtl_level_to_string = dlsym(handle, "xtl_level_to_string");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+    xen_fns.xtl_log = dlsym(handle, "xtl_log");
+    if ((error = dlerror()) != NULL)  {
+      return -1;
+    }
+
+    return 0;
+}
+
 static inline int  hyperxl_initialize_driver(hyperxl_driver** pdriver, bool verbose) {
 
 #ifndef LIBXL_HAVE_BUILDINFO_KERNEL
@@ -127,13 +374,13 @@ static inline int  hyperxl_initialize_driver(hyperxl_driver** pdriver, bool verb
         goto release_driver;
     }
 
-    if(libxl_ctx_alloc(&driver->ctx, LIBXL_VERSION, 0, driver->logger)) {
+    if(xen_fns.libxl_ctx_alloc(&driver->ctx, LIBXL_VERSION, 0, driver->logger)) {
         goto close_logger;
     }
 
-    libxl_childproc_setmode(driver->ctx, &libxl_child_hooks, driver->ctx);
+    xen_fns.libxl_childproc_setmode(driver->ctx, &libxl_child_hooks, driver->ctx);
 
-    version = libxl_get_version_info(driver->ctx);
+    version = xen_fns.libxl_get_version_info(driver->ctx);
     if (version == NULL) {
         goto free_ctx;
     }
@@ -141,18 +388,18 @@ static inline int  hyperxl_initialize_driver(hyperxl_driver** pdriver, bool verb
     driver->version = version->xen_version_major * 1000000 + version->xen_version_minor * 1000;
     driver->capabilities = strdup(version->capabilities);
 
-    if(libxl_get_free_memory(driver->ctx, &mem)) {
+    if(xen_fns.libxl_get_free_memory(driver->ctx, &mem)) {
         goto free_ctx;
     }
 
-    libxl_event_register_callbacks(driver->ctx, &ev_hooks, driver->ctx);
+    xen_fns.libxl_event_register_callbacks(driver->ctx, &ev_hooks, driver->ctx);
 
     return 0;
 
 free_ctx:
-    libxl_ctx_free(driver->ctx);
+    xen_fns.libxl_ctx_free(driver->ctx);
 close_logger:
-    xtl_logger_destroy(driver->logger);
+    xen_fns.xtl_logger_destroy(driver->logger);
 release_driver:
     free(driver);
     driver = NULL;
@@ -161,30 +408,34 @@ release_driver:
 #endif //LIBXL_HAVE_BUILDINFO_KERNEL
 }
 
+static inline int hyperxl_ctx_free(libxl_ctx* ctx) {
+    return xen_fns.libxl_ctx_free(ctx);
+}
+
 static inline int  hyperxl_domain_start(libxl_ctx* ctx, hyperxl_domain_config* config) {
 	int i, ret = -1;
 	uint32_t domid = 0;
 	libxl_domain_config d_config;
 
-	libxl_domain_config_init(&d_config);
+	xen_fns.libxl_domain_config_init(&d_config);
 
 	//init create info
 	libxl_domain_create_info* c_info = &d_config.c_info;
-	libxl_domain_create_info_init(c_info);
+	xen_fns.libxl_domain_create_info_init(c_info);
 
 	if (config->hvm)
 		c_info->type = LIBXL_DOMAIN_TYPE_HVM;
 	else
 		c_info->type = LIBXL_DOMAIN_TYPE_PV;
 
-	libxl_uuid_generate(&c_info->uuid);
+	xen_fns.libxl_uuid_generate(&c_info->uuid);
 	c_info->name = strdup(config->name);
-	libxl_defbool_set(&c_info->run_hotplug_scripts, false);
+	xen_fns.libxl_defbool_set(&c_info->run_hotplug_scripts, false);
 
 	//init_build_info
 	libxl_domain_build_info* b_info = &d_config.b_info;
 	if (config->hvm)
-		libxl_domain_build_info_init_type(b_info, LIBXL_DOMAIN_TYPE_HVM);
+		xen_fns.libxl_domain_build_info_init_type(b_info, LIBXL_DOMAIN_TYPE_HVM);
 	else {
 		// currently only hvm is supported. pv mode will be enabled
 		// whenever we can insert several serial ports and filesystem
@@ -195,11 +446,11 @@ static inline int  hyperxl_domain_start(libxl_ctx* ctx, hyperxl_domain_config* c
 	// currently, we do not change vcpu and memory only, will add this
 	// feature later.
 	b_info->max_vcpus = config->max_vcpus;
-    if (libxl_cpu_bitmap_alloc(ctx, &b_info->avail_vcpus, config->max_vcpus))
+    if (xen_fns.libxl_cpu_bitmap_alloc(ctx, &b_info->avail_vcpus, config->max_vcpus))
         goto cleanup;
     libxl_bitmap_set_none(&b_info->avail_vcpus);
     for (i = 0; i < config->max_vcpus; i++)
-        libxl_bitmap_set((&b_info->avail_vcpus), i);
+        xen_fns.libxl_bitmap_set((&b_info->avail_vcpus), i);
 
     b_info->sched_params.weight = 1000;
     b_info->max_memkb = config->max_memory_kb;
@@ -208,9 +459,9 @@ static inline int  hyperxl_domain_start(libxl_ctx* ctx, hyperxl_domain_config* c
 
     // currently, we only initialize hvm fields
     if (config->hvm) {
-        libxl_defbool_set(&b_info->u.hvm.pae, true);
-        libxl_defbool_set(&b_info->u.hvm.apic, false);
-        libxl_defbool_set(&b_info->u.hvm.acpi, true);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.pae, true);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.apic, false);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.acpi, true);
 
         b_info->u.hvm.boot = strdup("c");
 
@@ -219,50 +470,50 @@ static inline int  hyperxl_domain_start(libxl_ctx* ctx, hyperxl_domain_config* c
         b_info->ramdisk = strdup(config->initrd);
 
         b_info->u.hvm.vga.kind = LIBXL_VGA_INTERFACE_TYPE_NONE;
-        libxl_defbool_set(&b_info->u.hvm.nographic, 1);
-        libxl_defbool_set(&b_info->u.hvm.vnc.enable, 0);
-        libxl_defbool_set(&b_info->u.hvm.sdl.enable, 0);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.nographic, 1);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.vnc.enable, 0);
+        xen_fns.libxl_defbool_set(&b_info->u.hvm.sdl.enable, 0);
 
         b_info->u.hvm.serial = strdup(config->console_sock);
 
-        libxl_string_list_copy(ctx, &b_info->extra, (libxl_string_list*)config->extra);
+        xen_fns.libxl_string_list_copy(ctx, &b_info->extra, (libxl_string_list*)config->extra);
 
         // comments from libvirt and libxenlight:
         //
         // The following comment and calculation were taken directly from
-        // libxenlight's internal function libxl_get_required_shadow_memory():
+        // libxenlight's internal function xen_fns.libxl_get_required_shadow_memory():
         //
         // 256 pages (1MB) per vcpu, plus 1 page per MiB of RAM for the P2M map,
         // plus 1 page per MiB of RAM to shadow the resident processes.
 
-        b_info->shadow_memkb = 4 * (256 * libxl_bitmap_count_set(&b_info->avail_vcpus) +
+        b_info->shadow_memkb = 4 * (256 * xen_fns.libxl_bitmap_count_set(&b_info->avail_vcpus) +
                                     2 * (b_info->max_memkb / 1024));
     }
 
-    if (libxl_domain_create_new(ctx, &d_config,
+    if (xen_fns.libxl_domain_create_new(ctx, &d_config,
                                       &domid, NULL, NULL)) {
     	goto cleanup;
     }
 
     libxl_evgen_domain_death* e_death = NULL;
-    if (libxl_evenable_domain_death(ctx, domid, 0, &e_death)) {
+    if (xen_fns.libxl_evenable_domain_death(ctx, domid, 0, &e_death)) {
     	goto cleanup;
     }
 
-    libxl_domain_unpause(ctx, domid);
+    xen_fns.libxl_domain_unpause(ctx, domid);
     config->domid = domid;
     config->ev    = e_death;
 
 	ret = 0;
 
 cleanup:
-	libxl_domain_config_dispose(&d_config);
+	xen_fns.libxl_domain_config_dispose(&d_config);
 	return ret;
 }
 
 static inline void hyperxl_domain_cleanup(libxl_ctx *ctx, void* ev) {
     if (ev != NULL)
-        libxl_evdisable_domain_death(ctx, (libxl_evgen_domain_death*)ev);
+        xen_fns.libxl_evdisable_domain_death(ctx, (libxl_evgen_domain_death*)ev);
 }
 
 static inline void hyperxl_sigchld_handler(libxl_ctx* ctx) {
@@ -270,7 +521,7 @@ static inline void hyperxl_sigchld_handler(libxl_ctx* ctx) {
     pid_t pid = waitpid(-1, &status, WNOHANG);
     printf("got child pid: %d\n", pid);
     if (pid > 0) {
-        res = libxl_childproc_reaped(ctx, pid, status);
+        res = xen_fns.libxl_childproc_reaped(ctx, pid, status);
         printf("check whether child proc is created by libxl: %d\n", res);
     }
 }
@@ -289,26 +540,26 @@ static inline void hyperxl_domain_event_handler(void *data, HYPERXL_EVENT_CONST 
     DomainDeath_cgo((uint32_t)event->domid);
 
 ignore:
-    libxl_event_free(ctx, (libxl_event *)event);
+    xen_fns.libxl_event_free(ctx, (libxl_event *)event);
 }
 
 static inline int  hyperxl_domain_destroy(libxl_ctx* ctx, uint32_t domid) {
-    return libxl_domain_destroy(ctx, domid, NULL);
+    return xen_fns.libxl_domain_destroy(ctx, domid, NULL);
 }
 
 static inline int  hyperxl_domaim_check(libxl_ctx* ctx, uint32_t domid)
 {
-    return libxl_domain_info(ctx, NULL, domid);
+    return xen_fns.libxl_domain_info(ctx, NULL, domid);
 }
 
-// libxl internal in libxl__device_nic_add()
+// libxl internal in xen_fns.libxl__device_nic_add()
 static inline int hyperxl_nic_add(libxl_ctx* ctx, uint32_t domid, hyperxl_nic_config* config) {
 
     libxl_device_nic nic;
     libxl_mac mac;
     int i, ret = -1;
 
-    libxl_device_nic_init(&nic);
+    xen_fns.libxl_device_nic_init(&nic);
     nic.backend_domid = 0;
     nic.mtu = 1492;
     nic.model = strdup("e1000");
@@ -321,17 +572,17 @@ static inline int hyperxl_nic_add(libxl_ctx* ctx, uint32_t domid, hyperxl_nic_co
         for (i=0; i<6; i++) {
             mac[i] = (uint8_t)(*(config->mac + i));
         }
-        libxl_mac_copy(ctx, &nic.mac, &mac);
+        xen_fns.libxl_mac_copy(ctx, &nic.mac, &mac);
     }
 
-    if( libxl_device_nic_add(ctx, domid, &nic, 0) ) {
+    if( xen_fns.libxl_device_nic_add(ctx, domid, &nic, 0) ) {
         goto cleanup;
     }
 
     ret = 0;
 
 cleanup:
-    libxl_device_nic_dispose(&nic);
+    xen_fns.libxl_device_nic_dispose(&nic);
     return ret;
 }
 
@@ -339,14 +590,14 @@ static inline int hyperxl_nic_remove(libxl_ctx* ctx, uint32_t domid, const char*
     libxl_device_nic nic;
     int ret = -1;
 
-    libxl_device_nic_init(&nic);
-    if(libxl_mac_to_device_nic(ctx, domid, mac, &nic)) {
+    xen_fns.libxl_device_nic_init(&nic);
+    if(xen_fns.libxl_mac_to_device_nic(ctx, domid, mac, &nic)) {
         char* msg = "failed to get device from mac";
         hyperxl_log_cgo(msg, strlen(msg));
         goto cleanup;
     }
 
-    if(libxl_device_nic_remove(ctx, domid, &nic, 0)) {
+    if(xen_fns.libxl_device_nic_remove(ctx, domid, &nic, 0)) {
         char* msg = "failed to remove nic from domain";
         hyperxl_log_cgo(msg, strlen(msg));
         goto cleanup;
@@ -354,12 +605,12 @@ static inline int hyperxl_nic_remove(libxl_ctx* ctx, uint32_t domid, const char*
     ret = 0;
 
 cleanup:
-    libxl_device_nic_dispose(&nic);
+    xen_fns.libxl_device_nic_dispose(&nic);
     return ret;
 }
 
 static inline  void hyperxl_config_disk(hyperxl_disk_config* config, libxl_device_disk* disk) {
-    libxl_device_disk_init(disk);
+    xen_fns.libxl_device_disk_init(disk);
     disk->pdev_path = strdup(config->source);
     disk->vdev = strdup(config->target);
     disk->format = config->format;
@@ -373,12 +624,12 @@ static inline int hyperxl_disk_add(libxl_ctx* ctx, uint32_t domid,hyperxl_disk_c
     libxl_device_disk disk;
     int ret = -1;
     hyperxl_config_disk(config, &disk);
-    if (libxl_device_disk_add(ctx, domid, &disk, 0) ) {
+    if (xen_fns.libxl_device_disk_add(ctx, domid, &disk, 0) ) {
         goto cleanup;
     }
     ret = 0;
 cleanup:
-    libxl_device_disk_dispose(&disk);
+    xen_fns.libxl_device_disk_dispose(&disk);
     return ret;
 }
 
@@ -386,12 +637,12 @@ static inline int hyperxl_disk_remove(libxl_ctx* ctx, uint32_t domid,hyperxl_dis
     libxl_device_disk disk;
     int ret = -1;
     hyperxl_config_disk(config, &disk);
-    if (libxl_device_disk_remove(ctx, domid, &disk, 0) ) {
+    if (xen_fns.libxl_device_disk_remove(ctx, domid, &disk, 0) ) {
         goto cleanup;
     }
     ret = 0;
 cleanup:
-    libxl_device_disk_dispose(&disk);
+    xen_fns.libxl_device_disk_dispose(&disk);
     return ret;
 }
 
@@ -433,7 +684,7 @@ static inline  void hyperxl_vmessage(xentoollog_logger *logger_in,
     progress_erase(lg);
 
     if (lg->log_pos < HYPERXL_LOG_BUF_SIZE)
-        lg->log_pos += snprintf(hyperxl_log_buf + lg->log_pos, HYPERXL_LOG_BUF_SIZE - lg->log_pos, "%s: ", xtl_level_to_string(level));
+        lg->log_pos += snprintf(hyperxl_log_buf + lg->log_pos, HYPERXL_LOG_BUF_SIZE - lg->log_pos, "%s: ", xen_fns.xtl_level_to_string(level));
 
     if (lg->log_pos < HYPERXL_LOG_BUF_SIZE)
         lg->log_pos += vsnprintf(hyperxl_log_buf + lg->log_pos, HYPERXL_LOG_BUF_SIZE - lg->log_pos, format, al);
@@ -492,6 +743,26 @@ static inline  void hyperxl_destroy(struct xentoollog_logger *logger_in) {
     free(lg);
 }
 
+#define HYPER_XTL_NEW_LOGGER(LOGGER,buffer) ({                                \
+    xentoollog_logger_##LOGGER *new_consumer;                           \
+                                                                        \
+    (buffer).vtable.vmessage = LOGGER##_vmessage;                       \
+    (buffer).vtable.progress = LOGGER##_progress;                       \
+    (buffer).vtable.destroy  = LOGGER##_destroy;                        \
+                                                                        \
+    new_consumer = malloc(sizeof(*new_consumer));                       \
+    if (!new_consumer) {                                                \
+        xen_fns.xtl_log((xentoollog_logger*)&buffer,                            \
+                XTL_CRITICAL, errno, "xtl",                             \
+                "failed to allocate memory for new message logger");    \
+    } else {                                                            \
+        *new_consumer = buffer;                                         \
+    }                                                                   \
+                                                                        \
+    new_consumer;                                                       \
+});
+
+
 static inline xentoollog_logger_hyperxl* xtl_createlogger_hyperxl
         (xentoollog_level min_level, unsigned flags) {
     xentoollog_logger_hyperxl newlogger;
@@ -504,12 +775,13 @@ static inline xentoollog_logger_hyperxl* xtl_createlogger_hyperxl
     newlogger.progress_erase_len = 0;
     newlogger.progress_last_percent = 0;
 
-    return XTL_NEW_LOGGER(hyperxl, newlogger);
+    return HYPER_XTL_NEW_LOGGER(hyperxl, newlogger);
 }
 */
 import "C"
 
 import (
+	"errors"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/glog"
 	"unsafe"
@@ -565,6 +837,14 @@ func (dc *DomainConfig) toC() *C.struct_hyperxl_domain_config {
 		console_sock:  C.CString(dc.ConsoleSock),
 		extra:         unsafe.Pointer(&extra),
 	}
+}
+
+func loadXenLib() error {
+	res := (int)(C.hyperxl_load_libraries())
+	if res == 0 {
+		return nil
+	}
+	return errors.New("Fail to load xen libraries")
 }
 
 //int  hyperxl_initialize_driver(hyperxl_driver** pdriver);
@@ -653,9 +933,9 @@ func HyperxlDiskRemove(ctx LibxlCtxPtr, domid uint32, source, target string, bac
  *  Libxl directly
  ******************************************************************************/
 
-//int libxl_ctx_free(libxl_ctx *ctx /* 0 is OK */);
+//int hyperxl_ctx_free(libxl_ctx *ctx /* 0 is OK */);
 func LibxlCtxFree(ctx LibxlCtxPtr) int {
-	return (int)(C.libxl_ctx_free((*C.struct_libxl__ctx)(ctx)))
+	return (int)(C.hyperxl_ctx_free((*C.struct_libxl__ctx)(ctx)))
 }
 
 /******************************************************************************
