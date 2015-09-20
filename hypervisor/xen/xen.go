@@ -62,7 +62,7 @@ func InitDriver() *XenDriver {
 		glog.Info("failed to initialize xen context")
 		return nil
 	} else if ctx.Version < REQUIRED_VERSION {
-		glog.Info("Xen version is not new enough (%d), need 4.5 or higher", ctx.Version)
+		glog.Infof("Xen version is not new enough (%d), need 4.5 or higher", ctx.Version)
 		return nil
 	} else {
 		glog.V(1).Info("Xen capabilities: ", ctx.Capabilities)
@@ -75,7 +75,7 @@ func InitDriver() *XenDriver {
 			}
 		}
 		if !hvm {
-			glog.Info("Xen installation does not support HVM, current capabilities: %s", ctx.Capabilities)
+			glog.Infof("Xen installation does not support HVM, current capabilities: %s", ctx.Capabilities)
 			return nil
 		}
 	}
