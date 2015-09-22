@@ -229,13 +229,13 @@ func InitNetwork(bIface, bIP string, disable bool) error {
 
 		addr, err = GetIfaceAddr(BridgeIface)
 		if err != nil {
-			glog.Error("get iface addr failed\n")
+			glog.Error("get iface addr failed")
 			return err
 		}
 
 		BridgeIPv4Net = addr.(*net.IPNet)
 	} else {
-		glog.V(1).Info("bridge exist\n")
+		glog.V(1).Info("bridge exist")
 		// Validate that the bridge ip matches the ip specified by BridgeIP
 		BridgeIPv4Net = addr.(*net.IPNet)
 
@@ -296,7 +296,7 @@ func configureBridge(bridgeIP, bridgeIface string) error {
 	if len(bridgeIP) != 0 {
 		_, _, err := net.ParseCIDR(bridgeIP)
 		if err != nil {
-			glog.Errorf("%s parsecidr failed\n", bridgeIP)
+			glog.Errorf("%s parsecidr failed", bridgeIP)
 			return err
 		}
 		ifaceAddr = bridgeIP
@@ -309,7 +309,7 @@ func configureBridge(bridgeIP, bridgeIface string) error {
 	if err := CreateBridgeIface(bridgeIface); err != nil {
 		// The bridge may already exist, therefore we can ignore an "exists" error
 		if !os.IsExist(err) {
-			glog.Errorf("CreateBridgeIface failed %s %s\n", bridgeIface, ifaceAddr)
+			glog.Errorf("CreateBridgeIface failed %s %s", bridgeIface, ifaceAddr)
 			return err
 		}
 	}
@@ -334,7 +334,7 @@ func configureBridge(bridgeIP, bridgeIface string) error {
 		return err
 	}
 
-	glog.V(3).Infof("Allocate IP Address %s for bridge %s\n", ipAddr, bridgeIface)
+	glog.V(3).Infof("Allocate IP Address %s for bridge %s", ipAddr, bridgeIface)
 
 	if err := NetworkLinkAddIp(iface, ipAddr, ipNet); err != nil {
 		return fmt.Errorf("Unable to add private network: %s", err)

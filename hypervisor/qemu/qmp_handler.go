@@ -135,7 +135,7 @@ func qmpReceiver(qmp chan QmpInteraction, wait chan int, decoder *json.Decoder) 
 	for {
 		rsp := &QmpResponse{}
 		if err := decoder.Decode(rsp); err != nil {
-			glog.Info("QMP exit as got error:", err.Error())
+			glog.Info("QMP exit as got error: ", err.Error())
 			qmp <- &QmpInternalError{cause: err.Error()}
 			/* After Error report, send wait notification to close qmp channel */
 			wait <- 1
