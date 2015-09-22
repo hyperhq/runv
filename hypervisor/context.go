@@ -293,8 +293,13 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		}
 	}
 
+	hostname := spec.Name
+	if len(hostname) > 64 {
+		hostname = spec.Name[:64]
+	}
+
 	ctx.vmSpec = &VmPod{
-		Hostname:   spec.Name,
+		Hostname:   hostname,
 		Containers: containers,
 		Dns:        spec.Dns,
 		Interfaces: nil,
