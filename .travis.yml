@@ -1,0 +1,25 @@
+language: go
+
+matrix:
+  include:
+    - go: 1.4
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y autoconf libdevmapper-dev libsqlite3-dev -qq
+  - cd `mktemp -d`
+  - wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.xz
+  - tar xJf autoconf-2.69.tar.xz
+  - cd autoconf-2.69
+  - ./configure && make && sudo make install
+  - wget http://ftp.gnu.org/gnu/automake/automake-1.15.tar.xz
+  - tar xJf automake-1.15.tar.xz
+  - cd automake-1.15
+  - ./configure && make && sudo make install
+
+script: 
+  - cd ${TRAVIS_BUILD_DIR}
+  - ./autogen.sh
+  - ./configure 
+  - make
+
