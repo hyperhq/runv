@@ -30,10 +30,6 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     cd /mycontainer
-    runv [ spec-file ]
-
-or
-    cd /mycontainer
     runv start [ spec-file ]
 
 If not specified, the default value for the 'spec-file' is 'config.json'. `
@@ -70,8 +66,6 @@ func main() {
 		startCommand,
 		specCommand,
 	}
-	// Default to 'start' is no command is specified
-	app.Action = startCommand.Action
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
