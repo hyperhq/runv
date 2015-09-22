@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/hyperhq/runv.svg)](https://travis-ci.org/hyperhq/runv)
 ## runV
 
 `runV` is a hypervisor-based runtime for [OCF](https://github.com/opencontainers/specs).
