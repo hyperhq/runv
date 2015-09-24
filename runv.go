@@ -299,6 +299,18 @@ var startCommand = cli.Command{
 var specCommand = cli.Command{
 	Name:  "spec",
 	Usage: "create a new specification file",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "config-file, c",
+			Value: "config.json",
+			Usage: "path to spec config file for writing",
+		},
+		cli.StringFlag{
+			Name:  "runtime-file, r",
+			Value: "runtime.json",
+			Usage: "path to runtime config file for writing",
+		},
+	},
 	Action: func(context *cli.Context) {
 		spec := specs.Spec{
 			Version: specs.Version,
@@ -324,24 +336,50 @@ var specCommand = cli.Command{
 			Hostname: "shell",
 		}
 
-		data, err := json.MarshalIndent(&spec, "", "\t")
-		if err != nil {
-			fmt.Printf("%s", err.Error())
-			return
-		}
-		fmt.Printf("config.json:\n%s\n", data)
-
-		rt := specs.LinuxRuntimeSpec{
+		rspec := specs.LinuxRuntimeSpec{
 			Linux: specs.LinuxRuntime{
 				Resources: &specs.Resources{},
 			},
 		}
 
-		data, err = json.MarshalIndent(&rt, "", "\t")
+		checkNoFile := func(name string) error {
+			_, err := os.Stat(name)
+			if err == nil {
+				return fmt.Errorf("File %s exists. Remove it first", name)
+			}
+			if !os.IsNotExist(err) {
+				return err
+			}
+			return nil
+		}
+
+		cName := context.String("config-file")
+		rName := context.String("runtime-file")
+		if err := checkNoFile(cName); err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		if err := checkNoFile(rName); err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		data, err := json.MarshalIndent(&spec, "", "\t")
 		if err != nil {
 			fmt.Printf("%s", err.Error())
 			return
 		}
-		fmt.Printf("\nruntime.json:\n%s\n", data)
+		if err := ioutil.WriteFile(cName, data, 0666); err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		rdata, err := json.MarshalIndent(&rspec, "", "\t")
+		if err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
+		if err := ioutil.WriteFile(rName, rdata, 0666); err != nil {
+			fmt.Printf("%s", err.Error())
+			return
+		}
 	},
 }
