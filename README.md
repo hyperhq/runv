@@ -62,5 +62,5 @@ Please check the runC example to get the container rootfs.
 https://github.com/opencontainers/runc#examples
 
 And you can get a sample OCF config.json at
-https://github.com/opencontainers/runc#ocf-container-json-format or
-simply execute `runc spec`.
+https://github.com/opencontainers/runc#oci-container-json-format or
+simply execute `runv spec`.
