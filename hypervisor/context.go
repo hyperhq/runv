@@ -50,6 +50,7 @@ type VmContext struct {
 
 	ptys        *pseudoTtys
 	ttySessions map[string]uint64
+	pendingTtys []*AttachCommand
 
 	// Specification
 	userSpec *pod.UserPod
@@ -110,6 +111,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		vm:              vmChannel,
 		ptys:            newPts(),
 		ttySessions:     make(map[string]uint64),
+		pendingTtys:     []*AttachCommand{},
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
 		TtySockName:     ttySockName,
@@ -146,6 +148,8 @@ func (ctx *VmContext) unsetTimeout() {
 
 func (ctx *VmContext) reset() {
 	ctx.lock.Lock()
+
+	ctx.ClosePendingTtys()
 
 	ctx.pciAddr = PciAddrFrom
 	ctx.scsiId = 0
@@ -201,7 +205,7 @@ func (ctx *VmContext) clientDereg(tag string) {
 }
 
 func (ctx *VmContext) Lookup(container string) int {
-	if container == "" {
+	if container == "" || ctx.vmSpec == nil {
 		return -1
 	}
 	for idx, c := range ctx.vmSpec.Containers {
@@ -214,9 +218,17 @@ func (ctx *VmContext) Lookup(container string) int {
 	return -1
 }
 
+func (ctx *VmContext) ClosePendingTtys() {
+	for _, tty := range ctx.pendingTtys {
+		tty.Streams.Close()
+	}
+	ctx.pendingTtys = []*AttachCommand{}
+}
+
 func (ctx *VmContext) Close() {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
+	ctx.ClosePendingTtys()
 	ctx.unsetTimeout()
 	ctx.DCtx.Close()
 	close(ctx.vm)

@@ -59,6 +59,23 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		glog.Info("initial vm spec: ", string(res))
 	}
 
+	if cmd.Spec.Tty {
+		pendings := ctx.pendingTtys
+		ctx.pendingTtys = []*AttachCommand{}
+		for _, acmd := range pendings {
+			idx := ctx.Lookup(acmd.Container)
+			if idx >= 0 {
+				session := ctx.vmSpec.Containers[idx].Tty
+				ctx.ptys.ptyConnect(ctx, idx, session, acmd.Streams)
+				ctx.clientReg(acmd.Streams.ClientTag, session)
+				glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			} else {
+				glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+				ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+			}
+		}
+	}
+
 	ctx.allocateDevices()
 
 	return true
@@ -107,12 +124,17 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 
 func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	idx := ctx.Lookup(cmd.Container)
-	if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {
-		ctx.reportBadRequest(fmt.Sprintf("tty is not configured for %s", cmd.Container))
+	if cmd.Container != "" && idx < 0 {
+		ctx.pendingTtys = append(ctx.pendingTtys, cmd)
+		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
+		return
+	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {
+		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
+		ctx.reportBadRequest(cause)
 		cmd.Streams.Callback <- &types.VmResponse{
 			VmId:  ctx.Id,
 			Code:  types.E_NO_TTY,
-			Cause: fmt.Sprintf("tty is not configured for %s", cmd.Container),
+			Cause: cause,
 			Data:  uint64(0),
 		}
 		return
@@ -306,6 +328,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "")
 			ctx.Become(stateDestroying, "DESTRYING")
 			ctx.reportVmShutdown()
+		case COMMAND_ATTACH:
+			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
 		case COMMAND_WINDOWSIZE:
