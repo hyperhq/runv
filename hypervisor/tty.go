@@ -203,6 +203,9 @@ func (ta *ttyAttachments) empty() bool {
 }
 
 func (tty *TtyIO) Close() string {
+
+	glog.V(1).Info("Close tty ", tty.ClientTag)
+
 	if tty.Stdin != nil {
 		tty.Stdin.Close()
 	}
@@ -214,6 +217,7 @@ func (tty *TtyIO) Close() string {
 			Code:  types.E_EXEC_FINISH,
 			Cause: "Command finished",
 		}
+		close(tty.Callback)
 	}
 	return tty.ClientTag
 }
@@ -325,14 +329,13 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
-	container string, size *WindowSize) error {
-	vmCallback := make(chan *types.VmResponse, 1)
+	container string, callback chan *types.VmResponse, size *WindowSize) error {
 
 	ttyIO := &TtyIO{
 		Stdin:     Stdin,
 		Stdout:    Stdout,
 		ClientTag: tag,
-		Callback:  vmCallback,
+		Callback:  callback,
 	}
 
 	var attachCommand = &AttachCommand{
@@ -348,6 +351,5 @@ func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
 
 	vmEvent.(chan VmEvent) <- attachCommand
 
-	<-vmCallback
 	return nil
 }

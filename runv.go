@@ -233,13 +233,6 @@ func startVContainer(context *cli.Context) {
 		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
 	}
 
-	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
-	if qemuResponse.Data == nil {
-		fmt.Printf("StartPod fail: QEMU response data is nil\n")
-		return
-	}
-	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
-
 	inFd, _ := term.GetFdInfo(os.Stdin)
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
 
@@ -248,17 +241,25 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	height, width := getTtySize(outFd, isTerminalOut)
-	winSize := &hypervisor.WindowSize{
-		Row:    uint16(height),
-		Column: uint16(width),
+	tag := pod.RandStr(8, "alphanum")
+	ttyCallback := make(chan *types.VmResponse, 1)
+
+	err = vm.Attach(os.Stdin, os.Stdout, tag, containerInfoList[0].Id, ttyCallback, nil)
+	if err != nil {
+		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
+		return
 	}
 
-	tag := pod.RandStr(8, "alphanum")
+	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
+	if qemuResponse.Data == nil {
+		fmt.Printf("StartPod fail: QEMU response data is nil\n")
+		return
+	}
+	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
 
+	resizeTty(vm, tag, outFd, isTerminalOut)
 	monitorTtySize(vm, tag, outFd, isTerminalOut)
-
-	vm.Attach(os.Stdin, os.Stdout, tag, containerId, winSize)
+	<-ttyCallback
 
 	qemuResponse = vm.StopPod(mypod, "yes")
 
