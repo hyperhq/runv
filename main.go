@@ -29,10 +29,11 @@ The current release of "runV" supports the following hypervisors:
 After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
-    cd /mycontainer
-    runv start [ spec-file ]
+    # cd /mycontainer
+    # runv start [ -c spec-config-file ] [ -r runtime-config-file ]
 
-If not specified, the default value for the 'spec-file' is 'config.json'. `
+If not specified, the default value for the 'spec-config-file' is 'config.json',
+and the default value for the 'runtime-config-file' is 'runtime.json'.`
 )
 
 func main() {
