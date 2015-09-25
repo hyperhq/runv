@@ -18,7 +18,7 @@ func OCFConvert2Pod(ociData []byte, runtimeData []byte) (*UserPod, error) {
 		if err := json.Unmarshal(runtimeData, &r); err != nil {
 			return nil, err
 		}
-		memory = int(r.Linux.Resources.Memory.Limit>>20)
+		memory = int(r.Linux.Resources.Memory.Limit >> 20)
 	}
 
 	return OCFSpec2Pod(s.Spec, memory), nil
