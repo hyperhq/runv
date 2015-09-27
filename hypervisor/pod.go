@@ -148,12 +148,17 @@ func (mypod *Pod) GetPodIP(vm *Vm) []string {
 		return nil
 	}
 	var response *types.VmResponse
-	ret1, _, ret3, err := vm.GetVmChan()
+	PodEvent, err := vm.GetRequestChan()
 	if err != nil {
 		return nil
 	}
-	PodEvent := ret1.(chan VmEvent)
-	subStatus := ret3.(chan *types.VmResponse)
+	defer vm.ReleaseRequestChan(PodEvent)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
 
 	getPodIPEvent := &GetPodIPCommand{
 		Id: mypod.Vm,
@@ -161,7 +166,7 @@ func (mypod *Pod) GetPodIP(vm *Vm) []string {
 	PodEvent <- getPodIPEvent
 	// wait for the VM response
 	for {
-		response = <-subStatus
+		response = <-Status
 		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
 		if response.VmId == vm.Id {
 			break

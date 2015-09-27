@@ -344,12 +344,13 @@ func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
 		Container: container,
 	}
 
-	vmEvent, _, _, err := vm.GetVmChan()
+	VmEvent, err := vm.GetRequestChan()
 	if err != nil {
 		return err
 	}
+	defer vm.ReleaseRequestChan(VmEvent)
 
-	vmEvent.(chan VmEvent) <- attachCommand
+	VmEvent <- attachCommand
 
 	return nil
 }

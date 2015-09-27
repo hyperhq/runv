@@ -13,46 +13,44 @@ import (
 )
 
 type Vm struct {
-	Id              string
-	Pod             *Pod
-	Status          uint
-	Cpu             int
-	Mem             int
-	Lazy            bool
-	Keep            int
-	VmChan          interface{}
-	VmClientChan    interface{}
-	SubVmClientChan interface{}
+	Id     string
+	Pod    *Pod
+	Status uint
+	Cpu    int
+	Mem    int
+	Lazy   bool
+	Keep   int
+
+	VmChan  chan VmEvent
+	clients *Fanout
 }
 
-func (vm *Vm) GetVmChan() (interface{}, interface{}, interface{}, error) {
-	if vm.VmChan != nil && vm.VmClientChan != nil {
-		return vm.VmChan, vm.VmClientChan, vm.SubVmClientChan, nil
-	}
-	return nil, nil, nil, fmt.Errorf("Can not find the VM chan for pod: %s!", vm.Id)
+func (vm *Vm) GetRequestChan() (chan VmEvent, error) {
+	return vm.VmChan, nil
 }
 
-func (vm *Vm) SetVmChan(vmchan, vmclient, subVmClient interface{}) error {
-	if vm.VmChan == nil {
-		if vmchan != nil {
-			vm.VmChan = vmchan
-		}
-		if vmclient != nil {
-			vm.VmClientChan = vmclient
-		}
-		if subVmClient != nil {
-			vm.SubVmClientChan = subVmClient
-		}
-		return nil
+func (vm *Vm) ReleaseRequestChan(chan VmEvent) {
+	//do nothing, the existence of this method is just let the
+	//API be symmetric
+}
+
+func (vm *Vm) GetResponseChan() (chan *types.VmResponse, error) {
+	if vm.clients != nil {
+		return vm.clients.Acquire()
 	}
-	return fmt.Errorf("Already setup chan for vm: %s!", vm.Id)
+	return nil, errors.New("No channels available")
+}
+
+func (vm *Vm) ReleaseResponseChan(ch chan *types.VmResponse) {
+	if vm.clients != nil {
+		vm.clients.Release(ch)
+	}
 }
 
 func (vm *Vm) Launch(b *BootConfig) (err error) {
 	var (
-		PodEvent  = make(chan VmEvent, 128)
-		Status    = make(chan *types.VmResponse, 128)
-		subStatus = make(chan *types.VmResponse, 128)
+		PodEvent = make(chan VmEvent, 128)
+		Status   = make(chan *types.VmResponse, 128)
 	)
 
 	if vm.Lazy {
@@ -61,43 +59,41 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
-	if err := vm.SetVmChan(PodEvent, Status, subStatus); err != nil {
-		glog.V(1).Infof("SetVmChan error: %s", err.Error())
-		return err
-	}
+	vm.VmChan = PodEvent
+	vm.clients = CreateFanout(Status, 128, false)
 
 	return nil
 }
 
 func (vm *Vm) Kill() (int, string, error) {
-	PodEvent, Status, subStatus, err := vm.GetVmChan()
+	PodEvent, err := vm.GetRequestChan()
 	if err != nil {
 		return -1, "", err
 	}
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return -1, "", err
+	}
+
 	var Response *types.VmResponse
 	shutdownPodEvent := &ShutdownCommand{Wait: false}
-	PodEvent.(chan VmEvent) <- shutdownPodEvent
+	PodEvent <- shutdownPodEvent
 	// wait for the VM response
-	for {
-		stop := 0
-		select {
-		case Response = <-Status.(chan *types.VmResponse):
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-			if Response.Code == types.E_VM_SHUTDOWN {
-				stop = 1
+	stop := false
+	for !stop {
+		Response = <-Status
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_VM_SHUTDOWN {
+			vm.ReleaseResponseChan(Status)
+			vm.ReleaseRequestChan(PodEvent)
+			if vm.clients != nil {
+				vm.clients.Close()
+				vm.clients = nil
 			}
-		case Response = <-subStatus.(chan *types.VmResponse):
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-			if Response.Code == types.E_VM_SHUTDOWN {
-				stop = 1
-			}
-		}
-		if stop == 1 {
-			break
+			stop = true
 		}
 	}
-	close(Status.(chan *types.VmResponse))
-	close(subStatus.(chan *types.VmResponse))
 
 	return Response.Code, Response.Cause, nil
 }
@@ -106,9 +102,8 @@ func (vm *Vm) Kill() (int, string, error) {
 func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
 	var (
-		PodEvent  = make(chan VmEvent, 128)
-		Status    = make(chan *types.VmResponse, 128)
-		subStatus = make(chan *types.VmResponse, 128)
+		PodEvent = make(chan VmEvent, 128)
+		Status   = make(chan *types.VmResponse, 128)
 	)
 
 	go VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
@@ -121,10 +116,8 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 		return errors.New("load vm status failed")
 	}
 
-	if err := vm.SetVmChan(PodEvent, Status, subStatus); err != nil {
-		glog.V(1).Infof("SetVmChan error: %s", err.Error())
-		return err
-	}
+	vm.VmChan = PodEvent
+	vm.clients = CreateFanout(Status, 128, false)
 
 	mypod.Status = types.S_POD_RUNNING
 	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
@@ -138,25 +131,32 @@ func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
 
 func (vm *Vm) ReleaseVm() (int, error) {
 	var Response *types.VmResponse
-	PodEvent, _, Status, err := vm.GetVmChan()
+	PodEvent, err := vm.GetRequestChan()
 	if err != nil {
 		return -1, err
 	}
+	defer vm.ReleaseRequestChan(PodEvent)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return -1, err
+	}
+	defer vm.ReleaseResponseChan(Status)
+
 	if vm.Status == types.S_VM_IDLE {
 		shutdownPodEvent := &ShutdownCommand{Wait: false}
-		PodEvent.(chan VmEvent) <- shutdownPodEvent
+		PodEvent <- shutdownPodEvent
 		for {
-			Response = <-Status.(chan *types.VmResponse)
+			Response = <-Status
 			if Response.Code == types.E_VM_SHUTDOWN {
 				break
 			}
 		}
-		close(Status.(chan *types.VmResponse))
 	} else {
 		releasePodEvent := &ReleaseVMCommand{}
-		PodEvent.(chan VmEvent) <- releasePodEvent
+		PodEvent <- releasePodEvent
 		for {
-			Response = <-Status.(chan *types.VmResponse)
+			Response = <-Status
 			if Response.Code == types.E_VM_SHUTDOWN ||
 				Response.Code == types.E_OK {
 				break
@@ -191,27 +191,22 @@ func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 func (vm *Vm) handlePodEvent(mypod *Pod) {
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
 
-	_, ret2, ret3, err := vm.GetVmChan()
+	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return
 	}
-
-	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
-	Status := ret2.(chan *types.VmResponse)
-	subStatus := ret3.(chan *types.VmResponse)
+	defer vm.ReleaseResponseChan(Status)
 
 	for {
-		defer func() {
-			err := recover()
-			if err != nil {
-				glog.Warning("panic during send shutdown message to channel")
-			}
-		}()
-		Response := <-Status
-		subStatus <- Response
+		Response, ok := <-Status
+		if !ok {
+			break
+		}
 
 		exit := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
 		if exit {
+			vm.clients.Close()
+			vm.clients = nil
 			break
 		}
 	}
@@ -247,18 +242,17 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 		return response
 	}
 
-	ret1, _, ret3, err := vm.GetVmChan()
+	PodEvent, err := vm.GetRequestChan()
 	if err != nil {
-		response = &types.VmResponse{
-			Code:  -1,
-			Cause: err.Error(),
-			Data:  nil,
-		}
-		return response
+		return errorResponse(err.Error())
 	}
+	defer vm.ReleaseRequestChan(PodEvent)
 
-	PodEvent := ret1.(chan VmEvent)
-	subStatus := ret3.(chan *types.VmResponse)
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	defer vm.ReleaseResponseChan(Status)
 
 	go vm.handlePodEvent(mypod)
 
@@ -278,7 +272,7 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 
 	// wait for the VM response
 	for {
-		response = <-subStatus
+		response = <-Status
 		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
 		if response.Code == types.E_VM_RUNNING {
 			continue
@@ -294,47 +288,43 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 	var Response *types.VmResponse
 
-	PodEvent, _, Status, err := vm.GetVmChan()
+	PodEvent, err := vm.GetRequestChan()
 	if err != nil {
-		Response = &types.VmResponse{
-			Code:  -1,
-			Cause: err.Error(),
-			Data:  nil,
-		}
-		return Response
+		return errorResponse(err.Error())
 	}
+	defer vm.ReleaseRequestChan(PodEvent)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+	defer vm.ReleaseResponseChan(Status)
 
 	if mypod.Status != types.S_POD_RUNNING {
-		Response = &types.VmResponse{
-			Code:  -1,
-			Cause: "The POD has already stoppod",
-			Data:  nil,
-		}
-		return Response
+		return errorResponse("The POD has already stoppod")
 	}
 
 	if stopVm == "yes" {
 		mypod.Wg.Add(1)
 		shutdownPodEvent := &ShutdownCommand{Wait: true}
-		PodEvent.(chan VmEvent) <- shutdownPodEvent
+		PodEvent <- shutdownPodEvent
 		// wait for the VM response
 		for {
-			Response = <-Status.(chan *types.VmResponse)
+			Response = <-Status
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_VM_SHUTDOWN {
 				mypod.Vm = ""
 				break
 			}
 		}
-		close(Status.(chan *types.VmResponse))
 		// wait for goroutines exit
 		mypod.Wg.Wait()
 	} else {
 		stopPodEvent := &StopPodCommand{}
-		PodEvent.(chan VmEvent) <- stopPodEvent
+		PodEvent <- stopPodEvent
 		// wait for the VM response
 		for {
-			Response = <-Status.(chan *types.VmResponse)
+			Response = <-Status
 			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 			if Response.Code == types.E_POD_STOPPED || Response.Code == types.E_BAD_REQUEST || Response.Code == types.E_FAILED {
 				mypod.Vm = ""
@@ -373,12 +363,13 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 		},
 	}
 
-	Event, _, _, err := vm.GetVmChan()
+	Event, err := vm.GetRequestChan()
 	if err != nil {
 		return err
 	}
 
-	Event.(chan VmEvent) <- execCmd
+	Event <- execCmd
+	vm.ReleaseRequestChan(Event)
 
 	<-Callback
 
@@ -391,13 +382,22 @@ func (vm *Vm) Tty(tag string, row, column int) error {
 		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
-	Event, _, _, err := vm.GetVmChan()
+	Event, err := vm.GetRequestChan()
 	if err != nil {
 		return err
 	}
 
-	Event.(chan VmEvent) <- ttySizeCommand
+	Event <- ttySizeCommand
+	vm.ReleaseRequestChan(Event)
 	return nil
+}
+
+func errorResponse(cause string) *types.VmResponse {
+	return &types.VmResponse{
+		Code:  -1,
+		Cause: cause,
+		Data:  nil,
+	}
 }
 
 func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
