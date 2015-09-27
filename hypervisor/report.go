@@ -67,6 +67,15 @@ func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
 	}
 }
 
+func (ctx *VmContext) reportFile(data []byte) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_FILE,
+		Cause: "",
+		Data:  data,
+	}
+}
+
 func (ctx *VmContext) reportBusy(msg string) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,

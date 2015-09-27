@@ -55,6 +55,17 @@ type ExecCommand struct {
 	Streams   *TtyIO   `json:"-"`
 }
 
+type WriteFileCommand struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+	Data      []byte `json:"-"`
+}
+
+type ReadFileCommand struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+}
+
 type StopPodCommand struct{}
 type ShutdownCommand struct {
 	Wait bool
@@ -209,6 +220,8 @@ func (qe *GetPodIPCommand) Event() int       { return COMMAND_GET_POD_IP }
 func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
+func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
+func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }

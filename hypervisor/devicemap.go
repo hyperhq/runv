@@ -259,6 +259,16 @@ func (ctx *VmContext) allocateNetworks() {
 			go ctx.CreateInterface(i, addr, name)
 		}
 	}
+
+	for _, srv := range ctx.userSpec.Services {
+		inf := VmNetworkInf{
+			Device:    "lo",
+			IpAddress: srv.ServiceIP,
+			NetMask:   "255.255.255.255",
+		}
+
+		ctx.vmSpec.Interfaces = append(ctx.vmSpec.Interfaces, inf)
+	}
 }
 
 func (ctx *VmContext) addBlockDevices() {
@@ -330,27 +340,25 @@ func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
 	}
 	if len(ctx.progress.adding.networks) == 0 {
 		count := len(ctx.devices.networkMap)
-		infs := make([]VmNetworkInf, count)
-		routes := []VmRoute{}
 		for i := 0; i < count; i++ {
-			infs[i].Device = ctx.devices.networkMap[i].DeviceName
-			infs[i].IpAddress = ctx.devices.networkMap[i].IpAddr
-			infs[i].NetMask = ctx.devices.networkMap[i].NetMask
-
+			inf := VmNetworkInf{
+				Device:    ctx.devices.networkMap[i].DeviceName,
+				IpAddress: ctx.devices.networkMap[i].IpAddr,
+				NetMask:   ctx.devices.networkMap[i].NetMask,
+			}
+			ctx.vmSpec.Interfaces = append(ctx.vmSpec.Interfaces, inf)
 			for _, rl := range ctx.devices.networkMap[i].RouteTable {
 				dev := ""
 				if rl.ViaThis {
-					dev = infs[i].Device
+					dev = inf.Device
 				}
-				routes = append(routes, VmRoute{
+				ctx.vmSpec.Routes = append(ctx.vmSpec.Routes, VmRoute{
 					Dest:    rl.Destination,
 					Gateway: rl.Gateway,
 					Device:  dev,
 				})
 			}
 		}
-		ctx.vmSpec.Interfaces = infs
-		ctx.vmSpec.Routes = routes
 	}
 }
 

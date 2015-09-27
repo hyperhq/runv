@@ -340,6 +340,64 @@ func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
 	return Response
 }
 
+func (vm *Vm) WriteFile(container, target string, data []byte) error {
+	if target == "" {
+		return fmt.Errorf("'write' without file")
+	}
+
+	writeEvent := &WriteFileCommand{
+		Container: container,
+		File:      target,
+		Data:      []byte{},
+	}
+
+	writeEvent.Data = append(writeEvent.Data, data[:]...)
+	Event, _, responseEvent, err := vm.GetVmChan()
+	if err != nil {
+		return err
+	}
+
+	Event.(chan VmEvent) <- writeEvent
+
+	for {
+		Response := <-responseEvent.(chan *types.VmResponse)
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_FILE {
+			break
+		}
+	}
+
+	return nil
+}
+
+func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
+	if target == "" {
+		return nil, fmt.Errorf("'read' without file")
+	}
+
+	readEvent := &ReadFileCommand{
+		Container: container,
+		File:      target,
+	}
+
+	Event, _, responseEvent, err := vm.GetVmChan()
+	if err != nil {
+		return nil, err
+	}
+
+	Event.(chan VmEvent) <- readEvent
+
+	for {
+		Response := <-responseEvent.(chan *types.VmResponse)
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_FILE {
+			return Response.Data.([]byte), nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
 	var command []string
 	Callback := make(chan *types.VmResponse, 1)

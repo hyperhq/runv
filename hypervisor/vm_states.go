@@ -104,6 +104,35 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	}
 }
 
+func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
+	writeCmd, err := json.Marshal(*cmd)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong run profile " + err.Error(),
+		}
+		return
+	}
+	writeCmd = append(writeCmd, cmd.Data[:]...)
+	ctx.vm <- &DecodedMessage{
+		code:    INIT_WRITEFILE,
+		message: writeCmd,
+	}
+}
+
+func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
+	readCmd, err := json.Marshal(*cmd)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong run profile " + err.Error(),
+		}
+		return
+	}
+	ctx.vm <- &DecodedMessage{
+		code:    INIT_READFILE,
+		message: readCmd,
+	}
+}
+
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
@@ -439,6 +468,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			if ctx.userSpec.Tty {
 				ctx.setWindowSize(cmd.ClientTag, cmd.Size)
 			}
+		case COMMAND_WRITEFILE:
+			ctx.writeFile(ev.(*WriteFileCommand))
+		case COMMAND_READFILE:
+			ctx.readFile(ev.(*ReadFileCommand))
 		case EVENT_POD_FINISH:
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
@@ -447,6 +480,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			}
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
+			if ack.reply == INIT_READFILE || ack.reply == INIT_WRITEFILE {
+				ctx.reportFile(ack.msg)
+				glog.Info("Get ack for write/read data: %s", string(ack.msg))
+			}
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
