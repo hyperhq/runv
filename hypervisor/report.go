@@ -98,6 +98,9 @@ func (ctx *VmContext) reportVmFault(cause string) {
 func (ctx *VmContext) reportPodIP() {
 	ips := []string{}
 	for _, i := range ctx.vmSpec.Interfaces {
+		if i.Device == "lo" {
+			continue
+		}
 		ips = append(ips, i.IpAddress)
 	}
 	ctx.client <- &types.VmResponse{
