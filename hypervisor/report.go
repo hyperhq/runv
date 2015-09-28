@@ -107,3 +107,25 @@ func (ctx *VmContext) reportPodIP() {
 		Data:  ips,
 	}
 }
+
+func (ctx *VmContext) reportFile(code uint32, data []byte, err bool) {
+	response := &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_WRITEFILE,
+		Cause: "",
+		Data:  data,
+	}
+
+	if code == INIT_READFILE {
+		response.Code = types.E_READFILE
+		if err {
+			response.Cause = "readfile failed"
+		}
+		ctx.client <- response
+	} else {
+		if err == true {
+			response.Cause = "writefile failed"
+		}
+		ctx.client <- response
+	}
+}

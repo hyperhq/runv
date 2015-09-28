@@ -104,6 +104,35 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	}
 }
 
+func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
+	writeCmd, err := json.Marshal(*cmd)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong run profile " + err.Error(),
+		}
+		return
+	}
+	writeCmd = append(writeCmd, cmd.Data[:]...)
+	ctx.vm <- &DecodedMessage{
+		code:    INIT_WRITEFILE,
+		message: writeCmd,
+	}
+}
+
+func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
+	readCmd, err := json.Marshal(*cmd)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong run profile " + err.Error(),
+		}
+		return
+	}
+	ctx.vm <- &DecodedMessage{
+		code:    INIT_READFILE,
+		message: readCmd,
+	}
+}
+
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
@@ -332,6 +361,10 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
+		case COMMAND_WRITEFILE:
+			ctx.writeFile(ev.(*WriteFileCommand))
+		case COMMAND_READFILE:
+			ctx.readFile(ev.(*ReadFileCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -439,6 +472,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			if ctx.userSpec.Tty {
 				ctx.setWindowSize(cmd.ClientTag, cmd.Size)
 			}
+		case COMMAND_WRITEFILE:
+			ctx.writeFile(ev.(*WriteFileCommand))
+		case COMMAND_READFILE:
+			ctx.readFile(ev.(*ReadFileCommand))
 		case EVENT_POD_FINISH:
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
@@ -448,6 +485,14 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
+
+			if ack.reply == INIT_READFILE {
+				ctx.reportFile(ack.reply, ack.msg, false)
+				glog.Infof("Get ack for read data: %s", string(ack.msg))
+			} else if ack.reply == INIT_WRITEFILE {
+				ctx.reportFile(ack.reply, ack.msg, false)
+				glog.Infof("Get ack for write data: %s", string(ack.msg))
+			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
 			if ack.context.code == INIT_EXECCMD {
@@ -455,7 +500,14 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				json.Unmarshal(ack.context.message, &cmd)
 				ctx.ptys.Close(ctx, cmd.Sequence)
 				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
+			} else if ack.context.code == INIT_READFILE {
+				ctx.reportFile(ack.context.code, ack.msg, true)
+				glog.Infof("Get error for read data: %s", string(ack.msg))
+			} else if ack.context.code == INIT_WRITEFILE {
+				ctx.reportFile(ack.context.code, ack.msg, true)
+				glog.Infof("Get error for write data: %s", string(ack.msg))
 			}
+
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP()
 		default:
