@@ -87,10 +87,8 @@ func (vm *Vm) Kill() (int, string, error) {
 		if Response.Code == types.E_VM_SHUTDOWN {
 			vm.ReleaseResponseChan(Status)
 			vm.ReleaseRequestChan(PodEvent)
-			if vm.clients != nil {
-				vm.clients.Close()
-				vm.clients = nil
-			}
+			vm.clients.Close()
+			vm.clients = nil
 			stop = true
 		}
 	}

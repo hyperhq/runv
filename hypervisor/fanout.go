@@ -72,6 +72,9 @@ func (fo *Fanout) Release(client chan *types.VmResponse) error {
 }
 
 func (fo *Fanout) Close() {
+	if fo == nil {
+		return
+	}
 	UnblockSend(fo.closeSignal, nil)
 	close(fo.closeSignal)
 }
