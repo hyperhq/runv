@@ -43,6 +43,11 @@ func main() {
 	app.Version = version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
+			Name:  "id",
+			Value: getDefaultID(),
+			Usage: "specify the ID to be used for the container",
+		},
+		cli.StringFlag{
 			Name:  "driver",
 			Value: "kvm",
 			Usage: "hypervisor driver (supports: kvm xen vbox)",

@@ -82,6 +82,14 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 	return int(ws.Height), int(ws.Width)
 }
 
+func getDefaultID() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Base(cwd)
+}
+
 func startVContainer(context *cli.Context) {
 	hypervisor.InterfaceCount = 0
 
@@ -131,7 +139,7 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
+	podId := context.GlobalString("id")
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
 	ocfData, err := ioutil.ReadFile(ocffile)
