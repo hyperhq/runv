@@ -82,15 +82,24 @@ func (vm *Vm) Kill() (int, string, error) {
 	// wait for the VM response
 	stop := false
 	for !stop {
-		Response = <-Status
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_VM_SHUTDOWN {
+		var ok bool
+		Response, ok = <-Status
+		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN {
 			vm.ReleaseResponseChan(Status)
 			vm.ReleaseRequestChan(PodEvent)
 			vm.clients.Close()
 			vm.clients = nil
 			stop = true
 		}
+		if Response != nil {
+			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		} else {
+			glog.V(1).Infof("Nil response from status chan")
+		}
+	}
+
+	if Response == nil {
+		return types.E_VM_SHUTDOWN, "", nil
 	}
 
 	return Response.Code, Response.Cause, nil
