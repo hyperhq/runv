@@ -75,6 +75,7 @@ type ReleaseVMCommand struct{}
 type AttachCommand struct {
 	Container string
 	Streams   *TtyIO
+	Stderr    *TtyIO
 	Size      *WindowSize
 }
 

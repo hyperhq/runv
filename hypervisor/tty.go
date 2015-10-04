@@ -354,3 +354,37 @@ func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
 
 	return nil
 }
+
+func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
+	stdout, stdoutStub := io.Pipe()
+	stderr, stderrStub := io.Pipe()
+
+	outIO := &TtyIO{
+		Stdin:     nil,
+		Stdout:    stdoutStub,
+		ClientTag: tag,
+		Callback:  callback,
+	}
+	errIO := &TtyIO{
+		Stdin:     nil,
+		Stdout:    stderrStub,
+		ClientTag: tag,
+		Callback:  nil,
+	}
+
+	cmd := &AttachCommand{
+		Streams:   outIO,
+		Stderr:    errIO,
+		Container: container,
+	}
+
+	VmEvent, err := vm.GetRequestChan()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer vm.ReleaseRequestChan(VmEvent)
+
+	VmEvent <- cmd
+
+	return stdout, stderr, nil
+}
