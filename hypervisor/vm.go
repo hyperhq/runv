@@ -14,7 +14,7 @@ import (
 
 type Vm struct {
 	Id     string
-	Pod    *Pod
+	Pod    *PodStatus
 	Status uint
 	Cpu    int
 	Mem    int
@@ -106,7 +106,7 @@ func (vm *Vm) Kill() (int, string, error) {
 }
 
 // This function will only be invoked during daemon start
-func (vm *Vm) AssociateVm(mypod *Pod, data []byte) error {
+func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
 	var (
 		PodEvent = make(chan VmEvent, 128)
@@ -178,7 +178,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 }
 
 func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
-	mypod *Pod, vm *Vm) bool {
+	mypod *PodStatus, vm *Vm) bool {
 	if Response.Code == types.E_POD_FINISHED {
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
 		mypod.Vm = ""
@@ -195,7 +195,7 @@ func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 	return false
 }
 
-func (vm *Vm) handlePodEvent(mypod *Pod) {
+func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
 
 	Status, err := vm.GetResponseChan()
@@ -219,7 +219,7 @@ func (vm *Vm) handlePodEvent(mypod *Pod) {
 	}
 }
 
-func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
+func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	cList []*ContainerInfo, vList []*VolumeInfo) *types.VmResponse {
 	mypod.Vm = vm.Id
 
@@ -292,7 +292,7 @@ func (vm *Vm) StartPod(mypod *Pod, userPod *pod.UserPod,
 	return response
 }
 
-func (vm *Vm) StopPod(mypod *Pod, stopVm string) *types.VmResponse {
+func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 	var Response *types.VmResponse
 
 	PodEvent, err := vm.GetRequestChan()

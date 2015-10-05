@@ -13,11 +13,11 @@ import (
 //  gsed -ie 's/^    \([a-z]\)\([a-zA-Z]*\)\( \{1,\}[^ ]\{1,\}.*\)$/    \U\1\E\2\3 `json:"\1\2"`/' pod.go
 
 type HandleEvent struct {
-	Handle func(*types.VmResponse, interface{}, *Pod, *Vm) bool
+	Handle func(*types.VmResponse, interface{}, *PodStatus, *Vm) bool
 	Data   interface{}
 }
 
-type Pod struct {
+type PodStatus struct {
 	Id            string
 	Name          string
 	Vm            string
@@ -105,7 +105,7 @@ type PreparingItem interface {
 	ItemType() string
 }
 
-func (mypod *Pod) SetPodContainerStatus(data []uint32) {
+func (mypod *PodStatus) SetPodContainerStatus(data []uint32) {
 	failure := 0
 	for i, c := range mypod.Containers {
 		if data[i] != 0 {
@@ -124,13 +124,13 @@ func (mypod *Pod) SetPodContainerStatus(data []uint32) {
 	mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
 }
 
-func (mypod *Pod) SetContainerStatus(status uint32) {
+func (mypod *PodStatus) SetContainerStatus(status uint32) {
 	for _, c := range mypod.Containers {
 		c.Status = status
 	}
 }
 
-func (mypod *Pod) AddContainer(containerId, name, image string, cmds []string, status uint32) {
+func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []string, status uint32) {
 	container := &Container{
 		Id:     containerId,
 		Name:   name,
@@ -143,7 +143,7 @@ func (mypod *Pod) AddContainer(containerId, name, image string, cmds []string, s
 	mypod.Containers = append(mypod.Containers, container)
 }
 
-func (mypod *Pod) GetPodIP(vm *Vm) []string {
+func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	if mypod.Vm == "" {
 		return nil
 	}
@@ -178,8 +178,8 @@ func (mypod *Pod) GetPodIP(vm *Vm) []string {
 	return response.Data.([]string)
 }
 
-func NewPod(podId string, userPod *pod.UserPod) *Pod {
-	return &Pod{
+func NewPod(podId string, userPod *pod.UserPod) *PodStatus {
+	return &PodStatus{
 		Id:            podId,
 		Name:          userPod.Name,
 		Vm:            "",
