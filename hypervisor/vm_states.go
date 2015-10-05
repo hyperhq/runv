@@ -186,6 +186,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Stdout:    cmd.Streams.Stdout,
 				ClientTag: cmd.Streams.ClientTag,
 				Callback:  nil,
+				liner:     &linerTransformer{},
 			}
 		}
 		ctx.ptys.ptyConnect(ctx, idx, session, stderrIO)
