@@ -59,20 +59,16 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		glog.Info("initial vm spec: ", string(res))
 	}
 
-	if cmd.Spec.Tty {
-		pendings := ctx.pendingTtys
-		ctx.pendingTtys = []*AttachCommand{}
-		for _, acmd := range pendings {
-			idx := ctx.Lookup(acmd.Container)
-			if idx >= 0 {
-				session := ctx.vmSpec.Containers[idx].Tty
-				ctx.ptys.ptyConnect(ctx, idx, session, acmd.Streams)
-				ctx.clientReg(acmd.Streams.ClientTag, session)
-				glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			} else {
-				glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
-				ctx.pendingTtys = append(ctx.pendingTtys, acmd)
-			}
+	pendings := ctx.pendingTtys
+	ctx.pendingTtys = []*AttachCommand{}
+	for _, acmd := range pendings {
+		idx := ctx.Lookup(acmd.Container)
+		if idx >= 0 {
+			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.attachTty2Container(idx, acmd)
+		} else {
+			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
 		}
 	}
 
@@ -168,12 +164,32 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		}
 		return
 	}
-	session := ctx.vmSpec.Containers[idx].Tty
-	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
-	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
-	ctx.clientReg(cmd.Streams.ClientTag, session)
+	ctx.attachTty2Container(idx, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
+	}
+}
+
+func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
+	session := ctx.vmSpec.Containers[idx].Tty
+	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
+	ctx.clientReg(cmd.Streams.ClientTag, session)
+	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
+
+	//new stderr session
+	session = ctx.vmSpec.Containers[idx].Stderr
+	if session > 0 {
+		stderrIO := cmd.Stderr
+		if stderrIO == nil {
+			stderrIO = &TtyIO{
+				Stdin:     nil,
+				Stdout:    cmd.Streams.Stdout,
+				ClientTag: cmd.Streams.ClientTag,
+				Callback:  nil,
+				liner:     &linerTransformer{},
+			}
+		}
+		ctx.ptys.ptyConnect(ctx, idx, session, stderrIO)
 	}
 }
 

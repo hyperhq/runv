@@ -69,6 +69,7 @@ type VmContainer struct {
 	Volumes       []VmVolumeDescriptor `json:"volumes,omitempty"`
 	Fsmap         []VmFsmapDescriptor  `json:"fsmap,omitempty"`
 	Tty           uint64               `json:"tty,omitempty"`
+	Stderr        uint64               `json:"stderr,omitempty"`
 	Workdir       string               `json:"workdir"`
 	Entrypoint    []string             `json:"-"`
 	Cmd           []string             `json:"cmd"`
