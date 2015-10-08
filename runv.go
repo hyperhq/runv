@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +20,8 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/term"
+
+	"github.com/opencontainers/specs"
 )
 
 const shortLen = 12
@@ -90,6 +93,41 @@ func getDefaultID() string {
 	return filepath.Base(cwd)
 }
 
+func saveState(vmId, podId, root string) error {
+	err := os.MkdirAll(path.Join(root, podId), 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return err
+	}
+
+	pwd, err := filepath.Abs(".")
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return err
+	}
+
+	state := specs.State{
+		Version: specs.Version,
+		ID:      vmId,
+		Pid:     -1,
+		Root:    pwd,
+	}
+
+	stateData, err := json.MarshalIndent(&state, "", "\t")
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return err
+	}
+
+	err = ioutil.WriteFile(path.Join(root, podId, "state.json"), stateData, 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return err
+	}
+
+	return nil
+}
+
 func startVContainer(context *cli.Context) {
 	hypervisor.InterfaceCount = 0
 
@@ -139,8 +177,16 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
+	root := context.GlobalString("root")
+
 	podId := context.GlobalString("id")
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+
+	err = saveState(vmId, podId, root)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
 
 	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {

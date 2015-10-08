@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
+	"github.com/opencontainers/specs"
 )
 
 const (
@@ -46,6 +47,11 @@ func main() {
 			Name:  "id",
 			Value: getDefaultID(),
 			Usage: "specify the ID to be used for the container",
+		},
+		cli.StringFlag{
+			Name:  "root",
+			Value: specs.LinuxStateDirectory,
+			Usage: "root directory for storage of container state (this should be located in tmpfs)",
 		},
 		cli.StringFlag{
 			Name:  "driver",
