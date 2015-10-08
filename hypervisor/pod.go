@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/daemon/logger"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/glog"
@@ -30,6 +31,7 @@ type PodStatus struct {
 	Handler       HandleEvent
 	StartedAt     string
 	FinishedAt    string
+	ResourcePath  string
 }
 
 type Container struct {
@@ -38,8 +40,15 @@ type Container struct {
 	PodId    string
 	Image    string
 	Cmds     []string
+	Logs     LogStatus
 	Status   uint32
 	ExitCode int
+}
+
+type LogStatus struct {
+	Copier  *logger.Copier
+	Driver  logger.Logger
+	LogPath string
 }
 
 // Vm DataStructure
