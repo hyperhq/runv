@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"path"
@@ -93,17 +94,29 @@ func getDefaultID() string {
 	return filepath.Base(cwd)
 }
 
-func saveState(vmId, podId, root string) error {
-	err := os.MkdirAll(path.Join(root, podId), 0644)
+func removeState(podId, root string, sock net.Listener) {
+	os.RemoveAll(path.Join(root, podId))
+	sock.Close()
+}
+
+func saveState(vmId, podId, root string) (net.Listener, error) {
+	podPath := path.Join(root, podId)
+
+	_, err := os.Stat(podPath)
+	if err == nil {
+		return nil, fmt.Errorf("Container %s exists\n", podId)
+	}
+
+	err = os.MkdirAll(podPath, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return err
+		return nil, err
 	}
 
 	pwd, err := filepath.Abs(".")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return err
+		return nil, err
 	}
 
 	state := specs.State{
@@ -116,16 +129,28 @@ func saveState(vmId, podId, root string) error {
 	stateData, err := json.MarshalIndent(&state, "", "\t")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return err
+		return nil, err
 	}
 
-	err = ioutil.WriteFile(path.Join(root, podId, "state.json"), stateData, 0644)
+	err = ioutil.WriteFile(path.Join(podPath, "state.json"), stateData, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return err
+		return nil, err
 	}
 
-	return nil
+	sock, err := net.Listen("unix", path.Join(podPath, "runv.sock"))
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			os.RemoveAll(podPath)
+		}
+	}()
+
+	return sock, nil
 }
 
 func startVContainer(context *cli.Context) {
@@ -182,11 +207,13 @@ func startVContainer(context *cli.Context) {
 	podId := context.GlobalString("id")
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	err = saveState(vmId, podId, root)
+	sock, err := saveState(vmId, podId, root)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
+
+	defer removeState(podId, root, sock)
 
 	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {
@@ -241,7 +268,7 @@ func startVContainer(context *cli.Context) {
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = vm.Launch(b)
+	err = vm.LaunchOCIVm(b, sock)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return

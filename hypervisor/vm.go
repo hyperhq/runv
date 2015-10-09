@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"time"
 
 	"encoding/json"
@@ -61,6 +62,39 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 
 	vm.VmChan = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
+
+	return nil
+}
+
+func (vm *Vm) HandleRunvRequest(conn net.Conn) {
+	buf := make([]byte, 512)
+
+	for {
+		_, err := conn.Read(buf)
+		if err != nil {
+			break
+		}
+	}
+
+}
+
+func (vm *Vm) LaunchOCIVm(b *BootConfig, sock net.Listener) error {
+	err := vm.Launch(b)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			conn, err := sock.Accept()
+			if err != nil {
+				glog.Error("accept on runv Socket err:", err)
+				break
+			}
+
+			go vm.HandleRunvRequest(conn)
+		}
+	}()
 
 	return nil
 }
