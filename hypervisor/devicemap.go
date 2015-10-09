@@ -179,7 +179,7 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 				readOnly: make(map[int]bool),
 			}
 
-		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" || vol.Driver == "rbd" {
+		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
 				info: &blockDescriptor{
 					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
