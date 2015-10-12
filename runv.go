@@ -113,6 +113,12 @@ func saveState(vmId, podId, root string) (net.Listener, error) {
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			os.RemoveAll(podPath)
+		}
+	}()
+
 	pwd, err := filepath.Abs(".")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
@@ -143,12 +149,6 @@ func saveState(vmId, podId, root string) (net.Listener, error) {
 		fmt.Printf("%s\n", err.Error())
 		return nil, err
 	}
-
-	defer func() {
-		if err != nil {
-			os.RemoveAll(podPath)
-		}
-	}()
 
 	return sock, nil
 }

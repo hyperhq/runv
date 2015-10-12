@@ -77,6 +77,7 @@ func main() {
 	app.Commands = []cli.Command{
 		startCommand,
 		specCommand,
+		execCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

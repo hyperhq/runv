@@ -76,9 +76,9 @@ func (vm *Vm) HandleRunvRequest(conn net.Conn) {
 	}
 
 	tag := pod.RandStr(8, "alphanum")
-	if msg.code == INIT_EXECCMD {
-		glog.V(1).Infof("client exec cmd request %s\n", msg.message[:])
-		err = vm.Exec(conn, conn, string(msg.message[:]), tag, vm.Pod.Containers[0].Id)
+	if msg.Code == INIT_EXECCMD {
+		glog.V(1).Infof("client exec cmd request %s\n", msg.Message[:])
+		err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
 
 		if err != nil {
 			glog.Error("read runv client data failed", err)
