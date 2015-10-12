@@ -67,15 +67,25 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 }
 
 func (vm *Vm) HandleRunvRequest(conn net.Conn) {
-	buf := make([]byte, 512)
+	defer conn.Close()
 
-	for {
-		_, err := conn.Read(buf)
-		if err != nil {
-			break
-		}
+	msg, err := readVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		glog.Error("read runv client data failed", err)
+		return
 	}
 
+	tag := pod.RandStr(8, "alphanum")
+	if msg.code == INIT_EXECCMD {
+		glog.V(1).Infof("client exec cmd request %s\n", msg.message[:])
+		err = vm.Exec(conn, conn, string(msg.message[:]), tag, vm.Pod.Containers[0].Id)
+
+		if err != nil {
+			glog.Error("read runv client data failed", err)
+			return
+		}
+	}
+	glog.Error("unknown cient request")
 }
 
 func (vm *Vm) LaunchOCIVm(b *BootConfig, sock net.Listener) error {
