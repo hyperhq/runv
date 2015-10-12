@@ -207,6 +207,7 @@ func startVContainer(context *cli.Context) {
 	podId := context.GlobalString("id")
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
+	fmt.Printf("runv container id: %s\n", podId)
 	sock, err := saveState(vmId, podId, root)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
