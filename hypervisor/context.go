@@ -300,10 +300,12 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 
 		containers[i].Tty = ctx.attachId
 		ctx.attachId++
-		containers[i].Stderr = ctx.attachId
-		ctx.attachId++
 		ctx.ptys.ttys[containers[i].Tty] = newAttachments(i, true)
-		ctx.ptys.ttys[containers[i].Stderr] = newAttachments(i, true)
+		if !spec.Tty {
+			containers[i].Stderr = ctx.attachId
+			ctx.attachId++
+			ctx.ptys.ttys[containers[i].Stderr] = newAttachments(i, true)
+		}
 	}
 
 	hostname := spec.Name
