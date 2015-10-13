@@ -26,11 +26,6 @@ if test "x$has_go" != "xyes" ; then
     AC_MSG_ERROR(Unable to find go binary in PATH)
 fi
 
-AC_CHECK_PROG([has_sqlite3], [sqlite3], [yes], [no])
-if test "x$has_sqlite3" != "xyes" ; then
-    AC_MSG_ERROR(Unable to find sqlite3 binary in PATH)
-fi
-
 # Platform specific setup
 AC_CANONICAL_HOST
 # Check for which host we are on and setup a few things
@@ -99,6 +94,5 @@ AC_MSG_RESULT([
 
 	with xen:   ${with_xen}
 
-	has sqlite3: ${has_sqlite3}
 	has virtualbox: ${has_virtualbox}
 ])
