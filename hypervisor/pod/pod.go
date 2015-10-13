@@ -96,6 +96,11 @@ type UserService struct {
 	Hosts       []UserServiceBackend `json:"hosts"`
 }
 
+type PodLogConfig struct {
+	Type   string            `json:"type"`
+	Config map[string]string `json:"config"`
+}
+
 type UserPod struct {
 	Name          string          `json:"id"`
 	Containers    []UserContainer `json:"containers"`
@@ -104,6 +109,7 @@ type UserPod struct {
 	Volumes       []UserVolume    `json:"volumes"`
 	Interfaces    []UserInterface `json:"interfaces,omitempty"`
 	Services      []UserService   `json:"services,omitempty"`
+	LogConfig     PodLogConfig    `json:"log"`
 	Dns           []string        `json:"dns,omitempty"`
 	Tty           bool            `json:"tty"`
 	Type          string          `json:"type"`
