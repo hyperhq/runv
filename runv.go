@@ -3,9 +3,11 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"path"
@@ -19,6 +21,8 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/term"
+
+	"github.com/opencontainers/specs"
 )
 
 const shortLen = 12
@@ -82,6 +86,73 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 	return int(ws.Height), int(ws.Width)
 }
 
+func getDefaultID() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Base(cwd)
+}
+
+func removeState(podId, root string, sock net.Listener) {
+	os.RemoveAll(path.Join(root, podId))
+	sock.Close()
+}
+
+func saveState(vmId, podId, root string) (net.Listener, error) {
+	podPath := path.Join(root, podId)
+
+	_, err := os.Stat(podPath)
+	if err == nil {
+		return nil, fmt.Errorf("Container %s exists\n", podId)
+	}
+
+	err = os.MkdirAll(podPath, 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			os.RemoveAll(podPath)
+		}
+	}()
+
+	pwd, err := filepath.Abs(".")
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	state := specs.State{
+		Version: specs.Version,
+		ID:      vmId,
+		Pid:     -1,
+		Root:    pwd,
+	}
+
+	stateData, err := json.MarshalIndent(&state, "", "\t")
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	err = ioutil.WriteFile(path.Join(podPath, "state.json"), stateData, 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	sock, err := net.Listen("unix", path.Join(podPath, "runv.sock"))
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	return sock, nil
+}
+
 func startVContainer(context *cli.Context) {
 	hypervisor.InterfaceCount = 0
 
@@ -131,8 +202,19 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
+	root := context.GlobalString("root")
+
+	podId := context.GlobalString("id")
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+
+	fmt.Printf("runv container id: %s\n", podId)
+	sock, err := saveState(vmId, podId, root)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+
+	defer removeState(podId, root, sock)
 
 	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {
@@ -187,7 +269,7 @@ func startVContainer(context *cli.Context) {
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = vm.Launch(b)
+	err = vm.LaunchOCIVm(b, sock)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return

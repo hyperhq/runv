@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
+	"github.com/opencontainers/specs"
 )
 
 const (
@@ -43,6 +44,16 @@ func main() {
 	app.Version = version
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
+			Name:  "id",
+			Value: getDefaultID(),
+			Usage: "specify the ID to be used for the container",
+		},
+		cli.StringFlag{
+			Name:  "root",
+			Value: specs.LinuxStateDirectory,
+			Usage: "root directory for storage of container state (this should be located in tmpfs)",
+		},
+		cli.StringFlag{
 			Name:  "driver",
 			Value: "kvm",
 			Usage: "hypervisor driver (supports: kvm xen vbox)",
@@ -66,6 +77,7 @@ func main() {
 	app.Commands = []cli.Command{
 		startCommand,
 		specCommand,
+		execCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

@@ -90,8 +90,8 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 			return
 		}
 		ctx.vm <- &DecodedMessage{
-			code:    INIT_WINSIZE,
-			message: msg,
+			Code:    INIT_WINSIZE,
+			Message: msg,
 		}
 	} else {
 		msg := fmt.Sprintf("cannot resolve client tag %s", tag)
@@ -110,8 +110,8 @@ func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
 	}
 	writeCmd = append(writeCmd, cmd.Data[:]...)
 	ctx.vm <- &DecodedMessage{
-		code:    INIT_WRITEFILE,
-		message: writeCmd,
+		Code:    INIT_WRITEFILE,
+		Message: writeCmd,
 	}
 }
 
@@ -124,8 +124,8 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 		return
 	}
 	ctx.vm <- &DecodedMessage{
-		code:    INIT_READFILE,
-		message: readCmd,
+		Code:    INIT_READFILE,
+		Message: readCmd,
 	}
 }
 
@@ -142,8 +142,8 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.Streams)
 	ctx.clientReg(cmd.Streams.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
-		code:    INIT_EXECCMD,
-		message: pkg,
+		Code:    INIT_EXECCMD,
+		Message: pkg,
 	}
 }
 
@@ -202,16 +202,16 @@ func (ctx *VmContext) startPod() {
 		return
 	}
 	ctx.vm <- &DecodedMessage{
-		code:    INIT_STARTPOD,
-		message: pod,
+		Code:    INIT_STARTPOD,
+		Message: pod,
 	}
 }
 
 func (ctx *VmContext) stopPod() {
 	ctx.setTimeout(30)
 	ctx.vm <- &DecodedMessage{
-		code:    INIT_STOPPOD,
-		message: []byte{},
+		Code:    INIT_STOPPOD,
+		Message: []byte{},
 	}
 }
 
@@ -232,7 +232,7 @@ func (ctx *VmContext) shutdownVM(err bool, msg string) {
 		glog.Error("Shutting down because of an exception: ", msg)
 	}
 	ctx.setTimeout(10)
-	ctx.vm <- &DecodedMessage{code: INIT_DESTROYPOD, message: []byte{}}
+	ctx.vm <- &DecodedMessage{Code: INIT_DESTROYPOD, Message: []byte{}}
 }
 
 func (ctx *VmContext) poweroffVM(err bool, msg string) {
@@ -448,7 +448,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.code == INIT_STARTPOD {
+			if ack.context.Code == INIT_STARTPOD {
 				reason := "Start POD failed"
 				ctx.shutdownVM(true, reason)
 				ctx.Become(stateTerminating, "TERMINATING")
@@ -511,16 +511,16 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.code == INIT_EXECCMD {
+			if ack.context.Code == INIT_EXECCMD {
 				cmd := ExecCommand{}
-				json.Unmarshal(ack.context.message, &cmd)
+				json.Unmarshal(ack.context.Message, &cmd)
 				ctx.ptys.Close(ctx, cmd.Sequence)
 				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
-			} else if ack.context.code == INIT_READFILE {
-				ctx.reportFile(ack.context.code, ack.msg, true)
+			} else if ack.context.Code == INIT_READFILE {
+				ctx.reportFile(ack.context.Code, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))
-			} else if ack.context.code == INIT_WRITEFILE {
-				ctx.reportFile(ack.context.code, ack.msg, true)
+			} else if ack.context.Code == INIT_WRITEFILE {
+				ctx.reportFile(ack.context.Code, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
 			}
 
@@ -552,7 +552,7 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.code == INIT_STOPPOD {
+			if ack.context.Code == INIT_STOPPOD {
 				ctx.unsetTimeout()
 				ctx.shutdownVM(true, "Stop pod failed as init report")
 				ctx.Become(stateTerminating, "TERMINATING")
@@ -595,7 +595,7 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		}
 	case ERROR_CMD_FAIL:
 		ack := ev.(*CommandError)
-		if ack.context.code == INIT_DESTROYPOD {
+		if ack.context.Code == INIT_DESTROYPOD {
 			glog.Warning("Destroy pod failed")
 			ctx.poweroffVM(true, "Destroy pod failed")
 		}
@@ -623,8 +623,8 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			//            glog.V(1).Info("device ready, could run pod.")
 			//            ctx.Become(stateInit, "INIT")
 			ctx.vm <- &DecodedMessage{
-				code:    INIT_READY,
-				message: []byte{},
+				Code:    INIT_READY,
+				Message: []byte{},
 			}
 			glog.V(1).Info("device ready, could run pod.")
 		}

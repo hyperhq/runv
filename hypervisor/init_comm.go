@@ -11,8 +11,8 @@ import (
 
 // Message
 type DecodedMessage struct {
-	code    uint32
-	message []byte
+	Code    uint32
+	Message []byte
 }
 
 type FinishCmd struct {
@@ -50,12 +50,12 @@ func waitConsoleOutput(ctx *VmContext) {
 	}
 }
 
-func newVmMessage(m *DecodedMessage) []byte {
-	length := len(m.message) + 8
+func NewVmMessage(m *DecodedMessage) []byte {
+	length := len(m.Message) + 8
 	msg := make([]byte, length)
-	binary.BigEndian.PutUint32(msg[:], uint32(m.code))
+	binary.BigEndian.PutUint32(msg[:], uint32(m.Code))
 	binary.BigEndian.PutUint32(msg[4:], uint32(length))
-	copy(msg[8:], m.message)
+	copy(msg[8:], m.Message)
 	return msg
 }
 
@@ -92,8 +92,8 @@ func readVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
 	}
 
 	return &DecodedMessage{
-		code:    binary.BigEndian.Uint32(res[:4]),
-		message: res[8:],
+		Code:    binary.BigEndian.Uint32(res[:4]),
+		Message: res[8:],
 	}, nil
 }
 
@@ -116,14 +116,14 @@ func waitInitReady(ctx *VmContext) {
 			Reason: "read init message failed... " + err.Error(),
 		}
 		conn.Close()
-	} else if msg.code == INIT_READY {
+	} else if msg.Code == INIT_READY {
 		glog.Info("Get init ready message")
 		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
 		go waitCmdToInit(ctx, conn.(*net.UnixConn))
 	} else {
-		glog.Warningf("Get init message %d", msg.code)
+		glog.Warningf("Get init message %d", msg.Code)
 		ctx.Hub <- &InitFailedEvent{
-			Reason: fmt.Sprintf("Get init message %d", msg.code),
+			Reason: fmt.Sprintf("Get init message %d", msg.Code),
 		}
 		conn.Close()
 	}
@@ -161,23 +161,23 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			glog.Info("vm channel closed, quit")
 			break
 		}
-		if cmd.code == INIT_ACK || cmd.code == INIT_ERROR {
+		if cmd.Code == INIT_ACK || cmd.Code == INIT_ERROR {
 			if len(cmds) > 0 {
-				if cmds[0].code == INIT_DESTROYPOD {
+				if cmds[0].Code == INIT_DESTROYPOD {
 					glog.Info("got response of shutdown command, last round of command to init")
 					looping = false
 				}
-				if cmd.code == INIT_ACK {
-					if cmds[0].code != INIT_PING {
+				if cmd.Code == INIT_ACK {
+					if cmds[0].Code != INIT_PING {
 						ctx.Hub <- &CommandAck{
-							reply: cmds[0].code,
-							msg:   cmd.message,
+							reply: cmds[0].Code,
+							msg:   cmd.Message,
 						}
 					}
 				} else {
 					ctx.Hub <- &CommandError{
 						context: cmds[0],
-						msg:     cmd.message,
+						msg:     cmd.Message,
 					}
 				}
 				cmds = cmds[1:]
@@ -192,8 +192,8 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 						defer func() { recover() }()
 						glog.V(1).Info("Send ping message to init")
 						ctx.vm <- &DecodedMessage{
-							code:    INIT_PING,
-							message: []byte{},
+							Code:    INIT_PING,
+							Message: []byte{},
 						}
 						pingTimer = nil
 					})
@@ -203,19 +203,19 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			} else {
 				glog.Error("got ack but no command in queue")
 			}
-		} else if cmd.code == INIT_FINISHPOD {
-			num := len(cmd.message) / 4
+		} else if cmd.Code == INIT_FINISHPOD {
+			num := len(cmd.Message) / 4
 			results := make([]uint32, num)
 			for i := 0; i < num; i++ {
-				results[i] = binary.BigEndian.Uint32(cmd.message[i*4 : i*4+4])
+				results[i] = binary.BigEndian.Uint32(cmd.Message[i*4 : i*4+4])
 			}
 
 			for _, c := range cmds {
-				if c.code == INIT_DESTROYPOD {
+				if c.Code == INIT_DESTROYPOD {
 					glog.Info("got pod finish message after having send destroy message")
 					looping = false
 					ctx.Hub <- &CommandAck{
-						reply: c.code,
+						reply: c.Code,
 					}
 					break
 				}
@@ -227,10 +227,10 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				result: results,
 			}
 		} else {
-			if cmd.code == INIT_NEXT {
+			if cmd.Code == INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")
 
-				got += int(binary.BigEndian.Uint32(cmd.message[0:4]))
+				got += int(binary.BigEndian.Uint32(cmd.Message[0:4]))
 				glog.V(1).Infof("send %d, receive %d", index, got)
 				timeout = false
 				if index == got {
@@ -241,9 +241,9 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
-				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.code, string(cmd.message))
+				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(cmd.Message))
 				cmds = append(cmds, cmd)
-				data = append(data, newVmMessage(cmd)...)
+				data = append(data, NewVmMessage(cmd)...)
 				timeout = true
 			}
 
@@ -281,8 +281,8 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 		if err != nil {
 			ctx.Hub <- &Interrupted{Reason: "init socket failed " + err.Error()}
 			return
-		} else if res.code == INIT_ACK || res.code == INIT_NEXT ||
-			res.code == INIT_ERROR || res.code == INIT_FINISHPOD {
+		} else if res.Code == INIT_ACK || res.Code == INIT_NEXT ||
+			res.Code == INIT_ERROR || res.Code == INIT_FINISHPOD {
 			ctx.vm <- res
 		}
 	}
