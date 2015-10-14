@@ -153,21 +153,101 @@ func saveState(vmId, podId, root string) (net.Listener, error) {
 	return sock, nil
 }
 
-func startVContainer(context *cli.Context) {
-	hypervisor.InterfaceCount = 0
-
-	var containerInfoList []*hypervisor.ContainerInfo
-	var roots []string
-	var containerId string
-	var err error
-
+func parseUserPod(context *cli.Context) (*pod.UserPod, error) {
 	ocffile := context.String("config-file")
 	runtimefile := context.String("runtime-file")
 
-	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
+	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
-		return
+		return nil, err
 	}
+
+	ocfData, err := ioutil.ReadFile(ocffile)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	var runtimeData []byte = nil
+	_, err = os.Stat(runtimefile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
+			return nil, err
+		}
+	} else {
+		runtimeData, err = ioutil.ReadFile(runtimefile)
+		if err != nil {
+			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
+			return nil, err
+		}
+	}
+
+	userPod, err := pod.OCFConvert2Pod(ocfData, runtimeData)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	return userPod, nil
+}
+
+func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) ([]*hypervisor.ContainerInfo, error) {
+	var (
+		containerInfoList []*hypervisor.ContainerInfo
+		containerId       string
+	)
+
+	sharedDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
+
+	for _, c := range userPod.Containers {
+		var root string
+		var err error
+
+		containerId = GenerateRandomID()
+		rootDir := path.Join(sharedDir, containerId)
+		os.MkdirAll(rootDir, 0755)
+
+		rootDir = path.Join(rootDir, "rootfs")
+
+		if !filepath.IsAbs(c.Image) {
+			root, err = filepath.Abs(c.Image)
+			if err != nil {
+				fmt.Printf("%s\n", err.Error())
+				return nil, err
+			}
+		} else {
+			root = c.Image
+		}
+
+		err = mount(root, rootDir)
+		if err != nil {
+			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+			return nil, err
+		}
+
+		containerInfo := &hypervisor.ContainerInfo{
+			Id:     containerId,
+			Rootfs: "rootfs",
+			Image:  containerId,
+			Fstype: "dir",
+		}
+
+		containerInfoList = append(containerInfoList, containerInfo)
+		mypod.AddContainer(containerId, mypod.Id, "", []string{}, types.S_POD_CREATED)
+	}
+
+	return containerInfoList, nil
+}
+
+func startVContainer(context *cli.Context) {
+	var (
+		err error
+		cpu = 1
+		mem = 128
+	)
+
+	hypervisor.InterfaceCount = 0
 
 	vbox := context.GlobalString("vbox")
 	if _, err = os.Stat(vbox); err == nil {
@@ -216,39 +296,27 @@ func startVContainer(context *cli.Context) {
 
 	defer removeState(podId, root, sock)
 
-	ocfData, err := ioutil.ReadFile(ocffile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	var runtimeData []byte = nil
-	_, err = os.Stat(runtimefile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
-			return
-		}
-	} else {
-		runtimeData, err = ioutil.ReadFile(runtimefile)
-		if err != nil {
-			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
-			return
-		}
-	}
-
-	userPod, err := pod.OCFConvert2Pod(ocfData, runtimeData)
+	userPod, err := parseUserPod(context)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
 	mypod := hypervisor.NewPod(podId, userPod)
+	infoList, err := preparePod(mypod, userPod, vmId)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
 
-	var (
-		cpu = 1
-		mem = 128
-	)
+	defer func() {
+		tmpDir := path.Join(hypervisor.BaseDir, vmId)
+		for _, c := range mypod.Containers {
+			rootDir := path.Join(tmpDir, hypervisor.ShareDirTag, c.Id, "rootfs")
+			umount(rootDir)
+		}
+		os.RemoveAll(tmpDir)
+	}()
 
 	if userPod.Resource.Vcpu > 0 {
 		cpu = userPod.Resource.Vcpu
@@ -275,46 +343,6 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	sharedDir := path.Join(hypervisor.BaseDir, vm.Id, hypervisor.ShareDirTag)
-
-	for _, c := range userPod.Containers {
-		var root string
-		var err error
-
-		containerId = GenerateRandomID()
-		rootDir := path.Join(sharedDir, containerId)
-		os.MkdirAll(rootDir, 0755)
-
-		rootDir = path.Join(rootDir, "rootfs")
-
-		if !filepath.IsAbs(c.Image) {
-			root, err = filepath.Abs(c.Image)
-			if err != nil {
-				fmt.Printf("%s\n", err.Error())
-				return
-			}
-		} else {
-			root = c.Image
-		}
-
-		err = mount(root, rootDir)
-		if err != nil {
-			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
-			return
-		}
-		roots = append(roots, rootDir)
-
-		containerInfo := &hypervisor.ContainerInfo{
-			Id:     containerId,
-			Rootfs: "rootfs",
-			Image:  containerId,
-			Fstype: "dir",
-		}
-
-		containerInfoList = append(containerInfoList, containerInfo)
-		mypod.AddContainer(containerId, podId, "", []string{}, types.S_POD_CREATED)
-	}
-
 	inFd, _ := term.GetFdInfo(os.Stdin)
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
 
@@ -322,6 +350,8 @@ func startVContainer(context *cli.Context) {
 	if err != nil {
 		return
 	}
+
+	defer term.RestoreTerminal(inFd, oldState)
 
 	tag := pod.RandStr(8, "alphanum")
 	ttyCallback := make(chan *types.VmResponse, 1)
@@ -332,36 +362,30 @@ func startVContainer(context *cli.Context) {
 	go io.Copy(toVm, os.Stdin)
 	go io.Copy(os.Stdout, fromVm)
 
-	err = vm.Attach(fromStd, toStd, tag, containerInfoList[0].Id, ttyCallback, nil)
+	err = vm.Attach(fromStd, toStd, tag, mypod.Containers[0].Id, ttyCallback, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
 		return
 	}
 
-	qemuResponse := vm.StartPod(mypod, userPod, containerInfoList, nil)
-	if qemuResponse.Data == nil {
+	Response := vm.StartPod(mypod, userPod, infoList, nil)
+	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
 		return
 	}
-	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
 	resizeTty(vm, tag, outFd, isTerminalOut)
 	monitorTtySize(vm, tag, outFd, isTerminalOut)
 	<-ttyCallback
 
-	qemuResponse = vm.StopPod(mypod, "yes")
+	Response = vm.StopPod(mypod, "yes")
 
-	term.RestoreTerminal(inFd, oldState)
-
-	for _, root := range roots {
-		umount(root)
-	}
-
-	if qemuResponse.Data == nil {
+	if Response.Data == nil {
 		fmt.Printf("StopPod fail: QEMU response data is nil\n")
 		return
 	}
-	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 }
 
 var startCommand = cli.Command{
