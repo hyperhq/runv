@@ -326,7 +326,13 @@ func startVContainer(context *cli.Context) {
 	tag := pod.RandStr(8, "alphanum")
 	ttyCallback := make(chan *types.VmResponse, 1)
 
-	err = vm.Attach(os.Stdin, os.Stdout, tag, containerInfoList[0].Id, ttyCallback, nil)
+	// using pipes in vm.Attach to avoid the stdio to be closed
+	fromStd, toVm := io.Pipe()
+	fromVm, toStd := io.Pipe()
+	go io.Copy(toVm, os.Stdin)
+	go io.Copy(os.Stdout, fromVm)
+
+	err = vm.Attach(fromStd, toStd, tag, containerInfoList[0].Id, ttyCallback, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
 		return
