@@ -177,7 +177,10 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	// wait for the VM response
 	for {
 		response = <-Status
-		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
+		glog.V(1).Infof("Got response, Code %d, VM id %s!", response.Code, response.VmId)
+		if response.Code != types.E_POD_IP {
+			continue
+		}
 		if response.VmId == vm.Id {
 			break
 		}
