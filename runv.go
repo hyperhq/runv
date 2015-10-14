@@ -368,24 +368,24 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	qemuResponse := vm.StartPod(mypod, userPod, infoList, nil)
-	if qemuResponse.Data == nil {
+	Response := vm.StartPod(mypod, userPod, infoList, nil)
+	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
 		return
 	}
-	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
 	resizeTty(vm, tag, outFd, isTerminalOut)
 	monitorTtySize(vm, tag, outFd, isTerminalOut)
 	<-ttyCallback
 
-	qemuResponse = vm.StopPod(mypod, "yes")
+	Response = vm.StopPod(mypod, "yes")
 
-	if qemuResponse.Data == nil {
+	if Response.Data == nil {
 		fmt.Printf("StopPod fail: QEMU response data is nil\n")
 		return
 	}
-	fmt.Printf("result: code %d %s\n", qemuResponse.Code, qemuResponse.Cause)
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 }
 
 var startCommand = cli.Command{
