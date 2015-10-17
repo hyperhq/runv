@@ -105,7 +105,7 @@ func (ctx *VmContext) reportPodIP() {
 	}
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
-		Code:  types.E_OK,
+		Code:  types.E_POD_IP,
 		Cause: "",
 		Data:  ips,
 	}

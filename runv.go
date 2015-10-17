@@ -240,21 +240,19 @@ func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) 
 	return containerInfoList, nil
 }
 
-func startVContainer(context *cli.Context) {
+func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.Listener) (*hypervisor.Vm, error) {
 	var (
 		err error
 		cpu = 1
 		mem = 128
 	)
 
-	hypervisor.InterfaceCount = 0
-
 	vbox := context.GlobalString("vbox")
 	if _, err = os.Stat(vbox); err == nil {
 		vbox, err = filepath.Abs(vbox)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
-			return
+			return nil, err
 		}
 	}
 
@@ -263,7 +261,7 @@ func startVContainer(context *cli.Context) {
 		kernel, err = filepath.Abs(kernel)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
-			return
+			return nil, err
 		}
 	}
 
@@ -272,9 +270,45 @@ func startVContainer(context *cli.Context) {
 		initrd, err = filepath.Abs(initrd)
 		if err != nil {
 			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
-			return
+			return nil, err
 		}
 	}
+
+	if userPod.Resource.Vcpu > 0 {
+		cpu = userPod.Resource.Vcpu
+	}
+
+	if userPod.Resource.Memory > 0 {
+		mem = userPod.Resource.Memory
+	}
+
+	b := &hypervisor.BootConfig{
+		Kernel: kernel,
+		Initrd: initrd,
+		Bios:   "",
+		Cbfs:   "",
+		Vbox:   vbox,
+		CPU:    cpu,
+		Memory: mem,
+	}
+
+	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
+	err = vm.LaunchOCIVm(b, sock)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	return vm, nil
+}
+
+func startVContainer(context *cli.Context) {
+	var (
+		err      error
+		Response *types.VmResponse
+	)
+
+	hypervisor.InterfaceCount = 0
 
 	driver := context.GlobalString("driver")
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
@@ -318,30 +352,21 @@ func startVContainer(context *cli.Context) {
 		os.RemoveAll(tmpDir)
 	}()
 
-	if userPod.Resource.Vcpu > 0 {
-		cpu = userPod.Resource.Vcpu
-	}
-
-	if userPod.Resource.Memory > 0 {
-		mem = userPod.Resource.Memory
-	}
-
-	b := &hypervisor.BootConfig{
-		Kernel: kernel,
-		Initrd: initrd,
-		Bios:   "",
-		Cbfs:   "",
-		Vbox:   vbox,
-		CPU:    cpu,
-		Memory: mem,
-	}
-
-	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = vm.LaunchOCIVm(b, sock)
+	vm, err := startVm(context, userPod, vmId, sock)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
+
+	defer func() {
+		Response = vm.StopPod(mypod, "yes")
+
+		if Response.Data == nil {
+			fmt.Printf("StopPod fail: QEMU response data is nil\n")
+			return
+		}
+		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+	}()
 
 	inFd, _ := term.GetFdInfo(os.Stdin)
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
@@ -368,7 +393,7 @@ func startVContainer(context *cli.Context) {
 		return
 	}
 
-	Response := vm.StartPod(mypod, userPod, infoList, nil)
+	Response = vm.StartPod(mypod, userPod, infoList, nil)
 	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
 		return
@@ -378,14 +403,6 @@ func startVContainer(context *cli.Context) {
 	resizeTty(vm, tag, outFd, isTerminalOut)
 	monitorTtySize(vm, tag, outFd, isTerminalOut)
 	<-ttyCallback
-
-	Response = vm.StopPod(mypod, "yes")
-
-	if Response.Data == nil {
-		fmt.Printf("StopPod fail: QEMU response data is nil\n")
-		return
-	}
-	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 }
 
 var startCommand = cli.Command{
