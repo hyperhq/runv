@@ -99,18 +99,18 @@ func removeState(podId, root string, sock net.Listener) {
 	sock.Close()
 }
 
-func saveState(vmId, podId, root string) (net.Listener, error) {
+func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
 	podPath := path.Join(root, podId)
 
 	_, err := os.Stat(podPath)
 	if err == nil {
-		return nil, fmt.Errorf("Container %s exists\n", podId)
+		return nil, nil, fmt.Errorf("Container %s exists\n", podId)
 	}
 
 	err = os.MkdirAll(podPath, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
 	defer func() {
@@ -122,7 +122,7 @@ func saveState(vmId, podId, root string) (net.Listener, error) {
 	pwd, err := filepath.Abs(".")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
 	state := specs.State{
@@ -135,37 +135,128 @@ func saveState(vmId, podId, root string) (net.Listener, error) {
 	stateData, err := json.MarshalIndent(&state, "", "\t")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
-	err = ioutil.WriteFile(path.Join(podPath, "state.json"), stateData, 0644)
+	stateFile := path.Join(podPath, "state.json")
+	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
+	}
+
+	stateFd, err := os.Open(stateFile)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, nil, err
 	}
 
 	sock, err := net.Listen("unix", path.Join(podPath, "runv.sock"))
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
-	return sock, nil
+	return sock, stateFd, nil
 }
 
-func parseUserPod(context *cli.Context) (*pod.UserPod, error) {
+func execHook(hook specs.Hook, state *os.File) error {
+	old_stdin, err := syscall.Dup(int(os.Stdin.Fd()))
+	if err != nil {
+		fmt.Printf("dup stdin failed, %s\n", err.Error())
+		return err
+	}
+
+	defer syscall.Close(old_stdin)
+	err = syscall.Dup2(int(state.Fd()), int(os.Stdin.Fd()))
+	if err != nil {
+		fmt.Printf("dup stdin to state file failed, %s\n", err.Error())
+		return err
+	}
+	defer syscall.Dup2(old_stdin, int(os.Stdin.Fd()))
+
+	pAttr := &os.ProcAttr{
+		Env:   hook.Env,
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr, state},
+	}
+
+	p, err := os.StartProcess(hook.Path, hook.Args, pAttr)
+	if err != nil {
+		fmt.Printf("start hook process failed, %s\n", err.Error())
+		return err
+	}
+
+	status, err := p.Wait()
+	if err != nil {
+		fmt.Printf("wait hook process exit failed, %s\n", err.Error())
+		return err
+	}
+
+	if status.Success() {
+		return nil
+	}
+
+	return fmt.Errorf("execute hook %s failed", hook.Path)
+}
+
+func execPrestartHooks(rt *specs.RuntimeSpec, state *os.File) error {
+	if rt == nil {
+		return nil
+	}
+
+	for _, hook := range rt.Hooks.Prestart {
+		err := execHook(hook, state)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func execPoststartHooks(rt *specs.RuntimeSpec, state *os.File) error {
+	if rt == nil {
+		return nil
+	}
+
+	for _, hook := range rt.Hooks.Prestart {
+		err := execHook(hook, state)
+		if err != nil {
+			fmt.Printf("exec Poststart hook %s failed %s", hook.Path, err.Error())
+		}
+	}
+
+	return nil
+}
+
+func execPoststopHooks(rt *specs.RuntimeSpec, state *os.File) error {
+	if rt == nil {
+		return nil
+	}
+
+	for _, hook := range rt.Hooks.Prestart {
+		err := execHook(hook, state)
+		if err != nil {
+			fmt.Printf("exec Poststop hook %s failed %s", hook.Path, err.Error())
+		}
+	}
+
+	return nil
+}
+
+func parseUserPod(context *cli.Context) (*pod.UserPod, *specs.RuntimeSpec, error) {
 	ocffile := context.String("config-file")
 	runtimefile := context.String("runtime-file")
 
 	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
-		return nil, err
+		return nil, nil, err
 	}
 
 	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
 	var runtimeData []byte = nil
@@ -173,23 +264,23 @@ func parseUserPod(context *cli.Context) (*pod.UserPod, error) {
 	if err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		runtimeData, err = ioutil.ReadFile(runtimefile)
 		if err != nil {
 			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	userPod, err := pod.OCFConvert2Pod(ocfData, runtimeData)
+	userPod, rt, err := pod.OCFConvert2Pod(ocfData, runtimeData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
-	return userPod, nil
+	return userPod, rt, nil
 }
 
 func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) ([]*hypervisor.ContainerInfo, error) {
@@ -322,7 +413,7 @@ func startVContainer(context *cli.Context) {
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
 	fmt.Printf("runv container id: %s\n", podId)
-	sock, err := saveState(vmId, podId, root)
+	sock, stateFd, err := saveState(vmId, podId, root)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -330,7 +421,7 @@ func startVContainer(context *cli.Context) {
 
 	defer removeState(podId, root, sock)
 
-	userPod, err := parseUserPod(context)
+	userPod, rt, err := parseUserPod(context)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -368,6 +459,12 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 	}()
 
+	err = execPrestartHooks(rt, stateFd)
+	if err != nil {
+		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
+		return
+	}
+
 	inFd, _ := term.GetFdInfo(os.Stdin)
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
 
@@ -400,9 +497,20 @@ func startVContainer(context *cli.Context) {
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
+	err = execPoststartHooks(rt, stateFd)
+	if err != nil {
+		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
+	}
+
 	resizeTty(vm, tag, outFd, isTerminalOut)
 	monitorTtySize(vm, tag, outFd, isTerminalOut)
 	<-ttyCallback
+
+	err = execPoststopHooks(rt, stateFd)
+	if err != nil {
+		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
+		return
+	}
 }
 
 var startCommand = cli.Command{
