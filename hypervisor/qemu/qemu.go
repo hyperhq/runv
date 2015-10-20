@@ -83,7 +83,7 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 				return nil, err
 			}
 		default:
-			return nil, errors.New("wrong sock name type in persist info")
+			return nil, errors.New("wrong pid field type in persist info")
 		}
 	}
 
