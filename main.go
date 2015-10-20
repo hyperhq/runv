@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/codegangsta/cli"
 	"github.com/opencontainers/specs"
@@ -55,22 +57,22 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "driver",
-			Value: "kvm",
+			Value: getDefaultDriver(),
 			Usage: "hypervisor driver (supports: kvm xen vbox)",
 		},
 		cli.StringFlag{
 			Name:  "kernel",
-			Value: "./kernel",
+			Value: getDefaultKernel(),
 			Usage: "kernel for the container",
 		},
 		cli.StringFlag{
 			Name:  "initrd",
-			Value: "./initrd.img",
+			Value: getDefaultInitrd(),
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
 			Name:  "vbox",
-			Value: "./vbox",
+			Value: getDefaultVbox(),
 			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
 	}
@@ -82,4 +84,52 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
+}
+
+func getDefaultID() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Base(cwd)
+}
+
+func getDefaultDriver() string {
+	if runtime.GOOS == "linux" {
+		return "kvm"
+	}
+	if runtime.GOOS == "darwin" {
+		return "vbox"
+	}
+	return ""
+}
+
+func firstExistingFile(candidates []string) string {
+	for _, file := range candidates {
+		if _, err := os.Stat(file); err == nil {
+			return file
+		}
+	}
+	return ""
+}
+
+func getDefaultKernel() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	return firstExistingFile([]string{"./kernel", "/var/lib/hyper/kernel"})
+}
+
+func getDefaultInitrd() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	return firstExistingFile([]string{"./initrd.img", "/var/lib/hyper/hyper-initrd.img"})
+}
+
+func getDefaultVbox() string {
+	if runtime.GOOS != "darwin" {
+		return ""
+	}
+	return firstExistingFile([]string{"./vbox.iso", "/opt/hyper/static/iso/hyper-vbox-boot.iso"})
 }

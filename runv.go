@@ -86,14 +86,6 @@ func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
 	return int(ws.Height), int(ws.Width)
 }
 
-func getDefaultID() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Base(cwd)
-}
-
 func removeState(podId, root string, sock net.Listener) {
 	os.RemoveAll(path.Join(root, podId))
 	sock.Close()
