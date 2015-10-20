@@ -376,7 +376,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = vm.LaunchOCIVm(b, sock)
+	err = LaunchOCIVm(vm, b, sock)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, err
@@ -503,6 +503,49 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
 	}
+}
+
+func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
+	defer conn.Close()
+
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		fmt.Printf("read runv client data failed: %v\n", err)
+		return
+	}
+
+	tag := pod.RandStr(8, "alphanum")
+	if msg.Code == hypervisor.INIT_EXECCMD {
+		fmt.Printf("client exec cmd request %s\n", msg.Message[:])
+		err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
+
+		if err != nil {
+			fmt.Printf("read runv client data failed: %v\n", err)
+			return
+		}
+	}
+	fmt.Printf("unknown cient request\n")
+}
+
+func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener) error {
+	err := vm.Launch(b)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			conn, err := sock.Accept()
+			if err != nil {
+				fmt.Printf("accept on runv Socket err: %v\n", err)
+				break
+			}
+
+			go HandleRunvRequest(vm, conn)
+		}
+	}()
+
+	return nil
 }
 
 var startCommand = cli.Command{

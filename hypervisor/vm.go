@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"time"
 
 	"encoding/json"
@@ -62,49 +61,6 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 
 	vm.VmChan = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
-
-	return nil
-}
-
-func (vm *Vm) HandleRunvRequest(conn net.Conn) {
-	defer conn.Close()
-
-	msg, err := readVmMessage(conn.(*net.UnixConn))
-	if err != nil {
-		glog.Error("read runv client data failed", err)
-		return
-	}
-
-	tag := pod.RandStr(8, "alphanum")
-	if msg.Code == INIT_EXECCMD {
-		glog.V(1).Infof("client exec cmd request %s\n", msg.Message[:])
-		err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
-
-		if err != nil {
-			glog.Error("read runv client data failed", err)
-			return
-		}
-	}
-	glog.Error("unknown cient request")
-}
-
-func (vm *Vm) LaunchOCIVm(b *BootConfig, sock net.Listener) error {
-	err := vm.Launch(b)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for {
-			conn, err := sock.Accept()
-			if err != nil {
-				glog.Error("accept on runv Socket err:", err)
-				break
-			}
-
-			go vm.HandleRunvRequest(conn)
-		}
-	}()
 
 	return nil
 }

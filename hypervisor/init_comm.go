@@ -59,7 +59,7 @@ func NewVmMessage(m *DecodedMessage) []byte {
 	return msg
 }
 
-func readVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
+func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
 	needRead := 8
 	length := 0
 	read := 0
@@ -109,7 +109,7 @@ func waitInitReady(ctx *VmContext) {
 
 	glog.Info("Wating for init messages...")
 
-	msg, err := readVmMessage(conn.(*net.UnixConn))
+	msg, err := ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil {
 		glog.Error("read init message failed... ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -277,7 +277,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 
 func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 	for {
-		res, err := readVmMessage(init)
+		res, err := ReadVmMessage(init)
 		if err != nil {
 			ctx.Hub <- &Interrupted{Reason: "init socket failed " + err.Error()}
 			return
