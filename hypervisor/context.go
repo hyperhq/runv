@@ -232,6 +232,7 @@ func (ctx *VmContext) Close() {
 	ctx.unsetTimeout()
 	ctx.DCtx.Close()
 	close(ctx.vm)
+	close(ctx.client)
 	os.Remove(ctx.ShareDir)
 	ctx.handler = nil
 	ctx.current = "None"
