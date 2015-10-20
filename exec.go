@@ -70,6 +70,7 @@ func execProcess(context *cli.Context, config *specs.Process) (int, error) {
 	fmt.Printf("tag=%s\n", tag)
 
 	inFd, _ := term.GetFdInfo(os.Stdin)
+	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
 	oldState, err := term.SetRawTerminal(inFd)
 	if err != nil {
 		return -1, err
@@ -98,6 +99,8 @@ func execProcess(context *cli.Context, config *specs.Process) (int, error) {
 		// Discard errors due to pipe interruption
 		sendStdin <- nil
 	}()
+
+	newTty(nil, podPath, tag, outFd, isTerminalOut).monitorTtySize()
 
 	if err := <-receiveStdout; err != nil {
 		return -1, err

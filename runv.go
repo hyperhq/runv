@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -29,6 +28,7 @@ const (
 	_ = iota
 	RUNV_ACK
 	RUNV_EXECCMD
+	RUNV_WINSIZE
 )
 
 const shortLen = 12
@@ -57,39 +57,6 @@ func GenerateRandomID() string {
 		}
 		return value
 	}
-}
-
-func resizeTty(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut bool) {
-	height, width := getTtySize(outFd, isTerminalOut)
-	if height == 0 && width == 0 {
-		return
-	}
-
-	vm.Tty(tag, height, width)
-}
-
-func monitorTtySize(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut bool) {
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGWINCH)
-	go func() {
-		for range sigchan {
-			resizeTty(vm, tag, outFd, isTerminalOut)
-		}
-	}()
-}
-
-func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
-	if !isTerminalOut {
-		return 0, 0
-	}
-	ws, err := term.GetWinsize(outFd)
-	if err != nil {
-		fmt.Printf("Error getting size: %s", err.Error())
-		if ws == nil {
-			return 0, 0
-		}
-	}
-	return int(ws.Height), int(ws.Width)
 }
 
 func removeState(podId, root string, sock net.Listener) {
@@ -500,8 +467,7 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	resizeTty(vm, tag, outFd, isTerminalOut)
-	monitorTtySize(vm, tag, outFd, isTerminalOut)
+	newTty(vm, path.Join(root, podId), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
 	err = execPoststopHooks(rt, stateFd)
@@ -551,7 +517,13 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
 			}
-			return
+		}
+	case RUNV_WINSIZE:
+		{
+			var winSize ttyWinSize
+			json.Unmarshal(msg.Message, &winSize)
+			//fmt.Printf("client exec winsize request %v\n", winSize)
+			vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
 		}
 	default:
 		fmt.Printf("unknown cient request\n")
