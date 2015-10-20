@@ -25,6 +25,12 @@ import (
 	"github.com/opencontainers/specs"
 )
 
+const (
+	_ = iota
+	RUNV_ACK
+	RUNV_EXECCMD
+)
+
 const shortLen = 12
 
 func TruncateID(id string) string {
@@ -505,6 +511,20 @@ func startVContainer(context *cli.Context) {
 	}
 }
 
+func runvGetTag(conn net.Conn) (tag string, err error) {
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		fmt.Printf("read runv server data failed: %v\n", err)
+		return "", err
+	}
+
+	if msg.Code != RUNV_ACK {
+		return "", fmt.Errorf("unexpected respond code")
+	}
+
+	return string(msg.Message), nil
+}
+
 func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 	defer conn.Close()
 
@@ -514,17 +534,28 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 		return
 	}
 
-	tag := pod.RandStr(8, "alphanum")
-	if msg.Code == hypervisor.INIT_EXECCMD {
-		fmt.Printf("client exec cmd request %s\n", msg.Message[:])
-		err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
+	switch msg.Code {
+	case RUNV_EXECCMD:
+		{
+			tag := pod.RandStr(8, "alphanum")
+			m := &hypervisor.DecodedMessage{
+				Code:    RUNV_ACK,
+				Message: []byte(tag),
+			}
+			data := hypervisor.NewVmMessage(m)
+			conn.Write(data)
 
-		if err != nil {
-			fmt.Printf("read runv client data failed: %v\n", err)
+			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
+			err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
+
+			if err != nil {
+				fmt.Printf("read runv client data failed: %v\n", err)
+			}
 			return
 		}
+	default:
+		fmt.Printf("unknown cient request\n")
 	}
-	fmt.Printf("unknown cient request\n")
 }
 
 func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener) error {

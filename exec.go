@@ -45,24 +45,29 @@ func execProcess(context *cli.Context, config *specs.Process) (int, error) {
 		return -1, fmt.Errorf("Please specify container")
 	}
 
+	conn, err := net.Dial("unix", path.Join(podPath, "runv.sock"))
+	if err != nil {
+		return -1, err
+	}
+
 	cmd, err := json.Marshal(config.Args)
 	if err != nil {
 		return -1, err
 	}
 
 	m := &hypervisor.DecodedMessage{
-		Code:    hypervisor.INIT_EXECCMD,
+		Code:    RUNV_EXECCMD,
 		Message: []byte(cmd),
 	}
 
 	data := hypervisor.NewVmMessage(m)
+	conn.Write(data[:])
 
-	conn, err := net.Dial("unix", path.Join(podPath, "runv.sock"))
+	tag, err := runvGetTag(conn)
 	if err != nil {
 		return -1, err
 	}
-
-	conn.Write(data[:])
+	fmt.Printf("tag=%s\n", tag)
 
 	inFd, _ := term.GetFdInfo(os.Stdin)
 	oldState, err := term.SetRawTerminal(inFd)
