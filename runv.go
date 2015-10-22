@@ -59,20 +59,20 @@ func GenerateRandomID() string {
 	}
 }
 
-func removeState(podId, root string, sock net.Listener) {
-	os.RemoveAll(path.Join(root, podId))
+func removeState(container, root string, sock net.Listener) {
+	os.RemoveAll(path.Join(root, container))
 	sock.Close()
 }
 
-func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
-	podPath := path.Join(root, podId)
+func saveState(container, root string) (net.Listener, *os.File, error) {
+	stateDir := path.Join(root, container)
 
-	_, err := os.Stat(podPath)
+	_, err := os.Stat(stateDir)
 	if err == nil {
-		return nil, nil, fmt.Errorf("Container %s exists\n", podId)
+		return nil, nil, fmt.Errorf("Container %s exists\n", container)
 	}
 
-	err = os.MkdirAll(podPath, 0644)
+	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, nil, err
@@ -80,7 +80,7 @@ func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
 
 	defer func() {
 		if err != nil {
-			os.RemoveAll(podPath)
+			os.RemoveAll(stateDir)
 		}
 	}()
 
@@ -92,7 +92,7 @@ func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
 
 	state := specs.State{
 		Version: specs.Version,
-		ID:      vmId,
+		ID:      container,
 		Pid:     -1,
 		Root:    pwd,
 	}
@@ -103,7 +103,7 @@ func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
 		return nil, nil, err
 	}
 
-	stateFile := path.Join(podPath, "state.json")
+	stateFile := path.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
@@ -116,7 +116,7 @@ func saveState(vmId, podId, root string) (net.Listener, *os.File, error) {
 		return nil, nil, err
 	}
 
-	sock, err := net.Listen("unix", path.Join(podPath, "runv.sock"))
+	sock, err := net.Listen("unix", path.Join(stateDir, "runv.sock"))
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, nil, err
@@ -374,17 +374,18 @@ func startVContainer(context *cli.Context) {
 
 	root := context.GlobalString("root")
 
-	podId := context.GlobalString("id")
+	container := context.GlobalString("id")
+	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	fmt.Printf("runv container id: %s\n", podId)
-	sock, stateFd, err := saveState(vmId, podId, root)
+	fmt.Printf("runv container id: %s\n", container)
+	sock, stateFd, err := saveState(container, root)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
-	defer removeState(podId, root, sock)
+	defer removeState(container, root, sock)
 
 	userPod, rt, err := parseUserPod(context)
 	if err != nil {
@@ -467,7 +468,7 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	newTty(vm, path.Join(root, podId), tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
 	err = execPoststopHooks(rt, stateFd)

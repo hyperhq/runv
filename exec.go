@@ -37,15 +37,15 @@ var execCommand = cli.Command{
 }
 
 func execProcess(context *cli.Context, config *specs.Process) (int, error) {
-	podId := context.GlobalString("id")
+	container := context.GlobalString("id")
 	root := context.GlobalString("root")
-	podPath := path.Join(root, podId)
+	stateDir := path.Join(root, container)
 
-	if podId == "" {
-		return -1, fmt.Errorf("Please specify container")
+	if container == "" {
+		return -1, fmt.Errorf("Please specify container ID")
 	}
 
-	conn, err := net.Dial("unix", path.Join(podPath, "runv.sock"))
+	conn, err := net.Dial("unix", path.Join(stateDir, "runv.sock"))
 	if err != nil {
 		return -1, err
 	}
@@ -100,7 +100,7 @@ func execProcess(context *cli.Context, config *specs.Process) (int, error) {
 		sendStdin <- nil
 	}()
 
-	newTty(nil, podPath, tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(nil, stateDir, tag, outFd, isTerminalOut).monitorTtySize()
 
 	if err := <-receiveStdout; err != nil {
 		return -1, err
