@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -23,6 +22,13 @@ import (
 	"github.com/hyperhq/runv/lib/term"
 
 	"github.com/opencontainers/specs"
+)
+
+const (
+	_ = iota
+	RUNV_ACK
+	RUNV_EXECCMD
+	RUNV_WINSIZE
 )
 
 const shortLen = 12
@@ -51,39 +57,6 @@ func GenerateRandomID() string {
 		}
 		return value
 	}
-}
-
-func resizeTty(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut bool) {
-	height, width := getTtySize(outFd, isTerminalOut)
-	if height == 0 && width == 0 {
-		return
-	}
-
-	vm.Tty(tag, height, width)
-}
-
-func monitorTtySize(vm *hypervisor.Vm, tag string, outFd uintptr, isTerminalOut bool) {
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGWINCH)
-	go func() {
-		for range sigchan {
-			resizeTty(vm, tag, outFd, isTerminalOut)
-		}
-	}()
-}
-
-func getTtySize(outFd uintptr, isTerminalOut bool) (int, int) {
-	if !isTerminalOut {
-		return 0, 0
-	}
-	ws, err := term.GetWinsize(outFd)
-	if err != nil {
-		fmt.Printf("Error getting size: %s", err.Error())
-		if ws == nil {
-			return 0, 0
-		}
-	}
-	return int(ws.Height), int(ws.Width)
 }
 
 func removeState(podId, root string, sock net.Listener) {
@@ -376,7 +349,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = vm.LaunchOCIVm(b, sock)
+	err = LaunchOCIVm(vm, b, sock)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, err
@@ -494,8 +467,7 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	resizeTty(vm, tag, outFd, isTerminalOut)
-	monitorTtySize(vm, tag, outFd, isTerminalOut)
+	newTty(vm, path.Join(root, podId), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
 	err = execPoststopHooks(rt, stateFd)
@@ -503,6 +475,80 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
 	}
+}
+
+func runvGetTag(conn net.Conn) (tag string, err error) {
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		fmt.Printf("read runv server data failed: %v\n", err)
+		return "", err
+	}
+
+	if msg.Code != RUNV_ACK {
+		return "", fmt.Errorf("unexpected respond code")
+	}
+
+	return string(msg.Message), nil
+}
+
+func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
+	defer conn.Close()
+
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		fmt.Printf("read runv client data failed: %v\n", err)
+		return
+	}
+
+	switch msg.Code {
+	case RUNV_EXECCMD:
+		{
+			tag := pod.RandStr(8, "alphanum")
+			m := &hypervisor.DecodedMessage{
+				Code:    RUNV_ACK,
+				Message: []byte(tag),
+			}
+			data := hypervisor.NewVmMessage(m)
+			conn.Write(data)
+
+			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
+			err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
+
+			if err != nil {
+				fmt.Printf("read runv client data failed: %v\n", err)
+			}
+		}
+	case RUNV_WINSIZE:
+		{
+			var winSize ttyWinSize
+			json.Unmarshal(msg.Message, &winSize)
+			//fmt.Printf("client exec winsize request %v\n", winSize)
+			vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
+		}
+	default:
+		fmt.Printf("unknown cient request\n")
+	}
+}
+
+func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener) error {
+	err := vm.Launch(b)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			conn, err := sock.Accept()
+			if err != nil {
+				fmt.Printf("accept on runv Socket err: %v\n", err)
+				break
+			}
+
+			go HandleRunvRequest(vm, conn)
+		}
+	}()
+
+	return nil
 }
 
 var startCommand = cli.Command{
