@@ -14,11 +14,11 @@ import (
 )
 
 type tty struct {
-	vm           *hypervisor.Vm
-	containerDir string
-	tag          string
-	termFd       uintptr
-	terminal     bool
+	vm       *hypervisor.Vm
+	stateDir string
+	tag      string
+	termFd   uintptr
+	terminal bool
 }
 
 type ttyWinSize struct {
@@ -27,13 +27,13 @@ type ttyWinSize struct {
 	Width  int
 }
 
-func newTty(vm *hypervisor.Vm, containerDir string, tag string, termFd uintptr, terminal bool) *tty {
+func newTty(vm *hypervisor.Vm, stateDir string, tag string, termFd uintptr, terminal bool) *tty {
 	return &tty{
-		vm:           vm,
-		containerDir: containerDir,
-		tag:          tag,
-		termFd:       termFd,
-		terminal:     terminal,
+		vm:       vm,
+		stateDir: stateDir,
+		tag:      tag,
+		termFd:   termFd,
+		terminal: terminal,
 	}
 }
 
@@ -48,7 +48,7 @@ func (tty *tty) resizeTty() {
 		return
 	}
 
-	conn, err := net.Dial("unix", path.Join(tty.containerDir, "runv.sock"))
+	conn, err := net.Dial("unix", path.Join(tty.stateDir, "runv.sock"))
 	if err != nil {
 		fmt.Printf("resize dial fail\n")
 		return //TODO
