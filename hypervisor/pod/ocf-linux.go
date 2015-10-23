@@ -13,6 +13,7 @@ func ConvertOCFLinuxContainer(s specs.LinuxSpec, r specs.LinuxRuntimeSpec) UserC
 		Command:       s.Spec.Process.Args,
 		Workdir:       s.Spec.Process.Cwd,
 		Image:         s.Spec.Root.Path,
+		Sysctl:        r.Linux.Sysctl,
 		RestartPolicy: "never",
 	}
 

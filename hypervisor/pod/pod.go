@@ -44,6 +44,7 @@ type UserContainer struct {
 	Command       []string              `json:"command"`
 	Workdir       string                `json:"workdir"`
 	Entrypoint    []string              `json:"entrypoint"`
+	Sysctl        map[string]string     `json:"sysctl,omitempty"`
 	Ports         []UserContainerPort   `json:"ports"`
 	Envs          []UserEnvironmentVar  `json:"envs"`
 	Volumes       []UserVolumeReference `json:"volumes"`
