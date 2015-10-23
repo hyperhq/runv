@@ -239,7 +239,7 @@ func parseUserPod(context *cli.Context) (*pod.UserPod, *specs.RuntimeSpec, error
 		}
 	}
 
-	userPod, rt, err := pod.OCFConvert2Pod(ocfData, runtimeData)
+	userPod, rt, err := pod.ParseOCFLinuxContainerConfig(ocfData, runtimeData)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, nil, err
