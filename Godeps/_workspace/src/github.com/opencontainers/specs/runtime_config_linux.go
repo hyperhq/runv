@@ -73,11 +73,11 @@ const (
 // IDMapping specifies UID/GID mappings
 type IDMapping struct {
 	// HostID is the UID/GID of the host user or group
-	HostID int32 `json:"hostID"`
+	HostID uint32 `json:"hostID"`
 	// ContainerID is the UID/GID of the container's user or group
-	ContainerID int32 `json:"containerID"`
+	ContainerID uint32 `json:"containerID"`
 	// Size is the length of the range of IDs mapped between the two namespaces
-	Size int32 `json:"size"`
+	Size uint32 `json:"size"`
 }
 
 // Rlimit type and restrictions
@@ -92,8 +92,10 @@ type Rlimit struct {
 
 // HugepageLimit structure corresponds to limiting kernel hugepages
 type HugepageLimit struct {
+	// Pagesize is the hugepage size
 	Pagesize string `json:"pageSize"`
-	Limit    int    `json:"limit"`
+	// Limit is the limit of "hugepagesize" hugetlb usage
+	Limit uint64 `json:"limit"`
 }
 
 // InterfacePriority for network interfaces
@@ -104,20 +106,46 @@ type InterfacePriority struct {
 	Priority int64 `json:"priority"`
 }
 
-// BlockIO for Linux cgroup 'blockio' resource management
+// blockIODevice holds major:minor format supported in blkio cgroup
+type blockIODevice struct {
+	// Major is the device's major number.
+	Major int64 `json:"major"`
+	// Minor is the device's minor number.
+	Minor int64 `json:"minor"`
+}
+
+// WeightDevice struct holds a `major:minor weight` pair for blkioWeightDevice
+type WeightDevice struct {
+	blockIODevice
+	// Weight is the bandwidth rate for the device, range is from 10 to 1000
+	Weight uint16 `json:"weight"`
+	// LeafWeight is the bandwidth rate for the device while competing with the cgroup's child cgroups, range is from 10 to 1000, cfq scheduler only
+	LeafWeight uint16 `json:"leafWeight"`
+}
+
+// ThrottleDevice struct holds a `major:minor rate_per_second` pair
+type ThrottleDevice struct {
+	blockIODevice
+	// Rate is the IO rate limit per cgroup per device
+	Rate uint64 `json:"rate"`
+}
+
+// BlockIO for Linux cgroup 'blkio' resource management
 type BlockIO struct {
 	// Specifies per cgroup weight, range is from 10 to 1000
-	Weight int64 `json:"blkioWeight"`
+	Weight uint16 `json:"blkioWeight"`
+	// Specifies tasks' weight in the given cgroup while competing with the cgroup's child cgroups, range is from 10 to 1000, cfq scheduler only
+	LeafWeight uint16 `json:"blkioLeafWeight"`
 	// Weight per cgroup per device, can override BlkioWeight
-	WeightDevice string `json:"blkioWeightDevice"`
+	WeightDevice []*WeightDevice `json:"blkioWeightDevice"`
 	// IO read rate limit per cgroup per device, bytes per second
-	ThrottleReadBpsDevice string `json:"blkioThrottleReadBpsDevice"`
-	// IO write rate limit per cgroup per divice, bytes per second
-	ThrottleWriteBpsDevice string `json:"blkioThrottleWriteBpsDevice"`
+	ThrottleReadBpsDevice []*ThrottleDevice `json:"blkioThrottleReadBpsDevice"`
+	// IO write rate limit per cgroup per device, bytes per second
+	ThrottleWriteBpsDevice []*ThrottleDevice `json:"blkioThrottleWriteBpsDevice"`
 	// IO read rate limit per cgroup per device, IO per second
-	ThrottleReadIOpsDevice string `json:"blkioThrottleReadIopsDevice"`
+	ThrottleReadIOPSDevice []*ThrottleDevice `json:"blkioThrottleReadIOPSDevice"`
 	// IO write rate limit per cgroup per device, IO per second
-	ThrottleWriteIOpsDevice string `json:"blkioThrottleWriteIopsDevice"`
+	ThrottleWriteIOPSDevice []*ThrottleDevice `json:"blkioThrottleWriteIOPSDevice"`
 }
 
 // Memory for Linux cgroup 'memory' resource management
@@ -207,14 +235,51 @@ type Device struct {
 // Seccomp represents syscall restrictions
 type Seccomp struct {
 	DefaultAction Action     `json:"defaultAction"`
+	Architectures []Arch     `json:"architectures"`
 	Syscalls      []*Syscall `json:"syscalls"`
 }
+
+// Additional architectures permitted to be used for system calls
+// By default only the native architecture of the kernel is permitted
+type Arch string
+
+const (
+	ArchX86         Arch = "SCMP_ARCH_X86"
+	ArchX86_64      Arch = "SCMP_ARCH_X86_64"
+	ArchX32         Arch = "SCMP_ARCH_X32"
+	ArchARM         Arch = "SCMP_ARCH_ARM"
+	ArchAARCH64     Arch = "SCMP_ARCH_AARCH64"
+	ArchMIPS        Arch = "SCMP_ARCH_MIPS"
+	ArchMIPS64      Arch = "SCMP_ARCH_MIPS64"
+	ArchMIPS64N32   Arch = "SCMP_ARCH_MIPS64N32"
+	ArchMIPSEL      Arch = "SCMP_ARCH_MIPSEL"
+	ArchMIPSEL64    Arch = "SCMP_ARCH_MIPSEL64"
+	ArchMIPSEL64N32 Arch = "SCMP_ARCH_MIPSEL64N32"
+)
 
 // Action taken upon Seccomp rule match
 type Action string
 
+const (
+	ActKill  Action = "SCMP_ACT_KILL"
+	ActTrap  Action = "SCMP_ACT_TRAP"
+	ActErrno Action = "SCMP_ACT_ERRNO"
+	ActTrace Action = "SCMP_ACT_TRACE"
+	ActAllow Action = "SCMP_ACT_ALLOW"
+)
+
 // Operator used to match syscall arguments in Seccomp
 type Operator string
+
+const (
+	OpNotEqual     Operator = "SCMP_CMP_NE"
+	OpLessThan     Operator = "SCMP_CMP_LT"
+	OpLessEqual    Operator = "SCMP_CMP_LE"
+	OpEqualTo      Operator = "SCMP_CMP_EQ"
+	OpGreaterEqual Operator = "SCMP_CMP_GE"
+	OpGreaterThan  Operator = "SCMP_CMP_GT"
+	OpMaskedEqual  Operator = "SCMP_CMP_MASKED_EQ"
+)
 
 // Arg used for matching specific syscall arguments in Seccomp
 type Arg struct {

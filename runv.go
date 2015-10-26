@@ -91,10 +91,10 @@ func saveState(container, root string) (net.Listener, *os.File, error) {
 	}
 
 	state := specs.State{
-		Version: specs.Version,
-		ID:      container,
-		Pid:     -1,
-		Root:    pwd,
+		Version:    specs.Version,
+		ID:         container,
+		Pid:        -1,
+		BundlePath: pwd,
 	}
 
 	stateData, err := json.MarshalIndent(&state, "", "\t")
@@ -184,7 +184,7 @@ func execPoststartHooks(rt *specs.RuntimeSpec, state *os.File) error {
 		return nil
 	}
 
-	for _, hook := range rt.Hooks.Prestart {
+	for _, hook := range rt.Hooks.Poststart {
 		err := execHook(hook, state)
 		if err != nil {
 			fmt.Printf("exec Poststart hook %s failed %s", hook.Path, err.Error())
@@ -199,7 +199,7 @@ func execPoststopHooks(rt *specs.RuntimeSpec, state *os.File) error {
 		return nil
 	}
 
-	for _, hook := range rt.Hooks.Prestart {
+	for _, hook := range rt.Hooks.Poststop {
 		err := execHook(hook, state)
 		if err != nil {
 			fmt.Printf("exec Poststop hook %s failed %s", hook.Path, err.Error())
