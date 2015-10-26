@@ -88,13 +88,22 @@ import (
 )
 
 func ExecInDaemon(cmd string, argv []string, pipe int) error {
+	fds := (*C.int)(nil)
+	num := C.int(0)
 	cargs := make([]*C.char, len(argv))
+
 	for idx, a := range argv {
 		cargs[idx] = C.CString(a)
 	}
-	fds := listFd()
 
-	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe), (*C.int)(unsafe.Pointer(&fds[0])), C.int(len(fds)))
+	fdlist := listFd()
+
+	if len(fdlist) != 0 {
+		fds = (*C.int)(unsafe.Pointer(&fdlist[0]))
+		num = C.int(len(fdlist))
+	}
+
+	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe), fds, num)
 	if err != nil || ret < 0 {
 		return fmt.Errorf("fail to start qemu in daemon mode")
 	}
