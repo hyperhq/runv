@@ -42,6 +42,7 @@ int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num) {
 
 	if (pipe > 0) {
 		char buf[4];
+		int ret;
 
 		pid = getpid();
 
@@ -50,7 +51,9 @@ int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num) {
 		buf[2] = pid >> 8;
 		buf[3] = pid;
 
-		write(pipe, buf, 4);
+		ret = write(pipe, buf, 4);
+		if (ret != 4)
+			_exit(-1);
 	}
 
 	//Clear file creation mask
