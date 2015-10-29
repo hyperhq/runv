@@ -1,14 +1,12 @@
 package qemu
 
 import (
+	"os"
+	"strings"
+
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/utils"
-
-	"encoding/binary"
-	"os"
-	"strings"
-	"syscall"
 )
 
 func watchDog(qc *QemuContext, hub chan hypervisor.VmEvent) {
@@ -65,32 +63,14 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	pipe := make([]int, 2)
-	err := syscall.Pipe(pipe)
-	if err != nil {
-		glog.Error("fail to create pipe")
-		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "fail to create pipe"}
-		return
-	}
-	err = utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...), pipe[1])
+	pid, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
 	if err != nil {
 		//fail to daemonize
-		glog.Error("try to start qemu failed")
+		glog.Error("%v", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "try to start qemu failed"}
 		return
 	}
 
-	buf := make([]byte, 4)
-	nr, err := syscall.Read(pipe[0], buf)
-	if err != nil || nr != 4 {
-		glog.Error("try to start qemu failed")
-		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "try to start qemu failed"}
-		return
-	}
-	syscall.Close(pipe[1])
-	syscall.Close(pipe[0])
-
-	pid := binary.BigEndian.Uint32(buf[:nr])
 	glog.V(1).Infof("starting daemon with pid: %d", pid)
 
 	err = ctx.DCtx.(*QemuContext).watchPid(int(pid), ctx.Hub)

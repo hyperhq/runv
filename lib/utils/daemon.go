@@ -84,34 +84,55 @@ int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num) {
 import "C"
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"syscall"
 	"unsafe"
 )
 
-func ExecInDaemon(cmd string, argv []string, pipe int) error {
-	fds := (*C.int)(nil)
-	num := C.int(0)
+func ExecInDaemon(cmd string, argv []string) (pid uint32, err error) {
+	// convert the args to the C style args
 	cargs := make([]*C.char, len(argv))
 
 	for idx, a := range argv {
 		cargs[idx] = C.CString(a)
 	}
 
+	// collect all the opened fds and close them when exec the daemon
+	fds := (*C.int)(nil)
+	num := C.int(0)
 	fdlist := listFd()
-
 	if len(fdlist) != 0 {
 		fds = (*C.int)(unsafe.Pointer(&fdlist[0]))
 		num = C.int(len(fdlist))
 	}
 
-	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe), fds, num)
-	if err != nil || ret < 0 {
-		return fmt.Errorf("fail to start qemu in daemon mode")
+	// create pipe for geting the daemon pid
+	pipe := make([]int, 2)
+	err = syscall.Pipe(pipe)
+	if err != nil {
+		return 0, fmt.Errorf("fail to create pipe: %v", err)
 	}
 
-	return nil
+	// do the job!
+	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe[1]), fds, num)
+	if err != nil || ret < 0 {
+		return 0, fmt.Errorf("fail to start %s in daemon mode: %v", argv[0], err)
+	}
+
+	// get the daemon pid
+	buf := make([]byte, 4)
+	nr, err := syscall.Read(pipe[0], buf)
+	if err != nil || nr != 4 {
+		return 0, fmt.Errorf("fail to start %s in daemon mode or fail to get pid: %v", argv[0], err)
+	}
+	syscall.Close(pipe[1])
+	syscall.Close(pipe[0])
+	pid = binary.BigEndian.Uint32(buf[:nr])
+
+	return pid, nil
 }
 
 func listFd() []int {
