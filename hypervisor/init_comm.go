@@ -3,10 +3,12 @@ package hypervisor
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/hyperhq/runv/lib/glog"
-	"github.com/hyperhq/runv/lib/telnet"
 	"net"
 	"time"
+
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/telnet"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 // Message
@@ -21,7 +23,7 @@ type FinishCmd struct {
 
 func waitConsoleOutput(ctx *VmContext) {
 
-	conn, err := UnixSocketConnect(ctx.ConsoleSockName)
+	conn, err := utils.UnixSocketConnect(ctx.ConsoleSockName)
 	if err != nil {
 		glog.Error("failed to connected to ", ctx.ConsoleSockName, " ", err.Error())
 		return
@@ -98,7 +100,7 @@ func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
 }
 
 func waitInitReady(ctx *VmContext) {
-	conn, err := UnixSocketConnect(ctx.HyperSockName)
+	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
 	if err != nil {
 		glog.Error("Cannot connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -130,7 +132,7 @@ func waitInitReady(ctx *VmContext) {
 }
 
 func connectToInit(ctx *VmContext) {
-	conn, err := UnixSocketConnect(ctx.HyperSockName)
+	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
 	if err != nil {
 		glog.Error("Cannot re-connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{

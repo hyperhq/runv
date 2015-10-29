@@ -2,11 +2,13 @@ package qemu
 
 import (
 	"encoding/json"
-	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
 	"net"
 	"syscall"
 	"time"
+
+	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type QmpInteraction interface {
@@ -154,7 +156,7 @@ func qmpReceiver(qmp chan QmpInteraction, wait chan int, decoder *json.Decoder) 
 
 func qmpInitializer(ctx *hypervisor.VmContext) {
 	qc := qemuContext(ctx)
-	conn, err := hypervisor.UnixSocketConnect(qc.qmpSockName)
+	conn, err := utils.UnixSocketConnect(qc.qmpSockName)
 	if err != nil {
 		glog.Error("failed to connected to ", qc.qmpSockName, " ", err.Error())
 		qc.qmp <- qmpFail(err.Error(), nil)

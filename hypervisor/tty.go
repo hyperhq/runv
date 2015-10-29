@@ -2,12 +2,14 @@ package hypervisor
 
 import (
 	"encoding/binary"
-	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 	"io"
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type WindowSize struct {
@@ -117,7 +119,7 @@ func waitTtyMessage(ctx *VmContext, conn *net.UnixConn) {
 }
 
 func waitPts(ctx *VmContext) {
-	conn, err := UnixSocketConnect(ctx.TtySockName)
+	conn, err := utils.UnixSocketConnect(ctx.TtySockName)
 	if err != nil {
 		glog.Error("Cannot connect to tty socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
