@@ -23,6 +23,10 @@
 			"Rev": "d2e7ba42b10fda5961470adc4ba4d74011203e60"
 		},
 		{
+			"ImportPath": "github.com/kardianos/osext",
+			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
+		},
+		{
 			"ImportPath": "github.com/opencontainers/specs",
 			"Comment": "v0.1.1-66-ge71b6dd",
 			"Rev": "e71b6dd44123ccc70ec90ffbee13831dc453c21d"
