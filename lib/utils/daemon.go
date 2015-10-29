@@ -94,7 +94,8 @@ import (
 
 func ExecInDaemon(cmd string, argv []string) (pid uint32, err error) {
 	// convert the args to the C style args
-	cargs := make([]*C.char, len(argv))
+	// +1 for the list of arguments must be terminated by a null pointer
+	cargs := make([]*C.char, len(argv)+1)
 
 	for idx, a := range argv {
 		cargs[idx] = C.CString(a)
