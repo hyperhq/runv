@@ -5,17 +5,18 @@ package xen
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/lib/glog"
-	"net"
-	"strings"
-	"unsafe"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type XenDriver struct {
@@ -347,5 +348,5 @@ func probeXend() bool {
 }
 
 func xvdId2Name(id int) string {
-	return "xvd" + hypervisor.DiskId2Name(id)
+	return "xvd" + utils.DiskId2Name(id)
 }

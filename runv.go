@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -9,10 +10,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/driverloader"
@@ -64,18 +65,18 @@ func removeState(container, root string, sock net.Listener) {
 	sock.Close()
 }
 
-func saveState(container, root string) (net.Listener, *os.File, error) {
+func saveState(container, root string, state *specs.State) (net.Listener, error) {
 	stateDir := path.Join(root, container)
 
 	_, err := os.Stat(stateDir)
 	if err == nil {
-		return nil, nil, fmt.Errorf("Container %s exists\n", container)
+		return nil, fmt.Errorf("Container %s exists\n", container)
 	}
 
 	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
+		return nil, err
 	}
 
 	defer func() {
@@ -84,91 +85,43 @@ func saveState(container, root string) (net.Listener, *os.File, error) {
 		}
 	}()
 
-	pwd, err := filepath.Abs(".")
+	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
-	}
-
-	state := specs.State{
-		Version:    specs.Version,
-		ID:         container,
-		Pid:        -1,
-		BundlePath: pwd,
-	}
-
-	stateData, err := json.MarshalIndent(&state, "", "\t")
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
+		return nil, err
 	}
 
 	stateFile := path.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
-	}
-
-	stateFd, err := os.Open(stateFile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
+		return nil, err
 	}
 
 	sock, err := net.Listen("unix", path.Join(stateDir, "runv.sock"))
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
+		return nil, err
 	}
 
-	return sock, stateFd, nil
+	return sock, nil
 }
 
-func execHook(hook specs.Hook, state *os.File) error {
-	old_stdin, err := syscall.Dup(int(os.Stdin.Fd()))
+func execHook(hook specs.Hook, state *specs.State) error {
+	b, err := json.Marshal(state)
 	if err != nil {
-		fmt.Printf("dup stdin failed, %s\n", err.Error())
 		return err
 	}
-
-	defer syscall.Close(old_stdin)
-	err = syscall.Dup2(int(state.Fd()), int(os.Stdin.Fd()))
-	if err != nil {
-		fmt.Printf("dup stdin to state file failed, %s\n", err.Error())
-		return err
-	}
-	defer syscall.Dup2(old_stdin, int(os.Stdin.Fd()))
-
-	pAttr := &os.ProcAttr{
+	cmd := exec.Cmd{
+		Path:  hook.Path,
+		Args:  hook.Args,
 		Env:   hook.Env,
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr, state},
+		Stdin: bytes.NewReader(b),
 	}
-
-	p, err := os.StartProcess(hook.Path, hook.Args, pAttr)
-	if err != nil {
-		fmt.Printf("start hook process failed, %s\n", err.Error())
-		return err
-	}
-
-	status, err := p.Wait()
-	if err != nil {
-		fmt.Printf("wait hook process exit failed, %s\n", err.Error())
-		return err
-	}
-
-	if status.Success() {
-		return nil
-	}
-
-	return fmt.Errorf("execute hook %s failed", hook.Path)
+	return cmd.Run()
 }
 
-func execPrestartHooks(rt *specs.RuntimeSpec, state *os.File) error {
-	if rt == nil {
-		return nil
-	}
-
+func execPrestartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Prestart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -179,11 +132,7 @@ func execPrestartHooks(rt *specs.RuntimeSpec, state *os.File) error {
 	return nil
 }
 
-func execPoststartHooks(rt *specs.RuntimeSpec, state *os.File) error {
-	if rt == nil {
-		return nil
-	}
-
+func execPoststartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -194,11 +143,7 @@ func execPoststartHooks(rt *specs.RuntimeSpec, state *os.File) error {
 	return nil
 }
 
-func execPoststopHooks(rt *specs.RuntimeSpec, state *os.File) error {
-	if rt == nil {
-		return nil
-	}
-
+func execPoststopHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststop {
 		err := execHook(hook, state)
 		if err != nil {
@@ -379,7 +324,21 @@ func startVContainer(context *cli.Context) {
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
 	fmt.Printf("runv container id: %s\n", container)
-	sock, stateFd, err := saveState(container, root)
+
+	pwd, err := filepath.Abs(".")
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+
+	state := &specs.State{
+		Version:    specs.Version,
+		ID:         container,
+		Pid:        -1,
+		BundlePath: pwd,
+	}
+
+	sock, err := saveState(container, root, state)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -425,7 +384,7 @@ func startVContainer(context *cli.Context) {
 		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 	}()
 
-	err = execPrestartHooks(rt, stateFd)
+	err = execPrestartHooks(rt, state)
 	if err != nil {
 		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -463,7 +422,7 @@ func startVContainer(context *cli.Context) {
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
-	err = execPoststartHooks(rt, stateFd)
+	err = execPoststartHooks(rt, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
@@ -471,7 +430,7 @@ func startVContainer(context *cli.Context) {
 	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
-	err = execPoststopHooks(rt, stateFd)
+	err = execPoststopHooks(rt, state)
 	if err != nil {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return

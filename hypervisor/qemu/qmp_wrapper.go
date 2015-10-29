@@ -2,10 +2,12 @@ package qemu
 
 import (
 	"fmt"
-	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
 	"strconv"
 	"syscall"
+
+	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/lib/glog"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 func qmpQemuQuit(qc *QemuContext) {
@@ -16,7 +18,7 @@ func qmpQemuQuit(qc *QemuContext) {
 }
 
 func scsiId2Name(id int) string {
-	return "sd" + hypervisor.DiskId2Name(id)
+	return "sd" + utils.DiskId2Name(id)
 }
 
 func newDiskAddSession(qc *QemuContext, name, sourceType, filename, format string, id int) {

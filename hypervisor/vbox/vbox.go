@@ -12,6 +12,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/govbox"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 //implement the hypervisor.HypervisorDriver interface
@@ -412,7 +413,7 @@ func (vc *VBoxDriver) SupportLazyMode() bool {
 }
 
 func scsiId2Name(id int) string {
-	return "sd" + hypervisor.DiskId2Name(id)
+	return "sd" + utils.DiskId2Name(id)
 }
 
 func (vc *VBoxContext) LazyAddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
