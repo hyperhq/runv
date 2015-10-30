@@ -3,6 +3,12 @@
 *.a
 *.so
 
+# Patch
+*.diff
+*.patch
+*.orig
+*.rej
+
 # Folders
 _obj
 _test
