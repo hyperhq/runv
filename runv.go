@@ -235,7 +235,6 @@ func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) 
 		}
 
 		containerInfoList = append(containerInfoList, containerInfo)
-		mypod.AddContainer(containerId, mypod.Id, "", []string{}, types.S_POD_CREATED)
 	}
 
 	return containerInfoList, nil
@@ -409,18 +408,24 @@ func startVContainer(context *cli.Context) {
 	go io.Copy(toVm, os.Stdin)
 	go io.Copy(os.Stdout, fromVm)
 
-	err = vm.Attach(fromStd, toStd, tag, mypod.Containers[0].Id, ttyCallback, nil)
-	if err != nil {
-		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
-		return
-	}
-
-	Response = vm.StartPod(mypod, userPod, infoList, nil)
+	userContainer := &userPod.Containers[0]
+	info := infoList[0]
+	userPod.Containers = []pod.UserContainer{}
+	Response = vm.StartPod(mypod, userPod, nil, nil)
 	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
 		return
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+
+	err = vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
+	if err != nil {
+		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
+		return
+	}
+
+	mypod.AddContainer(info.Id, mypod.Id, "", []string{}, types.S_POD_CREATED)
+	vm.NewContainer(userContainer, info)
 
 	err = execPoststartHooks(rt, state)
 	if err != nil {

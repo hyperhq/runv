@@ -163,6 +163,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			glog.Info("vm channel closed, quit")
 			break
 		}
+		glog.Infof("got cmd:%d", cmd.Code)
 		if cmd.Code == INIT_ACK || cmd.Code == INIT_ERROR {
 			if len(cmds) > 0 {
 				if cmds[0].Code == INIT_DESTROYPOD {

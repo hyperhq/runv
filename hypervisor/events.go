@@ -48,6 +48,11 @@ type RunPodCommand struct {
 
 type ReplacePodCommand RunPodCommand
 
+type NewContainerCommand struct {
+	container *pod.UserContainer
+	info      *ContainerInfo
+}
+
 type ExecCommand struct {
 	Container string   `json:"container,omitempty"`
 	Sequence  uint64   `json:"seq"`
@@ -220,6 +225,7 @@ func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
 func (qe *GetPodIPCommand) Event() int       { return COMMAND_GET_POD_IP }
 func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
+func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
 func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }

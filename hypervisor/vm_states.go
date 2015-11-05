@@ -77,6 +77,63 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 	return true
 }
 
+func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
+	ctx.lock.Lock()
+
+	idx := len(ctx.vmSpec.Containers)
+	vmContainer := &VmContainer{}
+
+	ctx.initContainerInfo(idx, vmContainer, cmd.container)
+	ctx.setContainerInfo(idx, vmContainer, cmd.info)
+
+	vmContainer.Sysctl = cmd.container.Sysctl
+	vmContainer.Tty = ctx.attachId
+	ctx.attachId++
+	ctx.ptys.ttys[vmContainer.Tty] = newAttachments(idx, true)
+	if !cmd.container.Tty {
+		vmContainer.Stderr = ctx.attachId
+		ctx.attachId++
+		ctx.ptys.ttys[vmContainer.Stderr] = newAttachments(idx, true)
+	}
+
+	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
+
+	ctx.lock.Unlock()
+
+	pendings := ctx.pendingTtys
+	ctx.pendingTtys = []*AttachCommand{}
+	for _, acmd := range pendings {
+		if idx == ctx.Lookup(acmd.Container) {
+			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.attachTty2Container(idx, acmd)
+		} else {
+			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+		}
+	}
+
+	return vmContainer
+}
+
+func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
+	c := ctx.prepareContainer(cmd)
+
+	jsonCmd, err := json.Marshal(*c)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong run profile " + err.Error(),
+		}
+		glog.Infof("INIT_NEWCONTAINER marshal failed")
+		return
+	}
+	glog.Infof("start sending INIT_NEWCONTAINER")
+	ctx.vm <- &DecodedMessage{
+		Code:    INIT_NEWCONTAINER,
+		Message: jsonCmd,
+	}
+	glog.Infof("sent INIT_NEWCONTAINER")
+}
+
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	if session, ok := ctx.ttySessions[tag]; ok {
 		cmd := map[string]interface{}{
@@ -375,6 +432,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.reportVmShutdown()
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
+		case COMMAND_NEWCONTAINER:
+			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
 		case COMMAND_WRITEFILE:
@@ -483,6 +542,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.execCmd(ev.(*ExecCommand))
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
+		case COMMAND_NEWCONTAINER:
+			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			if ctx.userSpec.Tty {
