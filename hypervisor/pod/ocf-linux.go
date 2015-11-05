@@ -12,6 +12,7 @@ func ConvertOCFLinuxContainer(s specs.LinuxSpec, r specs.LinuxRuntimeSpec) UserC
 	container := UserContainer{
 		Command:       s.Spec.Process.Args,
 		Workdir:       s.Spec.Process.Cwd,
+		Tty:           s.Spec.Process.Terminal,
 		Image:         s.Spec.Root.Path,
 		Sysctl:        r.Linux.Sysctl,
 		RestartPolicy: "never",

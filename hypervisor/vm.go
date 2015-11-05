@@ -462,6 +462,22 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 	return nil
 }
 
+func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
+	newContainerCommand := &NewContainerCommand{
+		container: c,
+		info:      info,
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+
+	Event <- newContainerCommand
+	vm.ReleaseRequestChan(Event)
+	return nil
+}
+
 func (vm *Vm) Tty(tag string, row, column int) error {
 	var ttySizeCommand = &WindowSizeCommand{
 		ClientTag: tag,
