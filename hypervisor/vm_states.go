@@ -603,7 +603,11 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "got release, quit")
 			ctx.Become(stateTerminating, "TERMINATING")
 			ctx.reportVmShutdown()
-		case COMMAND_ACK, EVENT_POD_FINISH:
+		case EVENT_POD_FINISH:
+			glog.Info("POD stopped")
+			ctx.detachDevice()
+			ctx.Become(stateCleaning, "CLEANING")
+		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply)
 			if ack.reply == INIT_STOPPOD {
