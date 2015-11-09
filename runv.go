@@ -235,7 +235,7 @@ func prepareInfo(c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, 
 	return containerInfo, nil
 }
 
-func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.Listener) (*hypervisor.Vm, error) {
+func startVm(context *cli.Context, userPod *pod.UserPod, vmId string) (*hypervisor.Vm, error) {
 	var (
 		err error
 		cpu = 1
@@ -288,7 +288,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = LaunchOCIVm(vm, b, sock)
+	err = vm.Launch(b)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, err
@@ -348,7 +348,7 @@ func startVContainer(context *cli.Context) {
 	userPod := pod.ConvertOCF2PureUserPod(spec, runtime)
 	mypod := hypervisor.NewPod(podId, userPod)
 
-	vm, err := startVm(context, userPod, vmId, sock)
+	vm, err := startVm(context, userPod, vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -418,6 +418,7 @@ func startVContainer(context *cli.Context) {
 
 	mypod.AddContainer(info.Id, mypod.Id, "", []string{}, types.S_POD_CREATED)
 	vm.NewContainer(userContainer, info)
+	ListenAndHandleRunvRequests(vm, sock)
 
 	err = execPoststartHooks(&runtime.RuntimeSpec, state)
 	if err != nil {
@@ -487,12 +488,7 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 	}
 }
 
-func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener) error {
-	err := vm.Launch(b)
-	if err != nil {
-		return err
-	}
-
+func ListenAndHandleRunvRequests(vm *hypervisor.Vm, sock net.Listener) {
 	go func() {
 		for {
 			conn, err := sock.Accept()
@@ -504,8 +500,6 @@ func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener)
 			go HandleRunvRequest(vm, conn)
 		}
 	}()
-
-	return nil
 }
 
 var startCommand = cli.Command{
