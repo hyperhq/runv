@@ -392,6 +392,18 @@ func startVContainer(config *startConfig) {
 	}
 }
 
+func runvAllocAndRespondTag(conn net.Conn) (tag string, err error) {
+	tag = pod.RandStr(8, "alphanum")
+	m := &hypervisor.DecodedMessage{
+		Code:    RUNV_ACK,
+		Message: []byte(tag),
+	}
+	data := hypervisor.NewVmMessage(m)
+	conn.Write(data)
+
+	return tag, nil
+}
+
 func runvGetTag(conn net.Conn) (tag string, err error) {
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil {
@@ -418,13 +430,7 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 	switch msg.Code {
 	case RUNV_EXECCMD:
 		{
-			tag := pod.RandStr(8, "alphanum")
-			m := &hypervisor.DecodedMessage{
-				Code:    RUNV_ACK,
-				Message: []byte(tag),
-			}
-			data := hypervisor.NewVmMessage(m)
-			conn.Write(data)
+			tag, _ := runvAllocAndRespondTag(conn)
 
 			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
 			err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
