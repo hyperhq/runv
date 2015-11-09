@@ -154,7 +154,7 @@ func execPoststopHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	return nil
 }
 
-func parseUserPod(context *cli.Context) (*pod.UserPod, *specs.RuntimeSpec, error) {
+func loadOCF(context *cli.Context) (*specs.LinuxSpec, *specs.LinuxRuntimeSpec, error) {
 	ocffile := context.String("config-file")
 	runtimefile := context.String("runtime-file")
 
@@ -184,60 +184,55 @@ func parseUserPod(context *cli.Context) (*pod.UserPod, *specs.RuntimeSpec, error
 		}
 	}
 
-	userPod, rt, err := pod.ParseOCFLinuxContainerConfig(ocfData, runtimeData)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+	var s specs.LinuxSpec
+	var r specs.LinuxRuntimeSpec
+
+	if err := json.Unmarshal(ocfData, &s); err != nil {
 		return nil, nil, err
 	}
 
-	return userPod, rt, nil
-}
-
-func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) ([]*hypervisor.ContainerInfo, error) {
-	var (
-		containerInfoList []*hypervisor.ContainerInfo
-		containerId       string
-	)
-
-	sharedDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
-
-	for _, c := range userPod.Containers {
-		var root string
-		var err error
-
-		containerId = GenerateRandomID()
-		rootDir := path.Join(sharedDir, containerId)
-		os.MkdirAll(rootDir, 0755)
-
-		rootDir = path.Join(rootDir, "rootfs")
-
-		if !filepath.IsAbs(c.Image) {
-			root, err = filepath.Abs(c.Image)
-			if err != nil {
-				fmt.Printf("%s\n", err.Error())
-				return nil, err
-			}
-		} else {
-			root = c.Image
-		}
-
-		err = mount(root, rootDir)
-		if err != nil {
-			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
-			return nil, err
-		}
-
-		containerInfo := &hypervisor.ContainerInfo{
-			Id:     containerId,
-			Rootfs: "rootfs",
-			Image:  containerId,
-			Fstype: "dir",
-		}
-
-		containerInfoList = append(containerInfoList, containerInfo)
+	if err := json.Unmarshal(runtimeData, &r); err != nil {
+		return nil, nil, err
 	}
 
-	return containerInfoList, nil
+	return &s, &r, nil
+}
+
+func prepareInfo(c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, error) {
+	var root string
+	var err error
+
+	containerId := GenerateRandomID()
+	sharedDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
+	rootDir := path.Join(sharedDir, containerId)
+	os.MkdirAll(rootDir, 0755)
+
+	rootDir = path.Join(rootDir, "rootfs")
+
+	if !filepath.IsAbs(c.Image) {
+		root, err = filepath.Abs(c.Image)
+		if err != nil {
+			fmt.Printf("%s\n", err.Error())
+			return nil, err
+		}
+	} else {
+		root = c.Image
+	}
+
+	err = mount(root, rootDir)
+	if err != nil {
+		fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+		return nil, err
+	}
+
+	containerInfo := &hypervisor.ContainerInfo{
+		Id:     containerId,
+		Rootfs: "rootfs",
+		Image:  containerId,
+		Fstype: "dir",
+	}
+
+	return containerInfo, nil
 }
 
 func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.Listener) (*hypervisor.Vm, error) {
@@ -345,27 +340,13 @@ func startVContainer(context *cli.Context) {
 
 	defer removeState(container, root, sock)
 
-	userPod, rt, err := parseUserPod(context)
+	spec, runtime, err := loadOCF(context)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-
+	userPod := pod.ConvertOCF2PureUserPod(spec, runtime)
 	mypod := hypervisor.NewPod(podId, userPod)
-	infoList, err := preparePod(mypod, userPod, vmId)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	defer func() {
-		tmpDir := path.Join(hypervisor.BaseDir, vmId)
-		for _, c := range mypod.Containers {
-			rootDir := path.Join(tmpDir, hypervisor.ShareDirTag, c.Id, "rootfs")
-			umount(rootDir)
-		}
-		os.RemoveAll(tmpDir)
-	}()
 
 	vm, err := startVm(context, userPod, vmId, sock)
 	if err != nil {
@@ -381,9 +362,10 @@ func startVContainer(context *cli.Context) {
 			return
 		}
 		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+		os.RemoveAll(path.Join(hypervisor.BaseDir, vmId))
 	}()
 
-	err = execPrestartHooks(rt, state)
+	err = execPrestartHooks(&runtime.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -408,15 +390,25 @@ func startVContainer(context *cli.Context) {
 	go io.Copy(toVm, os.Stdin)
 	go io.Copy(os.Stdout, fromVm)
 
-	userContainer := &userPod.Containers[0]
-	info := infoList[0]
-	userPod.Containers = []pod.UserContainer{}
 	Response = vm.StartPod(mypod, userPod, nil, nil)
 	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
 		return
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+
+	userContainer := pod.ConvertOCF2UserContainer(spec, runtime)
+	info, err := prepareInfo(userContainer, vmId)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+
+	defer func() {
+		rootDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
+		umount(rootDir)
+		os.RemoveAll(path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag, info.Id))
+	}()
 
 	err = vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
 	if err != nil {
@@ -427,7 +419,7 @@ func startVContainer(context *cli.Context) {
 	mypod.AddContainer(info.Id, mypod.Id, "", []string{}, types.S_POD_CREATED)
 	vm.NewContainer(userContainer, info)
 
-	err = execPoststartHooks(rt, state)
+	err = execPoststartHooks(&runtime.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
@@ -435,7 +427,7 @@ func startVContainer(context *cli.Context) {
 	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
-	err = execPoststopHooks(rt, state)
+	err = execPoststopHooks(&runtime.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
