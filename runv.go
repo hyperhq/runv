@@ -59,53 +59,6 @@ func GenerateRandomID() string {
 	}
 }
 
-func removeState(container, root string, sock net.Listener) {
-	os.RemoveAll(path.Join(root, container))
-	sock.Close()
-}
-
-func saveState(container, root string, state *specs.State) (net.Listener, error) {
-	stateDir := path.Join(root, container)
-
-	_, err := os.Stat(stateDir)
-	if err == nil {
-		return nil, fmt.Errorf("Container %s exists\n", container)
-	}
-
-	err = os.MkdirAll(stateDir, 0644)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	defer func() {
-		if err != nil {
-			os.RemoveAll(stateDir)
-		}
-	}()
-
-	stateData, err := json.MarshalIndent(state, "", "\t")
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	stateFile := path.Join(stateDir, "state.json")
-	err = ioutil.WriteFile(stateFile, stateData, 0644)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	sock, err := net.Listen("unix", path.Join(stateDir, "runv.sock"))
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, err
-	}
-
-	return sock, nil
-}
-
 func execHook(hook specs.Hook, state *specs.State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
@@ -303,6 +256,32 @@ func cleanupRunvPod(context *runvPodContext) {
 }
 
 func startVContainer(config *startConfig) {
+	root := config.Root
+	container := config.Name
+	fmt.Printf("runv container id: %s\n", container)
+
+	// create stateDir
+	stateDir := path.Join(root, container)
+	_, err := os.Stat(stateDir)
+	if err == nil {
+		fmt.Printf("Container %s exists\n", container)
+		return
+	}
+	err = os.MkdirAll(stateDir, 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+	defer os.RemoveAll(stateDir)
+
+	// create connection sock
+	sock, err := net.Listen("unix", path.Join(stateDir, "runv.sock"))
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
+	defer sock.Close()
+
 	context, err := startRunvPod(config)
 	if err != nil {
 		fmt.Printf("Start Pod failed: %s\n", err.Error())
@@ -310,24 +289,24 @@ func startVContainer(config *startConfig) {
 	}
 	defer cleanupRunvPod(context)
 
-	root := config.Root
-	container := config.Name
-	fmt.Printf("runv container id: %s\n", container)
-
+	// save the state
 	state := &specs.State{
 		Version:    config.LinuxSpec.Spec.Version,
 		ID:         container,
 		Pid:        -1,
 		BundlePath: config.BundlePath,
 	}
-
-	sock, err := saveState(container, root, state)
+	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-
-	defer removeState(container, root, sock)
+	stateFile := path.Join(stateDir, "state.json")
+	err = ioutil.WriteFile(stateFile, stateData, 0644)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return
+	}
 
 	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
