@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -154,51 +153,7 @@ func execPoststopHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	return nil
 }
 
-func loadOCF(context *cli.Context) (*specs.LinuxSpec, *specs.LinuxRuntimeSpec, error) {
-	ocffile := context.String("config-file")
-	runtimefile := context.String("runtime-file")
-
-	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
-		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
-		return nil, nil, err
-	}
-
-	ocfData, err := ioutil.ReadFile(ocffile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
-	}
-
-	var runtimeData []byte = nil
-	_, err = os.Stat(runtimefile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
-			return nil, nil, err
-		}
-	} else {
-		runtimeData, err = ioutil.ReadFile(runtimefile)
-		if err != nil {
-			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
-			return nil, nil, err
-		}
-	}
-
-	var s specs.LinuxSpec
-	var r specs.LinuxRuntimeSpec
-
-	if err := json.Unmarshal(ocfData, &s); err != nil {
-		return nil, nil, err
-	}
-
-	if err := json.Unmarshal(runtimeData, &r); err != nil {
-		return nil, nil, err
-	}
-
-	return &s, &r, nil
-}
-
-func prepareInfo(c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, error) {
+func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, error) {
 	var root string
 	var err error
 
@@ -210,11 +165,7 @@ func prepareInfo(c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, 
 	rootDir = path.Join(rootDir, "rootfs")
 
 	if !filepath.IsAbs(c.Image) {
-		root, err = filepath.Abs(c.Image)
-		if err != nil {
-			fmt.Printf("%s\n", err.Error())
-			return nil, err
-		}
+		root = path.Join(config.BundlePath, c.Image)
 	} else {
 		root = c.Image
 	}
@@ -235,14 +186,14 @@ func prepareInfo(c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, 
 	return containerInfo, nil
 }
 
-func startVm(context *cli.Context, userPod *pod.UserPod, vmId string) (*hypervisor.Vm, error) {
+func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hypervisor.Vm, error) {
 	var (
 		err error
 		cpu = 1
 		mem = 128
 	)
 
-	vbox := context.GlobalString("vbox")
+	vbox := config.Vbox
 	if _, err = os.Stat(vbox); err == nil {
 		vbox, err = filepath.Abs(vbox)
 		if err != nil {
@@ -251,7 +202,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string) (*hypervis
 		}
 	}
 
-	kernel := context.GlobalString("kernel")
+	kernel := config.Kernel
 	if _, err = os.Stat(kernel); err == nil {
 		kernel, err = filepath.Abs(kernel)
 		if err != nil {
@@ -260,7 +211,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string) (*hypervis
 		}
 	}
 
-	initrd := context.GlobalString("initrd")
+	initrd := config.Initrd
 	if _, err = os.Stat(initrd); err == nil {
 		initrd, err = filepath.Abs(initrd)
 		if err != nil {
@@ -297,7 +248,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string) (*hypervis
 	return vm, nil
 }
 
-func startVContainer(context *cli.Context) {
+func startVContainer(config *startConfig) {
 	var (
 		err      error
 		Response *types.VmResponse
@@ -305,31 +256,25 @@ func startVContainer(context *cli.Context) {
 
 	hypervisor.InterfaceCount = 0
 
-	driver := context.GlobalString("driver")
+	driver := config.Driver
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
-	root := context.GlobalString("root")
+	root := config.Root
 
-	container := context.GlobalString("id")
+	container := config.Name
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
 	fmt.Printf("runv container id: %s\n", container)
 
-	pwd, err := filepath.Abs(".")
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
 	state := &specs.State{
-		Version:    specs.Version,
+		Version:    config.LinuxSpec.Spec.Version,
 		ID:         container,
 		Pid:        -1,
-		BundlePath: pwd,
+		BundlePath: config.BundlePath,
 	}
 
 	sock, err := saveState(container, root, state)
@@ -340,15 +285,10 @@ func startVContainer(context *cli.Context) {
 
 	defer removeState(container, root, sock)
 
-	spec, runtime, err := loadOCF(context)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-	userPod := pod.ConvertOCF2PureUserPod(spec, runtime)
+	userPod := pod.ConvertOCF2PureUserPod(&config.LinuxSpec, &config.LinuxRuntimeSpec)
 	mypod := hypervisor.NewPod(podId, userPod)
 
-	vm, err := startVm(context, userPod, vmId)
+	vm, err := startVm(config, userPod, vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -365,7 +305,7 @@ func startVContainer(context *cli.Context) {
 		os.RemoveAll(path.Join(hypervisor.BaseDir, vmId))
 	}()
 
-	err = execPrestartHooks(&runtime.RuntimeSpec, state)
+	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -397,8 +337,8 @@ func startVContainer(context *cli.Context) {
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
-	userContainer := pod.ConvertOCF2UserContainer(spec, runtime)
-	info, err := prepareInfo(userContainer, vmId)
+	userContainer := pod.ConvertOCF2UserContainer(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	info, err := prepareInfo(config, userContainer, vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -420,7 +360,7 @@ func startVContainer(context *cli.Context) {
 	vm.NewContainer(userContainer, info)
 	ListenAndHandleRunvRequests(vm, sock)
 
-	err = execPoststartHooks(&runtime.RuntimeSpec, state)
+	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
@@ -428,7 +368,7 @@ func startVContainer(context *cli.Context) {
 	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
-	err = execPoststopHooks(&runtime.RuntimeSpec, state)
+	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
@@ -500,22 +440,4 @@ func ListenAndHandleRunvRequests(vm *hypervisor.Vm, sock net.Listener) {
 			go HandleRunvRequest(vm, conn)
 		}
 	}()
-}
-
-var startCommand = cli.Command{
-	Name:  "start",
-	Usage: "create and run a container",
-	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:  "config-file, c",
-			Value: "config.json",
-			Usage: "path to spec config file",
-		},
-		cli.StringFlag{
-			Name:  "runtime-file, r",
-			Value: "runtime.json",
-			Usage: "path to runtime config file",
-		},
-	},
-	Action: startVContainer,
 }
