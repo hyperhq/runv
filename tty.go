@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -25,6 +27,59 @@ type ttyWinSize struct {
 	Tag    string
 	Height int
 	Width  int
+}
+
+// stdin/stdout <-> conn
+func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
+	tag, err := runvGetTag(conn)
+	if err != nil {
+		return -1, err
+	}
+	fmt.Printf("tag=%s\n", tag)
+
+	inFd, _ := term.GetFdInfo(os.Stdin)
+	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
+	oldState, err := term.SetRawTerminal(inFd)
+	if err != nil {
+		return -1, err
+	}
+	defer term.RestoreTerminal(inFd, oldState)
+
+	br := bufio.NewReader(conn)
+
+	receiveStdout := make(chan error, 1)
+	go func() {
+		_, err = io.Copy(os.Stdout, br)
+		receiveStdout <- err
+	}()
+
+	sendStdin := make(chan error, 1)
+	go func() {
+		io.Copy(conn, os.Stdin)
+
+		if sock, ok := conn.(interface {
+			CloseWrite() error
+		}); ok {
+			if err := sock.CloseWrite(); err != nil {
+				fmt.Printf("Couldn't send EOF: %s\n", err.Error())
+			}
+		}
+		// Discard errors due to pipe interruption
+		sendStdin <- nil
+	}()
+
+	newTty(nil, stateDir, tag, outFd, isTerminalOut).monitorTtySize()
+
+	if err := <-receiveStdout; err != nil {
+		return -1, err
+	}
+	sendStdin <- nil
+
+	if err := <-sendStdin; err != nil {
+		return -1, err
+	}
+
+	return 0, nil
 }
 
 func newTty(vm *hypervisor.Vm, stateDir string, tag string, termFd uintptr, terminal bool) *tty {

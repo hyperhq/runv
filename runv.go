@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -154,100 +153,47 @@ func execPoststopHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	return nil
 }
 
-func parseUserPod(context *cli.Context) (*pod.UserPod, *specs.RuntimeSpec, error) {
-	ocffile := context.String("config-file")
-	runtimefile := context.String("runtime-file")
+func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hypervisor.ContainerInfo, error) {
+	var root string
+	var err error
 
-	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
-		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
-		return nil, nil, err
-	}
-
-	ocfData, err := ioutil.ReadFile(ocffile)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
-	}
-
-	var runtimeData []byte = nil
-	_, err = os.Stat(runtimefile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
-			return nil, nil, err
-		}
-	} else {
-		runtimeData, err = ioutil.ReadFile(runtimefile)
-		if err != nil {
-			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
-			return nil, nil, err
-		}
-	}
-
-	userPod, rt, err := pod.ParseOCFLinuxContainerConfig(ocfData, runtimeData)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return nil, nil, err
-	}
-
-	return userPod, rt, nil
-}
-
-func preparePod(mypod *hypervisor.PodStatus, userPod *pod.UserPod, vmId string) ([]*hypervisor.ContainerInfo, error) {
-	var (
-		containerInfoList []*hypervisor.ContainerInfo
-		containerId       string
-	)
-
+	containerId := GenerateRandomID()
 	sharedDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
+	rootDir := path.Join(sharedDir, containerId)
+	os.MkdirAll(rootDir, 0755)
 
-	for _, c := range userPod.Containers {
-		var root string
-		var err error
+	rootDir = path.Join(rootDir, "rootfs")
 
-		containerId = GenerateRandomID()
-		rootDir := path.Join(sharedDir, containerId)
-		os.MkdirAll(rootDir, 0755)
-
-		rootDir = path.Join(rootDir, "rootfs")
-
-		if !filepath.IsAbs(c.Image) {
-			root, err = filepath.Abs(c.Image)
-			if err != nil {
-				fmt.Printf("%s\n", err.Error())
-				return nil, err
-			}
-		} else {
-			root = c.Image
-		}
-
-		err = mount(root, rootDir)
-		if err != nil {
-			fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
-			return nil, err
-		}
-
-		containerInfo := &hypervisor.ContainerInfo{
-			Id:     containerId,
-			Rootfs: "rootfs",
-			Image:  containerId,
-			Fstype: "dir",
-		}
-
-		containerInfoList = append(containerInfoList, containerInfo)
+	if !filepath.IsAbs(c.Image) {
+		root = path.Join(config.BundlePath, c.Image)
+	} else {
+		root = c.Image
 	}
 
-	return containerInfoList, nil
+	err = mount(root, rootDir)
+	if err != nil {
+		fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+		return nil, err
+	}
+
+	containerInfo := &hypervisor.ContainerInfo{
+		Id:     containerId,
+		Rootfs: "rootfs",
+		Image:  containerId,
+		Fstype: "dir",
+	}
+
+	return containerInfo, nil
 }
 
-func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.Listener) (*hypervisor.Vm, error) {
+func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hypervisor.Vm, error) {
 	var (
 		err error
 		cpu = 1
 		mem = 128
 	)
 
-	vbox := context.GlobalString("vbox")
+	vbox := config.Vbox
 	if _, err = os.Stat(vbox); err == nil {
 		vbox, err = filepath.Abs(vbox)
 		if err != nil {
@@ -256,7 +202,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 		}
 	}
 
-	kernel := context.GlobalString("kernel")
+	kernel := config.Kernel
 	if _, err = os.Stat(kernel); err == nil {
 		kernel, err = filepath.Abs(kernel)
 		if err != nil {
@@ -265,7 +211,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 		}
 	}
 
-	initrd := context.GlobalString("initrd")
+	initrd := config.Initrd
 	if _, err = os.Stat(initrd); err == nil {
 		initrd, err = filepath.Abs(initrd)
 		if err != nil {
@@ -293,7 +239,7 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 	}
 
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
-	err = LaunchOCIVm(vm, b, sock)
+	err = vm.Launch(b)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return nil, err
@@ -302,39 +248,77 @@ func startVm(context *cli.Context, userPod *pod.UserPod, vmId string, sock net.L
 	return vm, nil
 }
 
-func startVContainer(context *cli.Context) {
-	var (
-		err      error
-		Response *types.VmResponse
-	)
+// pod context for runv daemon
+type runvPodContext struct {
+	podId     string
+	vmId      string
+	userPod   *pod.UserPod
+	podStatus *hypervisor.PodStatus
+	vm        *hypervisor.Vm
+}
+
+var daemonPodContext runvPodContext
+
+func startRunvPod(config *startConfig) (context *runvPodContext, err error) {
+	context = &daemonPodContext
 
 	hypervisor.InterfaceCount = 0
 
-	driver := context.GlobalString("driver")
+	driver := config.Driver
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return
+		return nil, err
 	}
 
-	root := context.GlobalString("root")
+	context.podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
+	context.vmId = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	container := context.GlobalString("id")
-	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
-	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
-
-	fmt.Printf("runv container id: %s\n", container)
-
-	pwd, err := filepath.Abs(".")
+	context.userPod = pod.ConvertOCF2PureUserPod(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	context.podStatus = hypervisor.NewPod(context.podId, context.userPod)
+	context.vm, err = startVm(config, context.userPod, context.vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return
+		return nil, err
 	}
 
+	Response := context.vm.StartPod(context.podStatus, context.userPod, nil, nil)
+	if Response.Data == nil {
+		fmt.Printf("StartPod fail: QEMU response data is nil\n")
+		return nil, fmt.Errorf("StartPod fail")
+	}
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+
+	return context, nil
+}
+
+func cleanupRunvPod(context *runvPodContext) {
+	Response := context.vm.StopPod(context.podStatus, "yes")
+
+	if Response.Data == nil {
+		fmt.Printf("StopPod fail: QEMU response data is nil\n")
+		return
+	}
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+	os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId))
+}
+
+func startVContainer(config *startConfig) {
+	context, err := startRunvPod(config)
+	if err != nil {
+		fmt.Printf("Start Pod failed: %s\n", err.Error())
+		return
+	}
+	defer cleanupRunvPod(context)
+
+	root := config.Root
+	container := config.Name
+	fmt.Printf("runv container id: %s\n", container)
+
 	state := &specs.State{
-		Version:    specs.Version,
+		Version:    config.LinuxSpec.Spec.Version,
 		ID:         container,
 		Pid:        -1,
-		BundlePath: pwd,
+		BundlePath: config.BundlePath,
 	}
 
 	sock, err := saveState(container, root, state)
@@ -345,45 +329,7 @@ func startVContainer(context *cli.Context) {
 
 	defer removeState(container, root, sock)
 
-	userPod, rt, err := parseUserPod(context)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	mypod := hypervisor.NewPod(podId, userPod)
-	infoList, err := preparePod(mypod, userPod, vmId)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	defer func() {
-		tmpDir := path.Join(hypervisor.BaseDir, vmId)
-		for _, c := range mypod.Containers {
-			rootDir := path.Join(tmpDir, hypervisor.ShareDirTag, c.Id, "rootfs")
-			umount(rootDir)
-		}
-		os.RemoveAll(tmpDir)
-	}()
-
-	vm, err := startVm(context, userPod, vmId, sock)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	defer func() {
-		Response = vm.StopPod(mypod, "yes")
-
-		if Response.Data == nil {
-			fmt.Printf("StopPod fail: QEMU response data is nil\n")
-			return
-		}
-		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
-	}()
-
-	err = execPrestartHooks(rt, state)
+	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -408,38 +354,54 @@ func startVContainer(context *cli.Context) {
 	go io.Copy(toVm, os.Stdin)
 	go io.Copy(os.Stdout, fromVm)
 
-	userContainer := &userPod.Containers[0]
-	info := infoList[0]
-	userPod.Containers = []pod.UserContainer{}
-	Response = vm.StartPod(mypod, userPod, nil, nil)
-	if Response.Data == nil {
-		fmt.Printf("StartPod fail: QEMU response data is nil\n")
+	userContainer := pod.ConvertOCF2UserContainer(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	info, err := prepareInfo(config, userContainer, context.vmId)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
 		return
 	}
-	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
-	err = vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
+	defer func() {
+		rootDir := path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
+		umount(rootDir)
+		os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
+	}()
+
+	err = context.vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
 		return
 	}
 
-	mypod.AddContainer(info.Id, mypod.Id, "", []string{}, types.S_POD_CREATED)
-	vm.NewContainer(userContainer, info)
+	context.podStatus.AddContainer(info.Id, context.podId, "", []string{}, types.S_POD_CREATED)
+	context.vm.NewContainer(userContainer, info)
+	ListenAndHandleRunvRequests(context.vm, sock)
 
-	err = execPoststartHooks(rt, state)
+	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(context.vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
-	err = execPoststopHooks(rt, state)
+	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
 	}
+}
+
+func runvAllocAndRespondTag(conn net.Conn) (tag string, err error) {
+	tag = pod.RandStr(8, "alphanum")
+	m := &hypervisor.DecodedMessage{
+		Code:    RUNV_ACK,
+		Message: []byte(tag),
+	}
+	data := hypervisor.NewVmMessage(m)
+	conn.Write(data)
+
+	return tag, nil
 }
 
 func runvGetTag(conn net.Conn) (tag string, err error) {
@@ -468,13 +430,7 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 	switch msg.Code {
 	case RUNV_EXECCMD:
 		{
-			tag := pod.RandStr(8, "alphanum")
-			m := &hypervisor.DecodedMessage{
-				Code:    RUNV_ACK,
-				Message: []byte(tag),
-			}
-			data := hypervisor.NewVmMessage(m)
-			conn.Write(data)
+			tag, _ := runvAllocAndRespondTag(conn)
 
 			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
 			err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
@@ -495,12 +451,7 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 	}
 }
 
-func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener) error {
-	err := vm.Launch(b)
-	if err != nil {
-		return err
-	}
-
+func ListenAndHandleRunvRequests(vm *hypervisor.Vm, sock net.Listener) {
 	go func() {
 		for {
 			conn, err := sock.Accept()
@@ -512,24 +463,4 @@ func LaunchOCIVm(vm *hypervisor.Vm, b *hypervisor.BootConfig, sock net.Listener)
 			go HandleRunvRequest(vm, conn)
 		}
 	}()
-
-	return nil
-}
-
-var startCommand = cli.Command{
-	Name:  "start",
-	Usage: "create and run a container",
-	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:  "config-file, c",
-			Value: "config.json",
-			Usage: "path to spec config file",
-		},
-		cli.StringFlag{
-			Name:  "runtime-file, r",
-			Value: "runtime.json",
-			Usage: "path to runtime config file",
-		},
-	},
-	Action: startVContainer,
 }
