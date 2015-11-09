@@ -248,26 +248,70 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 	return vm, nil
 }
 
-func startVContainer(config *startConfig) {
-	var (
-		err      error
-		Response *types.VmResponse
-	)
+// pod context for runv daemon
+type runvPodContext struct {
+	podId     string
+	vmId      string
+	userPod   *pod.UserPod
+	podStatus *hypervisor.PodStatus
+	vm        *hypervisor.Vm
+}
+
+var daemonPodContext runvPodContext
+
+func startRunvPod(config *startConfig) (context *runvPodContext, err error) {
+	context = &daemonPodContext
 
 	hypervisor.InterfaceCount = 0
 
 	driver := config.Driver
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return
+		return nil, err
 	}
 
+	context.podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
+	context.vmId = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+
+	context.userPod = pod.ConvertOCF2PureUserPod(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	context.podStatus = hypervisor.NewPod(context.podId, context.userPod)
+	context.vm, err = startVm(config, context.userPod, context.vmId)
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+		return nil, err
+	}
+
+	Response := context.vm.StartPod(context.podStatus, context.userPod, nil, nil)
+	if Response.Data == nil {
+		fmt.Printf("StartPod fail: QEMU response data is nil\n")
+		return nil, fmt.Errorf("StartPod fail")
+	}
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+
+	return context, nil
+}
+
+func cleanupRunvPod(context *runvPodContext) {
+	Response := context.vm.StopPod(context.podStatus, "yes")
+
+	if Response.Data == nil {
+		fmt.Printf("StopPod fail: QEMU response data is nil\n")
+		return
+	}
+	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+	os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId))
+}
+
+func startVContainer(config *startConfig) {
+	context, err := startRunvPod(config)
+	if err != nil {
+		fmt.Printf("Start Pod failed: %s\n", err.Error())
+		return
+	}
+	defer cleanupRunvPod(context)
+
 	root := config.Root
-
 	container := config.Name
-	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
-	vmId := fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
-
 	fmt.Printf("runv container id: %s\n", container)
 
 	state := &specs.State{
@@ -284,26 +328,6 @@ func startVContainer(config *startConfig) {
 	}
 
 	defer removeState(container, root, sock)
-
-	userPod := pod.ConvertOCF2PureUserPod(&config.LinuxSpec, &config.LinuxRuntimeSpec)
-	mypod := hypervisor.NewPod(podId, userPod)
-
-	vm, err := startVm(config, userPod, vmId)
-	if err != nil {
-		fmt.Printf("%s\n", err.Error())
-		return
-	}
-
-	defer func() {
-		Response = vm.StopPod(mypod, "yes")
-
-		if Response.Data == nil {
-			fmt.Printf("StopPod fail: QEMU response data is nil\n")
-			return
-		}
-		fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
-		os.RemoveAll(path.Join(hypervisor.BaseDir, vmId))
-	}()
 
 	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
@@ -330,42 +354,35 @@ func startVContainer(config *startConfig) {
 	go io.Copy(toVm, os.Stdin)
 	go io.Copy(os.Stdout, fromVm)
 
-	Response = vm.StartPod(mypod, userPod, nil, nil)
-	if Response.Data == nil {
-		fmt.Printf("StartPod fail: QEMU response data is nil\n")
-		return
-	}
-	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
-
 	userContainer := pod.ConvertOCF2UserContainer(&config.LinuxSpec, &config.LinuxRuntimeSpec)
-	info, err := prepareInfo(config, userContainer, vmId)
+	info, err := prepareInfo(config, userContainer, context.vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
 
 	defer func() {
-		rootDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
+		rootDir := path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
 		umount(rootDir)
-		os.RemoveAll(path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag, info.Id))
+		os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
 
-	err = vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
+	err = context.vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
 		return
 	}
 
-	mypod.AddContainer(info.Id, mypod.Id, "", []string{}, types.S_POD_CREATED)
-	vm.NewContainer(userContainer, info)
-	ListenAndHandleRunvRequests(vm, sock)
+	context.podStatus.AddContainer(info.Id, context.podId, "", []string{}, types.S_POD_CREATED)
+	context.vm.NewContainer(userContainer, info)
+	ListenAndHandleRunvRequests(context.vm, sock)
 
 	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	newTty(vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(context.vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
 	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
