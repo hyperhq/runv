@@ -202,6 +202,46 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 }
 
 func startRunvPod(context *nsContext, config *startConfig) (err error) {
+	context.lock.Lock()
+	defer context.lock.Unlock()
+	if context.firstConfig == nil {
+		context.firstConfig = config
+	} else {
+		// check stopped
+		if len(context.actives) == 0 {
+			return fmt.Errorf("The namespace service was stopped")
+		}
+		// check match
+		if config.Root != "" && config.Root != context.firstConfig.Root {
+			return fmt.Errorf("The root is not match")
+		}
+		if config.Driver != "" && config.Driver != context.firstConfig.Driver {
+			return fmt.Errorf("The driver is not match")
+		}
+		if config.Kernel != "" && config.Kernel != context.firstConfig.Kernel {
+			return fmt.Errorf("The kernel is not match")
+		}
+		if config.Initrd != "" && config.Initrd != context.firstConfig.Initrd {
+			return fmt.Errorf("The initrd is not match")
+		}
+		if config.Vbox != "" && config.Vbox != context.firstConfig.Vbox {
+			return fmt.Errorf("The vbox is not match")
+		}
+		// check shared namespace
+		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
+			if ns.Path == "" {
+				continue
+			}
+			_, ok := context.actives[ns.Path]
+			if !ok {
+				return fmt.Errorf("Cann't share namespace with: %s", ns.Path)
+			}
+		}
+		// OK, the pod has been started, add this config and return
+		context.actives[config.Name] = config
+		return nil
+	}
+
 	hypervisor.InterfaceCount = 0
 
 	driver := config.Driver
@@ -228,10 +268,18 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
+	context.actives[config.Name] = config
 	return nil
 }
 
-func cleanupRunvPod(context *nsContext) {
+func cleanupRunvPod(context *nsContext, name string) {
+	context.lock.Lock()
+	defer context.lock.Unlock()
+	delete(context.actives, name)
+	if len(context.actives) > 0 {
+		return
+	}
+
 	Response := context.vm.StopPod(context.podStatus, "yes")
 
 	if Response.Data == nil {
@@ -289,7 +337,7 @@ func startVContainer(context *nsContext, root, container string) {
 		fmt.Printf("Start Pod failed: %s\n", err.Error())
 		return
 	}
-	defer cleanupRunvPod(context)
+	defer cleanupRunvPod(context, container)
 
 	// save the state
 	state := &specs.State{
