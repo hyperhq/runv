@@ -430,6 +430,7 @@ func runvGetTag(conn net.Conn) (tag string, err error) {
 }
 
 func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn net.Conn) {
+	defer context.wg.Done()
 	defer conn.Close()
 
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
@@ -463,7 +464,10 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 }
 
 func ListenAndHandleRunvRequests(context *nsContext, info *hypervisor.ContainerInfo, sock net.Listener) {
+	context.wg.Add(1)
 	go func() {
+		defer context.wg.Done()
+
 		for {
 			conn, err := sock.Accept()
 			if err != nil {
@@ -471,6 +475,7 @@ func ListenAndHandleRunvRequests(context *nsContext, info *hypervisor.ContainerI
 				break
 			}
 
+			context.wg.Add(1)
 			go HandleRunvRequest(context, info, conn)
 		}
 	}()

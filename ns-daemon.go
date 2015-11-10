@@ -20,6 +20,7 @@ type nsContext struct {
 	vm          *hypervisor.Vm
 	firstConfig *startConfig
 	actives     map[string]*startConfig
+	wg          sync.WaitGroup
 }
 
 var daemonCommand = cli.Command{
@@ -29,6 +30,7 @@ var daemonCommand = cli.Command{
 		context := &nsContext{}
 		context.actives = make(map[string]*startConfig)
 		startVContainer(context, cliContext.GlobalString("root"), cliContext.GlobalString("id"))
+		context.wg.Wait()
 	},
 	HideHelp: true,
 }
