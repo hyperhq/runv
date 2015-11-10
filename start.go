@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"github.com/codegangsta/cli"
+	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/lib/utils"
 	"github.com/opencontainers/specs"
 )
 
@@ -18,8 +21,9 @@ type startConfig struct {
 	Kernel     string
 	Initrd     string
 	Vbox       string
-	specs.LinuxSpec
-	specs.LinuxRuntimeSpec
+
+	specs.LinuxSpec        `json:"config"`
+	specs.LinuxRuntimeSpec `json:"runtime"`
 }
 
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
@@ -108,6 +112,43 @@ var startCommand = cli.Command{
 			os.Exit(-1)
 		}
 
-		startVContainer(config)
+		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
+			if ns.Path != "" {
+				fmt.Printf("TODO: support soon")
+				os.Exit(0)
+			}
+		}
+
+		utils.ExecInDaemon("/proc/self/exe", []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+
+		status, err := startContainer(config)
+		if err != nil {
+			fmt.Errorf("start container failed: %v", err)
+		}
+		os.Exit(status)
 	},
+}
+
+func startContainer(config *startConfig) (int, error) {
+	stateDir := path.Join(config.Root, config.Name)
+
+	conn, err := utils.UnixSocketConnect(path.Join(stateDir, "runv.sock"))
+	if err != nil {
+		return -1, err
+	}
+
+	cmd, err := json.Marshal(config)
+	if err != nil {
+		return -1, err
+	}
+
+	m := &hypervisor.DecodedMessage{
+		Code:    RUNV_STARTCONTAINER,
+		Message: []byte(cmd),
+	}
+
+	data := hypervisor.NewVmMessage(m)
+	conn.Write(data[:])
+
+	return containerTtySplice(stateDir, conn)
 }

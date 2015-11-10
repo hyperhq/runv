@@ -19,13 +19,13 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/term"
 
 	"github.com/opencontainers/specs"
 )
 
 const (
 	_ = iota
+	RUNV_STARTCONTAINER
 	RUNV_ACK
 	RUNV_EXECCMD
 	RUNV_WINSIZE
@@ -255,11 +255,7 @@ func cleanupRunvPod(context *runvPodContext) {
 	os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId))
 }
 
-func startVContainer(config *startConfig) {
-	root := config.Root
-	container := config.Name
-	fmt.Printf("runv container id: %s\n", container)
-
+func startVContainer(root, container string) {
 	// create stateDir
 	stateDir := path.Join(root, container)
 	_, err := os.Stat(stateDir)
@@ -281,7 +277,26 @@ func startVContainer(config *startConfig) {
 		return
 	}
 	defer sock.Close()
+	conn, err := sock.Accept()
+	if err != nil {
+		fmt.Printf("accept on runv Socket err: %v\n", err)
+		return
+	}
 
+	// get config from sock
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil || msg.Code != RUNV_STARTCONTAINER {
+		fmt.Printf("read runv client data failed: %v\n", err)
+		return
+	}
+	config := &startConfig{}
+	err = json.Unmarshal(msg.Message, config)
+	if err != nil || config.Root != root || config.Name != container {
+		fmt.Printf("parse runv start config failed: %v\n", err)
+		return
+	}
+
+	// start pure pod
 	context, err := startRunvPod(config)
 	if err != nil {
 		fmt.Printf("Start Pod failed: %s\n", err.Error())
@@ -308,31 +323,6 @@ func startVContainer(config *startConfig) {
 		return
 	}
 
-	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
-	if err != nil {
-		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
-		return
-	}
-
-	inFd, _ := term.GetFdInfo(os.Stdin)
-	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
-
-	oldState, err := term.SetRawTerminal(inFd)
-	if err != nil {
-		return
-	}
-
-	defer term.RestoreTerminal(inFd, oldState)
-
-	tag := pod.RandStr(8, "alphanum")
-	ttyCallback := make(chan *types.VmResponse, 1)
-
-	// using pipes in vm.Attach to avoid the stdio to be closed
-	fromStd, toVm := io.Pipe()
-	fromVm, toStd := io.Pipe()
-	go io.Copy(toVm, os.Stdin)
-	go io.Copy(os.Stdout, fromVm)
-
 	userContainer := pod.ConvertOCF2UserContainer(&config.LinuxSpec, &config.LinuxRuntimeSpec)
 	info, err := prepareInfo(config, userContainer, context.vmId)
 	if err != nil {
@@ -346,9 +336,17 @@ func startVContainer(config *startConfig) {
 		os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
 
-	err = context.vm.Attach(fromStd, toStd, tag, info.Id, ttyCallback, nil)
+	tag, _ := runvAllocAndRespondTag(conn)
+	ttyCallback := make(chan *types.VmResponse, 1)
+	err = context.vm.Attach(conn, conn, tag, info.Id, ttyCallback, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
+		return
+	}
+
+	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
+	if err != nil {
+		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
 	}
 
@@ -361,7 +359,6 @@ func startVContainer(config *startConfig) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	newTty(context.vm, path.Join(root, container), tag, outFd, isTerminalOut).monitorTtySize()
 	<-ttyCallback
 
 	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
