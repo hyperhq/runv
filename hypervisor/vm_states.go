@@ -169,6 +169,7 @@ func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_WRITEFILE,
 		Message: writeCmd,
+		Event:   cmd,
 	}
 }
 
@@ -183,6 +184,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_READFILE,
 		Message: readCmd,
+		Event:   cmd,
 	}
 }
 
@@ -585,10 +587,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
 			} else if ack.reply.Code == INIT_READFILE {
-				ctx.reportFile(INIT_READFILE, ack.msg, false)
+				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, false)
 				glog.Infof("Get ack for read data: %s", string(ack.msg))
 			} else if ack.reply.Code == INIT_WRITEFILE {
-				ctx.reportFile(INIT_WRITEFILE, ack.msg, false)
+				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, false)
 				glog.Infof("Get ack for write data: %s", string(ack.msg))
 			}
 		case ERROR_CMD_FAIL:
@@ -599,10 +601,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.reportExec(ack.reply.Event, true)
 				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
 			} else if ack.reply.Code == INIT_READFILE {
-				ctx.reportFile(INIT_READFILE, ack.msg, true)
+				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))
 			} else if ack.reply.Code == INIT_WRITEFILE {
-				ctx.reportFile(INIT_WRITEFILE, ack.msg, true)
+				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
 			}
 

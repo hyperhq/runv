@@ -139,11 +139,12 @@ func (ctx *VmContext) reportPodIP() {
 	}
 }
 
-func (ctx *VmContext) reportFile(code uint32, data []byte, err bool) {
+func (ctx *VmContext) reportFile(reply VmEvent, code uint32, data []byte, err bool) {
 	response := &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_WRITEFILE,
 		Cause: "",
+		Reply: reply,
 		Data:  data,
 	}
 
@@ -152,11 +153,9 @@ func (ctx *VmContext) reportFile(code uint32, data []byte, err bool) {
 		if err {
 			response.Cause = "readfile failed"
 		}
-		ctx.client <- response
-	} else {
-		if err == true {
-			response.Cause = "writefile failed"
-		}
-		ctx.client <- response
+	} else if err == true {
+		response.Cause = "writefile failed"
 	}
+
+	ctx.client <- response
 }

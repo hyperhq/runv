@@ -373,18 +373,23 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 	writeEvent.Data = append(writeEvent.Data, data[:]...)
 	PodEvent <- writeEvent
 
+	cause := "get response failed"
 	for {
-		Response := <-Status
+		Response, ok := <-Status
+		if !ok {
+			break
+		}
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_WRITEFILE {
+		if Response.Reply == writeEvent {
 			if Response.Cause == "" {
 				return nil
 			}
+			cause = Response.Cause
 			break
 		}
 	}
 
-	return fmt.Errorf("Write container %s file %s failed", container, target)
+	return fmt.Errorf("Write container %s file %s failed: %s", container, target, cause)
 }
 
 func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
@@ -411,19 +416,24 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 
 	PodEvent <- readEvent
 
+	cause := "get response failed"
 	for {
-		Response := <-Status
+		Response, ok := <-Status
+		if !ok {
+			break
+		}
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_READFILE {
+		if Response.Reply == readEvent {
 			if Response.Cause == "" {
 				return Response.Data.([]byte), nil
 			}
 
+			cause = Response.Cause
 			break
 		}
 	}
 
-	return nil, fmt.Errorf("Read container %s file %s failed", container, target)
+	return nil, fmt.Errorf("Read container %s file %s failed: %s", container, target, cause)
 }
 
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
