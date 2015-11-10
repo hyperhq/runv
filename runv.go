@@ -387,7 +387,7 @@ func startVContainer(context *nsContext, root, container string) {
 
 	context.podStatus.AddContainer(info.Id, context.podId, "", []string{}, types.S_POD_CREATED)
 	context.vm.NewContainer(userContainer, info)
-	ListenAndHandleRunvRequests(context, sock)
+	ListenAndHandleRunvRequests(context, info, sock)
 
 	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
@@ -429,7 +429,7 @@ func runvGetTag(conn net.Conn) (tag string, err error) {
 	return string(msg.Message), nil
 }
 
-func HandleRunvRequest(context *nsContext, conn net.Conn) {
+func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn net.Conn) {
 	defer conn.Close()
 
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
@@ -444,7 +444,7 @@ func HandleRunvRequest(context *nsContext, conn net.Conn) {
 			tag, _ := runvAllocAndRespondTag(conn)
 
 			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
-			err = context.vm.Exec(conn, conn, string(msg.Message[:]), tag, context.vm.Pod.Containers[0].Id)
+			err = context.vm.Exec(conn, conn, string(msg.Message[:]), tag, info.Id)
 
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
@@ -462,7 +462,7 @@ func HandleRunvRequest(context *nsContext, conn net.Conn) {
 	}
 }
 
-func ListenAndHandleRunvRequests(context *nsContext, sock net.Listener) {
+func ListenAndHandleRunvRequests(context *nsContext, info *hypervisor.ContainerInfo, sock net.Listener) {
 	go func() {
 		for {
 			conn, err := sock.Accept()
@@ -471,7 +471,7 @@ func ListenAndHandleRunvRequests(context *nsContext, sock net.Listener) {
 				break
 			}
 
-			go HandleRunvRequest(context, conn)
+			go HandleRunvRequest(context, info, conn)
 		}
 	}()
 }
