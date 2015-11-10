@@ -201,26 +201,13 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 	return vm, nil
 }
 
-// pod context for runv daemon
-type runvPodContext struct {
-	podId     string
-	vmId      string
-	userPod   *pod.UserPod
-	podStatus *hypervisor.PodStatus
-	vm        *hypervisor.Vm
-}
-
-var daemonPodContext runvPodContext
-
-func startRunvPod(config *startConfig) (context *runvPodContext, err error) {
-	context = &daemonPodContext
-
+func startRunvPod(context *nsContext, config *startConfig) (err error) {
 	hypervisor.InterfaceCount = 0
 
 	driver := config.Driver
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return err
 	}
 
 	context.podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
@@ -231,20 +218,20 @@ func startRunvPod(config *startConfig) (context *runvPodContext, err error) {
 	context.vm, err = startVm(config, context.userPod, context.vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return nil, err
+		return err
 	}
 
 	Response := context.vm.StartPod(context.podStatus, context.userPod, nil, nil)
 	if Response.Data == nil {
 		fmt.Printf("StartPod fail: QEMU response data is nil\n")
-		return nil, fmt.Errorf("StartPod fail")
+		return fmt.Errorf("StartPod fail")
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
 
-	return context, nil
+	return nil
 }
 
-func cleanupRunvPod(context *runvPodContext) {
+func cleanupRunvPod(context *nsContext) {
 	Response := context.vm.StopPod(context.podStatus, "yes")
 
 	if Response.Data == nil {
@@ -255,7 +242,7 @@ func cleanupRunvPod(context *runvPodContext) {
 	os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId))
 }
 
-func startVContainer(root, container string) {
+func startVContainer(context *nsContext, root, container string) {
 	// create stateDir
 	stateDir := path.Join(root, container)
 	_, err := os.Stat(stateDir)
@@ -297,7 +284,7 @@ func startVContainer(root, container string) {
 	}
 
 	// start pure pod
-	context, err := startRunvPod(config)
+	err = startRunvPod(context, config)
 	if err != nil {
 		fmt.Printf("Start Pod failed: %s\n", err.Error())
 		return
@@ -352,7 +339,7 @@ func startVContainer(root, container string) {
 
 	context.podStatus.AddContainer(info.Id, context.podId, "", []string{}, types.S_POD_CREATED)
 	context.vm.NewContainer(userContainer, info)
-	ListenAndHandleRunvRequests(context.vm, sock)
+	ListenAndHandleRunvRequests(context, sock)
 
 	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
@@ -394,7 +381,7 @@ func runvGetTag(conn net.Conn) (tag string, err error) {
 	return string(msg.Message), nil
 }
 
-func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
+func HandleRunvRequest(context *nsContext, conn net.Conn) {
 	defer conn.Close()
 
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
@@ -409,7 +396,7 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 			tag, _ := runvAllocAndRespondTag(conn)
 
 			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
-			err = vm.Exec(conn, conn, string(msg.Message[:]), tag, vm.Pod.Containers[0].Id)
+			err = context.vm.Exec(conn, conn, string(msg.Message[:]), tag, context.vm.Pod.Containers[0].Id)
 
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
@@ -420,14 +407,14 @@ func HandleRunvRequest(vm *hypervisor.Vm, conn net.Conn) {
 			var winSize ttyWinSize
 			json.Unmarshal(msg.Message, &winSize)
 			//fmt.Printf("client exec winsize request %v\n", winSize)
-			vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
+			context.vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
 		}
 	default:
 		fmt.Printf("unknown cient request\n")
 	}
 }
 
-func ListenAndHandleRunvRequests(vm *hypervisor.Vm, sock net.Listener) {
+func ListenAndHandleRunvRequests(context *nsContext, sock net.Listener) {
 	go func() {
 		for {
 			conn, err := sock.Accept()
@@ -436,7 +423,7 @@ func ListenAndHandleRunvRequests(vm *hypervisor.Vm, sock net.Listener) {
 				break
 			}
 
-			go HandleRunvRequest(vm, conn)
+			go HandleRunvRequest(context, conn)
 		}
 	}()
 }
