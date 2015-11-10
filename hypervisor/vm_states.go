@@ -392,6 +392,23 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 	return processed, success
 }
 
+func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
+	switch ev.Event() {
+	case COMMAND_RUN_POD,
+		COMMAND_GET_POD_IP,
+		COMMAND_STOP_POD,
+		COMMAND_REPLACE_POD,
+		COMMAND_EXEC,
+		COMMAND_WRITEFILE,
+		COMMAND_READFILE,
+		COMMAND_SHUTDOWN,
+		COMMAND_RELEASE:
+		ctx.reportUnexpectedRequest(state)
+	default:
+		glog.Warning("got unexpected event during ", state)
+	}
+}
+
 func initFailureHandler(ctx *VmContext, ev VmEvent) bool {
 	processed := true
 	switch ev.Event() {
@@ -452,7 +469,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP()
 		default:
-			glog.Warning("got event during pod initiating")
+			unexpectedEventHandler(ctx, ev, "pod initiating")
 		}
 	}
 }
@@ -519,7 +536,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			ctx.Become(stateTerminating, "TERMINATING")
 			glog.Error(reason)
 		default:
-			glog.Warning("got event during pod initiating")
+			unexpectedEventHandler(ctx, ev, "pod initiating")
 		}
 	}
 }
@@ -588,7 +605,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP()
 		default:
-			glog.Warning("got unexpected event during pod running")
+			unexpectedEventHandler(ctx, ev, "pod running")
 		}
 	}
 }
@@ -629,7 +646,7 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			ctx.Become(stateTerminating, "TERMINATING")
 			glog.Error(reason)
 		default:
-			glog.Warning("got unexpected event during pod stopping")
+			unexpectedEventHandler(ctx, ev, "pod stopping")
 		}
 	}
 }
@@ -670,7 +687,7 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	case ERROR_INTERRUPTED:
 		glog.V(1).Info("Connection interrupted while terminating")
 	default:
-		glog.V(1).Info("got event during terminating")
+		unexpectedEventHandler(ctx, ev, "terminating")
 	}
 }
 
@@ -717,7 +734,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 				ctx.Become(stateInit, "INIT")
 			}
 		default:
-			glog.V(1).Info("got event message while cleaning")
+			unexpectedEventHandler(ctx, ev, "cleaning")
 		}
 	}
 }
@@ -750,7 +767,7 @@ func stateDestroying(ctx *VmContext, ev VmEvent) {
 			glog.Info("Device removing timeout")
 			ctx.Close()
 		default:
-			glog.Warning("got event during vm cleaning up")
+			unexpectedEventHandler(ctx, ev, "vm cleaning up")
 		}
 	}
 }

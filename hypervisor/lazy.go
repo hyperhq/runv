@@ -69,7 +69,7 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 			ctx.Become(nil, "None")
 		}
 	default:
-		glog.Warning("got event during pod initiating")
+		unexpectedEventHandler(ctx, ev, "pod initiating")
 	}
 }
 

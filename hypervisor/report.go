@@ -85,6 +85,16 @@ func (ctx *VmContext) reportBadRequest(cause string) {
 	}
 }
 
+// reportUnexpectedRequest send report to daemon, notify about that:
+//   1. unexpected event in current state
+func (ctx *VmContext) reportUnexpectedRequest(state string) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_UNEXPECTED,
+		Cause: "unexpected event during " + state,
+	}
+}
+
 // reportVmFault send report to daemon, notify about that:
 //   1. vm op failed due to some reason described in `cause`
 func (ctx *VmContext) reportVmFault(cause string) {
