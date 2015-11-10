@@ -470,7 +470,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				ctx.Become(stateStarting, "STARTING")
 			}
 		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP()
+			ctx.reportPodIP(ev)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
 		}
@@ -609,7 +609,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			}
 
 		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP()
+			ctx.reportPodIP(ev)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod running")
 		}

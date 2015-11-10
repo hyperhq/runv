@@ -123,7 +123,7 @@ func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
 	ctx.client <- response
 }
 
-func (ctx *VmContext) reportPodIP() {
+func (ctx *VmContext) reportPodIP(ev VmEvent) {
 	ips := []string{}
 	for _, i := range ctx.vmSpec.Interfaces {
 		if i.Device == "lo" {
@@ -135,6 +135,7 @@ func (ctx *VmContext) reportPodIP() {
 		VmId:  ctx.Id,
 		Code:  types.E_POD_IP,
 		Cause: "",
+		Reply: ev,
 		Data:  ips,
 	}
 }
