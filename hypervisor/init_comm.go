@@ -15,6 +15,7 @@ import (
 type DecodedMessage struct {
 	Code    uint32
 	Message []byte
+	Event   VmEvent
 }
 
 type FinishCmd struct {
@@ -173,14 +174,14 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				if cmd.Code == INIT_ACK {
 					if cmds[0].Code != INIT_PING {
 						ctx.Hub <- &CommandAck{
-							reply: cmds[0].Code,
+							reply: cmds[0],
 							msg:   cmd.Message,
 						}
 					}
 				} else {
 					ctx.Hub <- &CommandError{
-						context: cmds[0],
-						msg:     cmd.Message,
+						reply: cmds[0],
+						msg:   cmd.Message,
 					}
 				}
 				cmds = cmds[1:]
@@ -218,7 +219,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					glog.Info("got pod finish message after having send destroy message")
 					looping = false
 					ctx.Hub <- &CommandAck{
-						reply: c.Code,
+						reply: c,
 					}
 					break
 				}

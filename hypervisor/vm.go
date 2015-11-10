@@ -453,9 +453,32 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 	if err != nil {
 		return err
 	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
 
 	Event <- execCmd
 	vm.ReleaseRequestChan(Event)
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("exec command %v failed: get response failed", command)
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply.(*ExecCommand) == execCmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("exec command %v failed: %s", command, Response.Cause)
+			}
+
+			break
+		}
+	}
 
 	<-Callback
 

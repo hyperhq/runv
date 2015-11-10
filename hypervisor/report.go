@@ -87,10 +87,11 @@ func (ctx *VmContext) reportBadRequest(cause string) {
 
 // reportUnexpectedRequest send report to daemon, notify about that:
 //   1. unexpected event in current state
-func (ctx *VmContext) reportUnexpectedRequest(state string) {
+func (ctx *VmContext) reportUnexpectedRequest(ev VmEvent, state string) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_UNEXPECTED,
+		Reply: ev,
 		Cause: "unexpected event during " + state,
 	}
 }
@@ -103,6 +104,23 @@ func (ctx *VmContext) reportVmFault(cause string) {
 		Code:  types.E_FAILED,
 		Cause: cause,
 	}
+}
+
+// reportExec send report to daemon, notify about that:
+//   1. exec status
+func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
+	response := &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_EXEC_FINISH,
+		Reply: ev,
+		Cause: "",
+	}
+
+	if fail {
+		response.Cause = "exec failed"
+	}
+
+	ctx.client <- response
 }
 
 func (ctx *VmContext) reportPodIP() {

@@ -201,6 +201,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
+		Event:   cmd,
 	}
 }
 
@@ -403,7 +404,7 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
 		COMMAND_RELEASE:
-		ctx.reportUnexpectedRequest(state)
+		ctx.reportUnexpectedRequest(ev, state)
 	default:
 		glog.Warning("got unexpected event during ", state)
 	}
@@ -508,7 +509,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[starting] got init ack to %d", ack.reply)
-			if ack.reply == INIT_STARTPOD {
+			if ack.reply.Code == INIT_STARTPOD {
 				ctx.unsetTimeout()
 				var pinfo []byte = []byte{}
 				persist, err := ctx.dump()
@@ -524,7 +525,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.Code == INIT_STARTPOD {
+			if ack.reply.Code == INIT_STARTPOD {
 				reason := "Start POD failed"
 				ctx.shutdownVM(true, reason)
 				ctx.Become(stateTerminating, "TERMINATING")
@@ -580,25 +581,28 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 
-			if ack.reply == INIT_READFILE {
-				ctx.reportFile(ack.reply, ack.msg, false)
+			if ack.reply.Code == INIT_EXECCMD {
+				ctx.reportExec(ack.reply.Event, false)
+				glog.Infof("Get ack for exec cmd")
+			} else if ack.reply.Code == INIT_READFILE {
+				ctx.reportFile(INIT_READFILE, ack.msg, false)
 				glog.Infof("Get ack for read data: %s", string(ack.msg))
-			} else if ack.reply == INIT_WRITEFILE {
-				ctx.reportFile(ack.reply, ack.msg, false)
+			} else if ack.reply.Code == INIT_WRITEFILE {
+				ctx.reportFile(INIT_WRITEFILE, ack.msg, false)
 				glog.Infof("Get ack for write data: %s", string(ack.msg))
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.Code == INIT_EXECCMD {
-				cmd := ExecCommand{}
-				json.Unmarshal(ack.context.Message, &cmd)
+			if ack.reply.Code == INIT_EXECCMD {
+				cmd := ack.reply.Event.(*ExecCommand)
 				ctx.ptys.Close(ctx, cmd.Sequence)
+				ctx.reportExec(ack.reply.Event, true)
 				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
-			} else if ack.context.Code == INIT_READFILE {
-				ctx.reportFile(ack.context.Code, ack.msg, true)
+			} else if ack.reply.Code == INIT_READFILE {
+				ctx.reportFile(INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))
-			} else if ack.context.Code == INIT_WRITEFILE {
-				ctx.reportFile(ack.context.Code, ack.msg, true)
+			} else if ack.reply.Code == INIT_WRITEFILE {
+				ctx.reportFile(INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
 			}
 
@@ -626,15 +630,15 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			ctx.Become(stateCleaning, "CLEANING")
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
-			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply)
-			if ack.reply == INIT_STOPPOD {
+			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply.Code)
+			if ack.reply.Code == INIT_STOPPOD {
 				glog.Info("POD stopped ", string(ack.msg))
 				ctx.detachDevice()
 				ctx.Become(stateCleaning, "CLEANING")
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.context.Code == INIT_STOPPOD {
+			if ack.reply.Code == INIT_STOPPOD {
 				ctx.unsetTimeout()
 				ctx.shutdownVM(true, "Stop pod failed as init report")
 				ctx.Become(stateTerminating, "TERMINATING")
@@ -671,13 +675,13 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	case COMMAND_ACK:
 		ack := ev.(*CommandAck)
 		glog.V(1).Infof("[Terminating] Got reply to %d: '%s'", ack.reply, string(ack.msg))
-		if ack.reply == INIT_DESTROYPOD {
+		if ack.reply.Code == INIT_DESTROYPOD {
 			glog.Info("POD destroyed ", string(ack.msg))
 			ctx.poweroffVM(false, "")
 		}
 	case ERROR_CMD_FAIL:
 		ack := ev.(*CommandError)
-		if ack.context.Code == INIT_DESTROYPOD {
+		if ack.reply.Code == INIT_DESTROYPOD {
 			glog.Warning("Destroy pod failed")
 			ctx.poweroffVM(true, "Destroy pod failed")
 		}
@@ -725,8 +729,8 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			ctx.Become(stateDestroying, "DESTROYING")
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
-			glog.V(1).Infof("[cleaning] Got reply to %d: '%s'", ack.reply, string(ack.msg))
-			if ack.reply == INIT_READY {
+			glog.V(1).Infof("[cleaning] Got reply to %d: '%s'", ack.reply.Code, string(ack.msg))
+			if ack.reply.Code == INIT_READY {
 				ctx.reset()
 				ctx.unsetTimeout()
 				ctx.reportPodStopped()

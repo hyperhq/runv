@@ -41,5 +41,6 @@ type VmResponse struct {
 	VmId  string
 	Code  int
 	Cause string
+	Reply interface{}
 	Data  interface{}
 }
