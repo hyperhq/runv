@@ -16,7 +16,6 @@ import (
 )
 
 type tty struct {
-	vm       *hypervisor.Vm
 	stateDir string
 	tag      string
 	termFd   uintptr
@@ -68,7 +67,7 @@ func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
 		sendStdin <- nil
 	}()
 
-	newTty(nil, stateDir, tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(stateDir, tag, outFd, isTerminalOut).monitorTtySize()
 
 	if err := <-receiveStdout; err != nil {
 		return -1, err
@@ -82,9 +81,8 @@ func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
 	return 0, nil
 }
 
-func newTty(vm *hypervisor.Vm, stateDir string, tag string, termFd uintptr, terminal bool) *tty {
+func newTty(stateDir string, tag string, termFd uintptr, terminal bool) *tty {
 	return &tty{
-		vm:       vm,
 		stateDir: stateDir,
 		tag:      tag,
 		termFd:   termFd,
@@ -98,10 +96,6 @@ func (tty *tty) resizeTty() {
 	}
 
 	height, width := getTtySize(tty.termFd)
-	if tty.vm != nil {
-		tty.vm.Tty(tty.tag, height, width)
-		return
-	}
 
 	conn, err := net.Dial("unix", path.Join(tty.stateDir, "runv.sock"))
 	if err != nil {
