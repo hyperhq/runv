@@ -25,6 +25,7 @@ import (
 
 const (
 	_ = iota
+	RUNV_INITCONTAINER
 	RUNV_STARTCONTAINER
 	RUNV_ACK
 	RUNV_EXECCMD
@@ -440,6 +441,16 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 	}
 
 	switch msg.Code {
+	case RUNV_INITCONTAINER:
+		{
+			initCmd := &initContainerCmd{}
+			err = json.Unmarshal(msg.Message, initCmd)
+			if err != nil {
+				fmt.Printf("parse runv init container command failed: %v\n", err)
+				return
+			}
+			startVContainer(context, initCmd.Root, initCmd.Name)
+		}
 	case RUNV_EXECCMD:
 		{
 			tag, _ := runvAllocAndRespondTag(conn)

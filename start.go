@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/hypervisor"
@@ -112,14 +114,40 @@ var startCommand = cli.Command{
 			os.Exit(-1)
 		}
 
+		var sharedContainer string
 		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
 			if ns.Path != "" {
-				fmt.Printf("TODO: support soon")
-				os.Exit(0)
+				if strings.Contains(ns.Path, "/") {
+					fmt.Printf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
+					os.Exit(-1)
+				}
+				if ns.Type == "mount" {
+					// TODO support it!
+					fmt.Printf("Runv doesn't support shared mount namespace currently\n")
+					os.Exit(-1)
+				}
+				sharedContainer = ns.Path
+				_, err = os.Stat(path.Join(config.Root, sharedContainer, "state.json"))
+				if err != nil {
+					fmt.Printf("The container %s is not existing or not ready\n", sharedContainer)
+					os.Exit(-1)
+				}
+				_, err = os.Stat(path.Join(config.Root, sharedContainer, "runv.sock"))
+				if err != nil {
+					fmt.Printf("The container %s is not ready\n", sharedContainer)
+					os.Exit(-1)
+				}
 			}
 		}
 
-		utils.ExecInDaemon("/proc/self/exe", []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+		if sharedContainer != "" {
+			err = requestDaemonInitContainer(sharedContainer, config.Root, config.Name)
+			if err != nil {
+				os.Exit(-1)
+			}
+		} else {
+			utils.ExecInDaemon("/proc/self/exe", []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+		}
 
 		status, err := startContainer(config)
 		if err != nil {
@@ -127,6 +155,46 @@ var startCommand = cli.Command{
 		}
 		os.Exit(status)
 	},
+}
+
+type initContainerCmd struct {
+	Name string
+	Root string
+}
+
+// Shared namespaces multiple containers suppurt
+// The runv supports pod-style shared namespaces currently.
+// (More fine grain shared namespaces style (docker/runc style) is under implementation)
+//
+// Pod-style shared namespaces:
+// * if two containers share at least one type of namespace, they share all kinds of namespaces except the mount namespace
+// * mount namespace can't be shared, each container has its own mount namespace
+//
+// Implementation detail:
+// * Shared namespaces is configured in LinuxRuntimeSpec.Linux.Namespaces, the namespace Path should be existing container name.
+// * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
+// * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
+func requestDaemonInitContainer(sharedContainer, root, container string) error {
+	conn, err := net.Dial("unix", path.Join(root, sharedContainer, "runv.sock"))
+	if err != nil {
+		return err
+	}
+
+	initCmd := &initContainerCmd{Name: container, Root: root}
+	cmd, err := json.Marshal(initCmd)
+	if err != nil {
+		return err
+	}
+
+	m := &hypervisor.DecodedMessage{
+		Code:    RUNV_INITCONTAINER,
+		Message: []byte(cmd),
+	}
+
+	data := hypervisor.NewVmMessage(m)
+	conn.Write(data[:])
+
+	return nil
 }
 
 func startContainer(config *startConfig) (int, error) {
