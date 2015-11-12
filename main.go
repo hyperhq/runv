@@ -80,6 +80,7 @@ func main() {
 		startCommand,
 		specCommand,
 		execCommand,
+		daemonCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

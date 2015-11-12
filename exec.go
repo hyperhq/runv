@@ -1,17 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path"
 
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/term"
 	"github.com/opencontainers/specs"
 )
 
@@ -63,55 +60,7 @@ func execProcess(context *cli.Context, config *specs.Process) (int, error) {
 	data := hypervisor.NewVmMessage(m)
 	conn.Write(data[:])
 
-	tag, err := runvGetTag(conn)
-	if err != nil {
-		return -1, err
-	}
-	fmt.Printf("tag=%s\n", tag)
-
-	inFd, _ := term.GetFdInfo(os.Stdin)
-	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
-	oldState, err := term.SetRawTerminal(inFd)
-	if err != nil {
-		return -1, err
-	}
-	defer term.RestoreTerminal(inFd, oldState)
-
-	br := bufio.NewReader(conn)
-
-	receiveStdout := make(chan error, 1)
-	go func() {
-		_, err = io.Copy(os.Stdout, br)
-		receiveStdout <- err
-	}()
-
-	sendStdin := make(chan error, 1)
-	go func() {
-		io.Copy(conn, os.Stdin)
-
-		if sock, ok := conn.(interface {
-			CloseWrite() error
-		}); ok {
-			if err := sock.CloseWrite(); err != nil {
-				fmt.Printf("Couldn't send EOF: %s\n", err.Error())
-			}
-		}
-		// Discard errors due to pipe interruption
-		sendStdin <- nil
-	}()
-
-	newTty(nil, stateDir, tag, outFd, isTerminalOut).monitorTtySize()
-
-	if err := <-receiveStdout; err != nil {
-		return -1, err
-	}
-	sendStdin <- nil
-
-	if err := <-sendStdin; err != nil {
-		return -1, err
-	}
-
-	return 0, nil
+	return containerTtySplice(stateDir, conn)
 }
 
 // loadProcessConfig loads the process configuration from the provided path.
