@@ -19,6 +19,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/utils"
 
 	"github.com/opencontainers/specs"
 )
@@ -124,7 +125,7 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 		root = c.Image
 	}
 
-	err = mount(root, rootDir)
+	err = utils.Mount(root, rootDir)
 	if err != nil {
 		fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
 		return nil, err
@@ -368,7 +369,7 @@ func startVContainer(context *nsContext, root, container string) {
 
 	defer func() {
 		rootDir := path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
-		umount(rootDir)
+		utils.Umount(rootDir)
 		os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
 
