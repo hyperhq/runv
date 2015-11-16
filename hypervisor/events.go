@@ -85,14 +85,11 @@ type AttachCommand struct {
 }
 
 type CommandAck struct {
-	reply uint32
+	reply *DecodedMessage
 	msg   []byte
 }
 
-type CommandError struct {
-	context *DecodedMessage
-	msg     []byte
-}
+type CommandError CommandAck
 
 type WindowSizeCommand struct {
 	ClientTag string

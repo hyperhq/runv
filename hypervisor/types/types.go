@@ -16,6 +16,7 @@ const (
 	E_POD_IP
 	E_WRITEFILE
 	E_READFILE
+	E_UNEXPECTED
 )
 
 // status for POD or container
@@ -40,5 +41,6 @@ type VmResponse struct {
 	VmId  string
 	Code  int
 	Cause string
+	Reply interface{}
 	Data  interface{}
 }

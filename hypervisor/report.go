@@ -85,6 +85,17 @@ func (ctx *VmContext) reportBadRequest(cause string) {
 	}
 }
 
+// reportUnexpectedRequest send report to daemon, notify about that:
+//   1. unexpected event in current state
+func (ctx *VmContext) reportUnexpectedRequest(ev VmEvent, state string) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_UNEXPECTED,
+		Reply: ev,
+		Cause: "unexpected event during " + state,
+	}
+}
+
 // reportVmFault send report to daemon, notify about that:
 //   1. vm op failed due to some reason described in `cause`
 func (ctx *VmContext) reportVmFault(cause string) {
@@ -95,7 +106,24 @@ func (ctx *VmContext) reportVmFault(cause string) {
 	}
 }
 
-func (ctx *VmContext) reportPodIP() {
+// reportExec send report to daemon, notify about that:
+//   1. exec status
+func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
+	response := &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_EXEC_FINISH,
+		Reply: ev,
+		Cause: "",
+	}
+
+	if fail {
+		response.Cause = "exec failed"
+	}
+
+	ctx.client <- response
+}
+
+func (ctx *VmContext) reportPodIP(ev VmEvent) {
 	ips := []string{}
 	for _, i := range ctx.vmSpec.Interfaces {
 		if i.Device == "lo" {
@@ -107,15 +135,17 @@ func (ctx *VmContext) reportPodIP() {
 		VmId:  ctx.Id,
 		Code:  types.E_POD_IP,
 		Cause: "",
+		Reply: ev,
 		Data:  ips,
 	}
 }
 
-func (ctx *VmContext) reportFile(code uint32, data []byte, err bool) {
+func (ctx *VmContext) reportFile(reply VmEvent, code uint32, data []byte, err bool) {
 	response := &types.VmResponse{
 		VmId:  ctx.Id,
 		Code:  types.E_WRITEFILE,
 		Cause: "",
+		Reply: reply,
 		Data:  data,
 	}
 
@@ -124,11 +154,9 @@ func (ctx *VmContext) reportFile(code uint32, data []byte, err bool) {
 		if err {
 			response.Cause = "readfile failed"
 		}
-		ctx.client <- response
-	} else {
-		if err == true {
-			response.Cause = "writefile failed"
-		}
-		ctx.client <- response
+	} else if err == true {
+		response.Cause = "writefile failed"
 	}
+
+	ctx.client <- response
 }
