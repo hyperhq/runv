@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/codegangsta/cli"
@@ -46,15 +47,48 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		Vbox:       context.GlobalString("vbox"),
 		BundlePath: context.String("bundle"),
 	}
+	var err error
 
 	if config.Name == "" {
 		return nil, fmt.Errorf("Please specify container ID")
 	}
 
+	if !filepath.IsAbs(config.BundlePath) {
+		config.BundlePath, err = filepath.Abs(config.BundlePath)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for bundle path: %s\n", err.Error())
+			return nil, err
+		}
+	}
+
+	if config.Kernel != "" && !filepath.IsAbs(config.Kernel) {
+		config.Kernel, err = filepath.Abs(config.Kernel)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+			return nil, err
+		}
+	}
+
+	if config.Initrd != "" && !filepath.IsAbs(config.Initrd) {
+		config.Initrd, err = filepath.Abs(config.Initrd)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
+			return nil, err
+		}
+	}
+
+	if config.Vbox != "" && !filepath.IsAbs(config.Vbox) {
+		config.Vbox, err = filepath.Abs(config.Vbox)
+		if err != nil {
+			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
+			return nil, err
+		}
+	}
+
 	ocffile := context.String("config-file")
 	runtimefile := context.String("runtime-file")
 
-	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
+	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
 		return nil, err
 	}
