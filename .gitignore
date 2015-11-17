@@ -53,3 +53,7 @@ _testmain.go
 .idea
 /runv
 *.out
+
+# supporting linux container on non-linux platform
+/Godeps/_workspace/src/github.com/opencontainers/specs/config-linux.go
+/Godeps/_workspace/src/github.com/opencontainers/specs/runtime-config-linux.go
