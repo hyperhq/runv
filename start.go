@@ -28,25 +28,28 @@ type startConfig struct {
 	specs.LinuxRuntimeSpec `json:"runtime"`
 }
 
+func getDefaultBundlePath() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
+
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	config := &startConfig{
-		Name:   context.GlobalString("id"),
-		Root:   context.GlobalString("root"),
-		Driver: context.GlobalString("driver"),
-		Kernel: context.GlobalString("kernel"),
-		Initrd: context.GlobalString("initrd"),
-		Vbox:   context.GlobalString("vbox"),
+		Name:       context.GlobalString("id"),
+		Root:       context.GlobalString("root"),
+		Driver:     context.GlobalString("driver"),
+		Kernel:     context.GlobalString("kernel"),
+		Initrd:     context.GlobalString("initrd"),
+		Vbox:       context.GlobalString("vbox"),
+		BundlePath: context.String("bundle"),
 	}
 
 	if config.Name == "" {
 		return nil, fmt.Errorf("Please specify container ID")
 	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	config.BundlePath = cwd
 
 	ocffile := context.String("config-file")
 	runtimefile := context.String("runtime-file")
@@ -101,6 +104,11 @@ var startCommand = cli.Command{
 			Name:  "runtime-file, r",
 			Value: "runtime.json",
 			Usage: "path to runtime config file",
+		},
+		cli.StringFlag{
+			Name:  "bundle, b",
+			Value: getDefaultBundlePath(),
+			Usage: "path to the root of the bundle directory",
 		},
 	},
 	Action: func(context *cli.Context) {
