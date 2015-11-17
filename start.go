@@ -85,11 +85,11 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		}
 	}
 
-	ocffile := context.String("config-file")
-	runtimefile := context.String("runtime-file")
+	ocffile := path.Join(config.BundlePath, "config.json")
+	runtimefile := path.Join(config.BundlePath, "runtime.json")
 
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
-		fmt.Printf("Please specify ocffile or put config.json under current working directory\n")
+		fmt.Printf("Please make sure bundle directory contains config.json\n")
 		return nil, err
 	}
 
@@ -129,16 +129,6 @@ var startCommand = cli.Command{
 	Name:  "start",
 	Usage: "create and run a container",
 	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:  "config-file, c",
-			Value: "config.json",
-			Usage: "path to spec config file",
-		},
-		cli.StringFlag{
-			Name:  "runtime-file, r",
-			Value: "runtime.json",
-			Usage: "path to runtime config file",
-		},
 		cli.StringFlag{
 			Name:  "bundle, b",
 			Value: getDefaultBundlePath(),
