@@ -106,11 +106,11 @@ var startCommand = cli.Command{
 	Action: func(context *cli.Context) {
 		config, err := loadStartConfig(context)
 		if err != nil {
-			fmt.Errorf("load config failed %v\n", err)
+			fmt.Printf("load config failed %v\n", err)
 			os.Exit(-1)
 		}
 		if os.Geteuid() != 0 {
-			fmt.Errorf("runv should be run as root\n")
+			fmt.Printf("runv should be run as root\n")
 			os.Exit(-1)
 		}
 
@@ -151,7 +151,7 @@ var startCommand = cli.Command{
 
 		status, err := startContainer(config)
 		if err != nil {
-			fmt.Errorf("start container failed: %v", err)
+			fmt.Printf("start container failed: %v", err)
 		}
 		os.Exit(status)
 	},
