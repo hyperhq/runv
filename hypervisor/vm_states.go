@@ -207,6 +207,21 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	}
 }
 
+func (ctx *VmContext) killCmd(cmd *KillCommand) {
+	killCmd, err := json.Marshal(*cmd)
+	if err != nil {
+		ctx.Hub <- &InitFailedEvent{
+			Reason: "Generated wrong kill profile " + err.Error(),
+		}
+		return
+	}
+	ctx.vm <- &DecodedMessage{
+		Code:    INIT_KILLCONTAINER,
+		Message: killCmd,
+		Event:   cmd,
+	}
+}
+
 func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
@@ -402,6 +417,7 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_STOP_POD,
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
+		COMMAND_KILL,
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
@@ -560,6 +576,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.reportSuccess("", nil)
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
+		case COMMAND_KILL:
+			ctx.killCmd(ev.(*KillCommand))
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_NEWCONTAINER:

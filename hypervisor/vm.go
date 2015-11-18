@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"syscall"
 	"time"
 
 	"encoding/json"
@@ -434,6 +435,46 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("Read container %s file %s failed: %s", container, target, cause)
+}
+
+func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
+	killCmd := &KillCommand{
+		Container: container,
+		Signal:    signal,
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- killCmd
+	vm.ReleaseRequestChan(Event)
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("kill container %v failed: get response failed", container)
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply.(*KillCommand) == killCmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("kill container %v failed: %s", container, Response.Cause)
+			}
+
+			break
+		}
+	}
+
+	return nil
 }
 
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {

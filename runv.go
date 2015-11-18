@@ -31,6 +31,7 @@ const (
 	RUNV_ACK
 	RUNV_EXECCMD
 	RUNV_WINSIZE
+	RUNV_KILLCONTAINER
 )
 
 const shortLen = 12
@@ -469,6 +470,16 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			json.Unmarshal(msg.Message, &winSize)
 			//fmt.Printf("client exec winsize request %v\n", winSize)
 			context.vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
+		}
+	case RUNV_KILLCONTAINER:
+		{
+			killCmd := &killContainerCmd{}
+			err = json.Unmarshal(msg.Message, killCmd)
+			if err != nil {
+				fmt.Printf("parse runv kill container command failed: %v\n", err)
+				return
+			}
+			context.vm.KillContainer(info.Id, killCmd.Signal)
 		}
 	default:
 		fmt.Printf("unknown cient request\n")
