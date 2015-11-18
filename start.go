@@ -12,6 +12,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/utils"
+	"github.com/kardianos/osext"
 	"github.com/opencontainers/specs"
 )
 
@@ -146,7 +147,17 @@ var startCommand = cli.Command{
 				os.Exit(-1)
 			}
 		} else {
-			utils.ExecInDaemon("/proc/self/exe", []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			path, err := osext.Executable()
+			if err != nil {
+				fmt.Printf("cannot find self executable path for %s: %v\n", os.Args[0], err)
+				os.Exit(-1)
+			}
+
+			_, err = utils.ExecInDaemon(path, []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			if err != nil {
+				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
+				os.Exit(-1)
+			}
 		}
 
 		status, err := startContainer(config)
