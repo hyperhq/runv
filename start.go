@@ -30,14 +30,6 @@ type startConfig struct {
 	specs.LinuxRuntimeSpec `json:"runtime"`
 }
 
-func getDefaultBundlePath() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	return cwd
-}
-
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	config := &startConfig{
 		Name:       context.GlobalString("id"),
@@ -54,6 +46,7 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		return nil, fmt.Errorf("Please specify container ID")
 	}
 
+	// If config.BundlePath is "", this code sets it to the current work directory
 	if !filepath.IsAbs(config.BundlePath) {
 		config.BundlePath, err = filepath.Abs(config.BundlePath)
 		if err != nil {
@@ -132,7 +125,6 @@ var startCommand = cli.Command{
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "bundle, b",
-			Value: getDefaultBundlePath(),
 			Usage: "path to the root of the bundle directory",
 		},
 	},
