@@ -123,6 +123,11 @@ var startCommand = cli.Command{
 			fmt.Printf("runv should be run as root\n")
 			os.Exit(-1)
 		}
+		_, err = os.Stat(filepath.Join(config.Root, config.Name))
+		if err == nil {
+			fmt.Printf("Container %s exists\n", config.Name)
+			os.Exit(-1)
+		}
 
 		var sharedContainer string
 		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
