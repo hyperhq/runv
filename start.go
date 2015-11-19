@@ -12,6 +12,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/utils"
+	"github.com/kardianos/osext"
 	"github.com/opencontainers/specs"
 )
 
@@ -106,11 +107,11 @@ var startCommand = cli.Command{
 	Action: func(context *cli.Context) {
 		config, err := loadStartConfig(context)
 		if err != nil {
-			fmt.Errorf("load config failed %v\n", err)
+			fmt.Printf("load config failed %v\n", err)
 			os.Exit(-1)
 		}
 		if os.Geteuid() != 0 {
-			fmt.Errorf("runv should be run as root\n")
+			fmt.Printf("runv should be run as root\n")
 			os.Exit(-1)
 		}
 
@@ -146,12 +147,22 @@ var startCommand = cli.Command{
 				os.Exit(-1)
 			}
 		} else {
-			utils.ExecInDaemon("/proc/self/exe", []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			path, err := osext.Executable()
+			if err != nil {
+				fmt.Printf("cannot find self executable path for %s: %v\n", os.Args[0], err)
+				os.Exit(-1)
+			}
+
+			_, err = utils.ExecInDaemon(path, []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			if err != nil {
+				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
+				os.Exit(-1)
+			}
 		}
 
 		status, err := startContainer(config)
 		if err != nil {
-			fmt.Errorf("start container failed: %v", err)
+			fmt.Printf("start container failed: %v", err)
 		}
 		os.Exit(status)
 	},
