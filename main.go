@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	version = "0.4.0"
-	usage   = `Open Container Initiative hypervisor-based runtime
+	version       = "0.4.0"
+	specConfig    = "config.json"
+	runtimeConfig = "runtime.json"
+	usage         = `Open Container Initiative hypervisor-based runtime
 
 runv is a command line client for running applications packaged according to
 the Open Container Format (OCF) and is a compliant implementation of the
@@ -33,10 +35,10 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     # cd /mycontainer
-    # runv start [ -c spec-config-file ] [ -r runtime-config-file ]
+    # runv start start [ -b bundle ]
 
-If not specified, the default value for the 'spec-config-file' is 'config.json',
-and the default value for the 'runtime-config-file' is 'runtime.json'.`
+If not specified, the default value for the 'bundle' is the current directory.
+'Bundle' is the directory where '` + specConfig + `' and '` + runtimeConfig + `' must be located.`
 )
 
 func main() {

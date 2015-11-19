@@ -55,8 +55,8 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		}
 	}
 
-	ocffile := path.Join(config.BundlePath, "config.json")
-	runtimefile := path.Join(config.BundlePath, "runtime.json")
+	ocffile := path.Join(config.BundlePath, specConfig)
+	runtimefile := path.Join(config.BundlePath, runtimeConfig)
 
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please make sure bundle directory contains config.json\n")
