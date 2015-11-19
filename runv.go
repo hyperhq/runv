@@ -158,20 +158,17 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 		}
 	}
 
-	kernel := config.Kernel
-	if _, err = os.Stat(kernel); err == nil {
-		kernel, err = filepath.Abs(kernel)
-		if err != nil {
-			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+	if config.Driver == "vbox" {
+		if _, err = os.Stat(config.Vbox); err != nil {
 			return nil, err
 		}
-	}
 
-	initrd := config.Initrd
-	if _, err = os.Stat(initrd); err == nil {
-		initrd, err = filepath.Abs(initrd)
-		if err != nil {
-			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
+	} else {
+		if _, err = os.Stat(config.Kernel); err != nil {
+			return nil, err
+		}
+
+		if _, err = os.Stat(config.Initrd); err != nil {
 			return nil, err
 		}
 	}
@@ -185,11 +182,11 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 	}
 
 	b := &hypervisor.BootConfig{
-		Kernel: kernel,
-		Initrd: initrd,
+		Kernel: config.Kernel,
+		Initrd: config.Initrd,
 		Bios:   "",
 		Cbfs:   "",
-		Vbox:   vbox,
+		Vbox:   config.Vbox,
 		CPU:    cpu,
 		Memory: mem,
 	}
