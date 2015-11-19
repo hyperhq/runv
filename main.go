@@ -62,17 +62,14 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "kernel",
-			Value: getDefaultKernel(),
 			Usage: "kernel for the container",
 		},
 		cli.StringFlag{
 			Name:  "initrd",
-			Value: getDefaultInitrd(),
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
 			Name:  "vbox",
-			Value: getDefaultVbox(),
 			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
 	}
@@ -104,34 +101,4 @@ func getDefaultDriver() string {
 		return "vbox"
 	}
 	return ""
-}
-
-func firstExistingFile(candidates []string) string {
-	for _, file := range candidates {
-		if _, err := os.Stat(file); err == nil {
-			return file
-		}
-	}
-	return ""
-}
-
-func getDefaultKernel() string {
-	if runtime.GOOS != "linux" {
-		return ""
-	}
-	return firstExistingFile([]string{"./kernel", "/var/lib/hyper/kernel"})
-}
-
-func getDefaultInitrd() string {
-	if runtime.GOOS != "linux" {
-		return ""
-	}
-	return firstExistingFile([]string{"./initrd.img", "/var/lib/hyper/hyper-initrd.img"})
-}
-
-func getDefaultVbox() string {
-	if runtime.GOOS != "darwin" {
-		return ""
-	}
-	return firstExistingFile([]string{"./vbox.iso", "/opt/hyper/static/iso/hyper-vbox-boot.iso"})
 }

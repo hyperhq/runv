@@ -55,30 +55,6 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		}
 	}
 
-	if config.Kernel != "" && !filepath.IsAbs(config.Kernel) {
-		config.Kernel, err = filepath.Abs(config.Kernel)
-		if err != nil {
-			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
-			return nil, err
-		}
-	}
-
-	if config.Initrd != "" && !filepath.IsAbs(config.Initrd) {
-		config.Initrd, err = filepath.Abs(config.Initrd)
-		if err != nil {
-			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
-			return nil, err
-		}
-	}
-
-	if config.Vbox != "" && !filepath.IsAbs(config.Vbox) {
-		config.Vbox, err = filepath.Abs(config.Vbox)
-		if err != nil {
-			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
-			return nil, err
-		}
-	}
-
 	ocffile := path.Join(config.BundlePath, "config.json")
 	runtimefile := path.Join(config.BundlePath, "runtime.json")
 
@@ -117,6 +93,15 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	}
 
 	return config, nil
+}
+
+func firstExistingFile(candidates []string) string {
+	for _, file := range candidates {
+		if _, err := os.Stat(file); err == nil {
+			return file
+		}
+	}
+	return ""
 }
 
 var startCommand = cli.Command{
@@ -162,6 +147,53 @@ var startCommand = cli.Command{
 					fmt.Printf("The container %s is not ready\n", sharedContainer)
 					os.Exit(-1)
 				}
+			}
+		}
+
+		// only set the default Kernel/Initrd/Vbox when it is the first container(sharedContainer == "")
+		if config.Kernel == "" && sharedContainer == "" && config.Driver != "vbox" {
+			config.Kernel = firstExistingFile([]string{
+				filepath.Join(config.BundlePath, config.LinuxSpec.Spec.Root.Path, "boot/vmlinuz"),
+				filepath.Join(config.BundlePath, "boot/vmlinuz"),
+				filepath.Join(config.BundlePath, "vmlinuz"),
+				"/var/lib/hyper/kernel",
+			})
+		}
+		if config.Initrd == "" && sharedContainer == "" && config.Driver != "vbox" {
+			config.Initrd = firstExistingFile([]string{
+				filepath.Join(config.BundlePath, config.LinuxSpec.Spec.Root.Path, "boot/initrd.img"),
+				filepath.Join(config.BundlePath, "boot/initrd.img"),
+				filepath.Join(config.BundlePath, "initrd.img"),
+				"/var/lib/hyper/hyper-initrd.img",
+			})
+		}
+		if config.Vbox == "" && sharedContainer == "" && config.Driver == "vbox" {
+			config.Vbox = firstExistingFile([]string{
+				filepath.Join(config.BundlePath, "vbox.iso"),
+				"/opt/hyper/static/iso/hyper-vbox-boot.iso",
+			})
+		}
+
+		// convert the paths to abs
+		if config.Kernel != "" && !filepath.IsAbs(config.Kernel) {
+			config.Kernel, err = filepath.Abs(config.Kernel)
+			if err != nil {
+				fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+				os.Exit(-1)
+			}
+		}
+		if config.Initrd != "" && !filepath.IsAbs(config.Initrd) {
+			config.Initrd, err = filepath.Abs(config.Initrd)
+			if err != nil {
+				fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
+				os.Exit(-1)
+			}
+		}
+		if config.Vbox != "" && !filepath.IsAbs(config.Vbox) {
+			config.Vbox, err = filepath.Abs(config.Vbox)
+			if err != nil {
+				fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
+				os.Exit(-1)
 			}
 		}
 
