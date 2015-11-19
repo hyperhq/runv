@@ -80,6 +80,7 @@ func main() {
 		startCommand,
 		specCommand,
 		execCommand,
+		killCommand,
 		daemonCommand,
 	}
 	if err := app.Run(os.Args); err != nil {

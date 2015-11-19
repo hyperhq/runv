@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"syscall"
 )
 
 type VmEvent interface {
@@ -58,6 +59,11 @@ type ExecCommand struct {
 	Sequence  uint64   `json:"seq"`
 	Command   []string `json:"cmd"`
 	Streams   *TtyIO   `json:"-"`
+}
+
+type KillCommand struct {
+	Container string         `json:"container"`
+	Signal    syscall.Signal `json:"signal"`
 }
 
 type WriteFileCommand struct {
@@ -224,6 +230,7 @@ func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
+func (qe *KillCommand) Event() int           { return COMMAND_KILL }
 func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
 func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
