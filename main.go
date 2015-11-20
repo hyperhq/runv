@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	version = "0.4.0"
-	usage   = `Open Container Initiative hypervisor-based runtime
+	version       = "0.4.0"
+	specConfig    = "config.json"
+	runtimeConfig = "runtime.json"
+	usage         = `Open Container Initiative hypervisor-based runtime
 
 runv is a command line client for running applications packaged according to
 the Open Container Format (OCF) and is a compliant implementation of the
@@ -33,10 +35,10 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     # cd /mycontainer
-    # runv start [ -c spec-config-file ] [ -r runtime-config-file ]
+    # runv start start [ -b bundle ]
 
-If not specified, the default value for the 'spec-config-file' is 'config.json',
-and the default value for the 'runtime-config-file' is 'runtime.json'.`
+If not specified, the default value for the 'bundle' is the current directory.
+'Bundle' is the directory where '` + specConfig + `' and '` + runtimeConfig + `' must be located.`
 )
 
 func main() {
@@ -62,17 +64,14 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "kernel",
-			Value: getDefaultKernel(),
 			Usage: "kernel for the container",
 		},
 		cli.StringFlag{
 			Name:  "initrd",
-			Value: getDefaultInitrd(),
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
 			Name:  "vbox",
-			Value: getDefaultVbox(),
 			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
 	}
@@ -104,34 +103,4 @@ func getDefaultDriver() string {
 		return "vbox"
 	}
 	return ""
-}
-
-func firstExistingFile(candidates []string) string {
-	for _, file := range candidates {
-		if _, err := os.Stat(file); err == nil {
-			return file
-		}
-	}
-	return ""
-}
-
-func getDefaultKernel() string {
-	if runtime.GOOS != "linux" {
-		return ""
-	}
-	return firstExistingFile([]string{"./kernel", "/var/lib/hyper/kernel"})
-}
-
-func getDefaultInitrd() string {
-	if runtime.GOOS != "linux" {
-		return ""
-	}
-	return firstExistingFile([]string{"./initrd.img", "/var/lib/hyper/hyper-initrd.img"})
-}
-
-func getDefaultVbox() string {
-	if runtime.GOOS != "darwin" {
-		return ""
-	}
-	return firstExistingFile([]string{"./vbox.iso", "/opt/hyper/static/iso/hyper-vbox-boot.iso"})
 }
