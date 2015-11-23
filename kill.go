@@ -1,17 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"net"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/codegangsta/cli"
-	"github.com/hyperhq/runv/hypervisor"
 )
 
 var signalMap = map[string]syscall.Signal{
@@ -58,33 +54,12 @@ type killContainerCmd struct {
 	Signal syscall.Signal
 }
 
-func requestDaemonKillContainer(root, container string, signal syscall.Signal) error {
-	conn, err := net.Dial("unix", path.Join(root, container, "runv.sock"))
-	if err != nil {
-		return err
-	}
-
-	killCmd := &killContainerCmd{Name: container, Root: root, Signal: signal}
-	cmd, err := json.Marshal(killCmd)
-	if err != nil {
-		return err
-	}
-
-	m := &hypervisor.DecodedMessage{
-		Code:    RUNV_KILLCONTAINER,
-		Message: []byte(cmd),
-	}
-
-	data := hypervisor.NewVmMessage(m)
-	conn.Write(data[:])
-
-	return nil
-}
-
 var killCommand = cli.Command{
 	Name:  "kill",
 	Usage: "kill sends the specified signal (default: SIGTERM) to the container's init process",
 	Action: func(context *cli.Context) {
+		root := context.GlobalString("root")
+		container := context.GlobalString("id")
 		sigstr := context.Args().First()
 		if sigstr == "" {
 			sigstr = "SIGTERM"
@@ -96,11 +71,13 @@ var killCommand = cli.Command{
 			os.Exit(-1)
 		}
 
-		err = requestDaemonKillContainer(context.GlobalString("root"), context.GlobalString("id"), signal)
+		killCmd := &killContainerCmd{Name: container, Root: root, Signal: signal}
+		conn, err := runvRequest(root, container, RUNV_KILLCONTAINER, killCmd)
 		if err != nil {
 			fmt.Printf("kill container failed %v\n", err)
 			os.Exit(-1)
 		}
+		conn.Close()
 	},
 }
 

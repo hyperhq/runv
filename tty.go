@@ -2,24 +2,22 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/signal"
-	"path"
 	"syscall"
 
-	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/term"
 )
 
 type tty struct {
-	stateDir string
-	tag      string
-	termFd   uintptr
-	terminal bool
+	root      string
+	container string
+	tag       string
+	termFd    uintptr
+	terminal  bool
 }
 
 type ttyWinSize struct {
@@ -29,7 +27,7 @@ type ttyWinSize struct {
 }
 
 // stdin/stdout <-> conn
-func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
+func containerTtySplice(root, container string, conn net.Conn) (int, error) {
 	tag, err := runvGetTag(conn)
 	if err != nil {
 		return -1, err
@@ -67,7 +65,7 @@ func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
 		sendStdin <- nil
 	}()
 
-	newTty(stateDir, tag, outFd, isTerminalOut).monitorTtySize()
+	newTty(root, container, tag, outFd, isTerminalOut).monitorTtySize()
 
 	if err := <-receiveStdout; err != nil {
 		return -1, err
@@ -81,12 +79,13 @@ func containerTtySplice(stateDir string, conn net.Conn) (int, error) {
 	return 0, nil
 }
 
-func newTty(stateDir string, tag string, termFd uintptr, terminal bool) *tty {
+func newTty(root, container, tag string, termFd uintptr, terminal bool) *tty {
 	return &tty{
-		stateDir: stateDir,
-		tag:      tag,
-		termFd:   termFd,
-		terminal: terminal,
+		root:      root,
+		container: container,
+		tag:       tag,
+		termFd:    termFd,
+		terminal:  terminal,
 	}
 }
 
@@ -96,31 +95,12 @@ func (tty *tty) resizeTty() {
 	}
 
 	height, width := getTtySize(tty.termFd)
-
-	conn, err := net.Dial("unix", path.Join(tty.stateDir, "runv.sock"))
+	ttyCmd := &ttyWinSize{Tag: tty.tag, Height: height, Width: width}
+	conn, err := runvRequest(tty.root, tty.container, RUNV_WINSIZE, ttyCmd)
 	if err != nil {
-		fmt.Printf("resize dial fail\n")
-		return //TODO
+		fmt.Printf("Failed to reset winsize")
+		return
 	}
-
-	winSize := &ttyWinSize{
-		Tag:    tty.tag,
-		Height: height,
-		Width:  width,
-	}
-	cmd, err := json.Marshal(winSize)
-	if err != nil {
-		fmt.Printf("resize encode fail\n")
-		return //TODO
-	}
-
-	m := &hypervisor.DecodedMessage{
-		Code:    RUNV_WINSIZE,
-		Message: []byte(cmd),
-	}
-
-	data := hypervisor.NewVmMessage(m)
-	conn.Write(data[:])
 	conn.Close()
 }
 

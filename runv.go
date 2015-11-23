@@ -403,6 +403,36 @@ func startVContainer(context *nsContext, root, container string) {
 	}
 }
 
+func runvRequest(root, name string, code uint32, msg interface{}) (net.Conn, error) {
+	conn, err := utils.UnixSocketConnect(filepath.Join(root, name, "runv.sock"))
+	if err != nil {
+		return nil, err
+	}
+
+	cmd, err := json.Marshal(msg)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	m := &hypervisor.DecodedMessage{
+		Code:    code,
+		Message: cmd,
+	}
+
+	data := hypervisor.NewVmMessage(m)
+	w, err := conn.Write(data[:])
+	if w != len(data) {
+		err = fmt.Errorf("Not full write") // TODO
+	}
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 func runvAllocAndRespondTag(conn net.Conn) (tag string, err error) {
 	tag = pod.RandStr(8, "alphanum")
 	m := &hypervisor.DecodedMessage{
