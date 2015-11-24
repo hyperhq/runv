@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 
@@ -114,14 +113,14 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 	var err error
 
 	containerId := GenerateRandomID()
-	sharedDir := path.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
-	rootDir := path.Join(sharedDir, containerId)
+	sharedDir := filepath.Join(hypervisor.BaseDir, vmId, hypervisor.ShareDirTag)
+	rootDir := filepath.Join(sharedDir, containerId)
 	os.MkdirAll(rootDir, 0755)
 
-	rootDir = path.Join(rootDir, "rootfs")
+	rootDir = filepath.Join(rootDir, "rootfs")
 
 	if !filepath.IsAbs(c.Image) {
-		root = path.Join(config.BundlePath, c.Image)
+		root = filepath.Join(config.BundlePath, c.Image)
 	} else {
 		root = c.Image
 	}
@@ -287,12 +286,12 @@ func cleanupRunvPod(context *nsContext, name string) {
 		return
 	}
 	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
-	os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId))
+	os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId))
 }
 
 func startVContainer(context *nsContext, root, container string) {
 	// create stateDir
-	stateDir := path.Join(root, container)
+	stateDir := filepath.Join(root, container)
 	_, err := os.Stat(stateDir)
 	if err == nil {
 		fmt.Printf("Container %s exists\n", container)
@@ -306,7 +305,7 @@ func startVContainer(context *nsContext, root, container string) {
 	defer os.RemoveAll(stateDir)
 
 	// create connection sock
-	sock, err := net.Listen("unix", path.Join(stateDir, "runv.sock"))
+	sock, err := net.Listen("unix", filepath.Join(stateDir, "runv.sock"))
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 		return
@@ -351,7 +350,7 @@ func startVContainer(context *nsContext, root, container string) {
 		fmt.Printf("%s\n", err.Error())
 		return
 	}
-	stateFile := path.Join(stateDir, "state.json")
+	stateFile := filepath.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
@@ -366,9 +365,9 @@ func startVContainer(context *nsContext, root, container string) {
 	}
 
 	defer func() {
-		rootDir := path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
+		rootDir := filepath.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id, "rootfs")
 		utils.Umount(rootDir)
-		os.RemoveAll(path.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
+		os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
 
 	tag, _ := runvAllocAndRespondTag(conn)

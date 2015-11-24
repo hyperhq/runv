@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/hyperhq/runv/hypervisor"
@@ -86,7 +86,7 @@ func (vc *VBoxContext) Launch(ctx *hypervisor.VmContext) {
 	}
 	// 1. Create and Register a VM
 	if exist == false {
-		vmRootPath := path.Join(hypervisor.BaseDir, "vm")
+		vmRootPath := filepath.Join(hypervisor.BaseDir, "vm")
 		os.MkdirAll(vmRootPath, 0755)
 		err = vc.CreateVm(ctx.Id, vmRootPath, ctx.HyperSockName, ctx.TtySockName)
 		if err != nil {
@@ -192,7 +192,7 @@ func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {
 			if err := m.Delete(); err != nil {
 				glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
 			}
-			os.RemoveAll(path.Join(hypervisor.BaseDir, "vm", name))
+			os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
 		}
 		delete(vc.Driver.Machines, name)
 		ctx.Hub <- &hypervisor.VmExit{}
@@ -222,7 +222,7 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 				ctx.Hub <- &hypervisor.VmKilledEvent{Success: false}
 				return
 			}
-			os.RemoveAll(path.Join(hypervisor.BaseDir, "vm", name))
+			os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
 		}
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 	}()
@@ -445,7 +445,7 @@ func (vc *VBoxContext) LazyAddNic(ctx *hypervisor.VmContext, host *hypervisor.Ho
 }
 
 func (vc *VBoxContext) InitVM(ctx *hypervisor.VmContext) error {
-	vmRootPath := path.Join(hypervisor.BaseDir, "vm")
+	vmRootPath := filepath.Join(hypervisor.BaseDir, "vm")
 	os.MkdirAll(vmRootPath, 0755)
 	m, err := virtualbox.GetMachine(ctx.Id)
 	if err != nil {

@@ -2,7 +2,7 @@ package hypervisor
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -24,7 +24,7 @@ func UmountAufsContainer(shareDir, image string, index int, hub chan VmEvent) {
 }
 
 func UmountVfsContainer(shareDir, image string, index int, hub chan VmEvent) {
-	mount := path.Join(shareDir, image)
+	mount := filepath.Join(shareDir, image)
 	success := true
 	for i := 0; i < 10; i++ {
 		time.Sleep(3 * time.Second / 1000)
@@ -45,7 +45,7 @@ func UmountVfsContainer(shareDir, image string, index int, hub chan VmEvent) {
 }
 
 func UmountVolume(shareDir, volPath string, name string, hub chan VmEvent) {
-	mount := path.Join(shareDir, volPath)
+	mount := filepath.Join(shareDir, volPath)
 	success := true
 
 	if err := syscall.Unlink(mount); err != nil {
