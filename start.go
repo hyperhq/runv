@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/specs"
@@ -203,10 +201,12 @@ var startCommand = cli.Command{
 		}
 
 		if sharedContainer != "" {
-			err = requestDaemonInitContainer(sharedContainer, config.Root, config.Name)
+			initCmd := &initContainerCmd{Name: config.Name, Root: config.Root}
+			conn, err := runvRequest(config.Root, sharedContainer, RUNV_INITCONTAINER, initCmd)
 			if err != nil {
 				os.Exit(-1)
 			}
+			conn.Close()
 		} else {
 			path, err := osext.Executable()
 			if err != nil {
@@ -246,49 +246,12 @@ type initContainerCmd struct {
 // * Shared namespaces is configured in LinuxRuntimeSpec.Linux.Namespaces, the namespace Path should be existing container name.
 // * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
-func requestDaemonInitContainer(sharedContainer, root, container string) error {
-	conn, err := net.Dial("unix", path.Join(root, sharedContainer, "runv.sock"))
-	if err != nil {
-		return err
-	}
-
-	initCmd := &initContainerCmd{Name: container, Root: root}
-	cmd, err := json.Marshal(initCmd)
-	if err != nil {
-		return err
-	}
-
-	m := &hypervisor.DecodedMessage{
-		Code:    RUNV_INITCONTAINER,
-		Message: []byte(cmd),
-	}
-
-	data := hypervisor.NewVmMessage(m)
-	conn.Write(data[:])
-
-	return nil
-}
 
 func startContainer(config *startConfig) (int, error) {
-	stateDir := path.Join(config.Root, config.Name)
-
-	conn, err := utils.UnixSocketConnect(path.Join(stateDir, "runv.sock"))
+	conn, err := runvRequest(config.Root, config.Name, RUNV_STARTCONTAINER, config)
 	if err != nil {
 		return -1, err
 	}
 
-	cmd, err := json.Marshal(config)
-	if err != nil {
-		return -1, err
-	}
-
-	m := &hypervisor.DecodedMessage{
-		Code:    RUNV_STARTCONTAINER,
-		Message: []byte(cmd),
-	}
-
-	data := hypervisor.NewVmMessage(m)
-	conn.Write(data[:])
-
-	return containerTtySplice(stateDir, conn)
+	return containerTtySplice(config.Root, config.Name, conn)
 }
