@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -53,8 +52,8 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		}
 	}
 
-	ocffile := path.Join(config.BundlePath, specConfig)
-	runtimefile := path.Join(config.BundlePath, runtimeConfig)
+	ocffile := filepath.Join(config.BundlePath, specConfig)
+	runtimefile := filepath.Join(config.BundlePath, runtimeConfig)
 
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please make sure bundle directory contains config.json\n")
@@ -140,12 +139,12 @@ var startCommand = cli.Command{
 					os.Exit(-1)
 				}
 				sharedContainer = ns.Path
-				_, err = os.Stat(path.Join(config.Root, sharedContainer, "state.json"))
+				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, "state.json"))
 				if err != nil {
 					fmt.Printf("The container %s is not existing or not ready\n", sharedContainer)
 					os.Exit(-1)
 				}
-				_, err = os.Stat(path.Join(config.Root, sharedContainer, "runv.sock"))
+				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, "runv.sock"))
 				if err != nil {
 					fmt.Printf("The container %s is not ready\n", sharedContainer)
 					os.Exit(-1)

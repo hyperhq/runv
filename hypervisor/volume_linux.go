@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -19,7 +19,7 @@ func CreateContainer(userPod *pod.UserPod, sharedDir string, hub chan VmEvent) (
 }
 
 func UmountOverlayContainer(shareDir, image string, index int, hub chan VmEvent) {
-	mount := path.Join(shareDir, image)
+	mount := filepath.Join(shareDir, image)
 	success := true
 	for i := 0; i < 10; i++ {
 		time.Sleep(3 * time.Second / 1000)
@@ -56,7 +56,7 @@ func aufsUnmount(target string) error {
 }
 
 func UmountAufsContainer(shareDir, image string, index int, hub chan VmEvent) {
-	mount := path.Join(shareDir, image)
+	mount := filepath.Join(shareDir, image)
 	success := true
 	for i := 0; i < 10; i++ {
 		time.Sleep(3 * time.Second / 1000)
@@ -78,7 +78,7 @@ func UmountAufsContainer(shareDir, image string, index int, hub chan VmEvent) {
 }
 
 func UmountVolume(shareDir, volPath string, name string, hub chan VmEvent) {
-	mount := path.Join(shareDir, volPath)
+	mount := filepath.Join(shareDir, volPath)
 	success := true
 	err := syscall.Unmount(mount, 0)
 	if err != nil {
