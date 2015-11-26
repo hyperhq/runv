@@ -8,44 +8,45 @@ import (
 	"syscall"
 
 	"github.com/codegangsta/cli"
+	"github.com/hyperhq/runv/lib/linuxsignal"
 )
 
-var signalMap = map[string]syscall.Signal{
-	"ABRT":   syscall.SIGABRT,
-	"ALRM":   syscall.SIGALRM,
-	"BUS":    syscall.SIGBUS,
-	"CHLD":   syscall.SIGCHLD,
-	"CLD":    syscall.SIGCLD,
-	"CONT":   syscall.SIGCONT,
-	"FPE":    syscall.SIGFPE,
-	"HUP":    syscall.SIGHUP,
-	"ILL":    syscall.SIGILL,
-	"INT":    syscall.SIGINT,
-	"IO":     syscall.SIGIO,
-	"IOT":    syscall.SIGIOT,
-	"KILL":   syscall.SIGKILL,
-	"PIPE":   syscall.SIGPIPE,
-	"POLL":   syscall.SIGPOLL,
-	"PROF":   syscall.SIGPROF,
-	"PWR":    syscall.SIGPWR,
-	"QUIT":   syscall.SIGQUIT,
-	"SEGV":   syscall.SIGSEGV,
-	"STKFLT": syscall.SIGSTKFLT,
-	"STOP":   syscall.SIGSTOP,
-	"SYS":    syscall.SIGSYS,
-	"TERM":   syscall.SIGTERM,
-	"TRAP":   syscall.SIGTRAP,
-	"TSTP":   syscall.SIGTSTP,
-	"TTIN":   syscall.SIGTTIN,
-	"TTOU":   syscall.SIGTTOU,
-	"UNUSED": syscall.SIGUNUSED,
-	"URG":    syscall.SIGURG,
-	"USR1":   syscall.SIGUSR1,
-	"USR2":   syscall.SIGUSR2,
-	"VTALRM": syscall.SIGVTALRM,
-	"WINCH":  syscall.SIGWINCH,
-	"XCPU":   syscall.SIGXCPU,
-	"XFSZ":   syscall.SIGXFSZ,
+var linuxSignalMap = map[string]syscall.Signal{
+	"ABRT":   linuxsignal.SIGABRT,
+	"ALRM":   linuxsignal.SIGALRM,
+	"BUS":    linuxsignal.SIGBUS,
+	"CHLD":   linuxsignal.SIGCHLD,
+	"CLD":    linuxsignal.SIGCLD,
+	"CONT":   linuxsignal.SIGCONT,
+	"FPE":    linuxsignal.SIGFPE,
+	"HUP":    linuxsignal.SIGHUP,
+	"ILL":    linuxsignal.SIGILL,
+	"INT":    linuxsignal.SIGINT,
+	"IO":     linuxsignal.SIGIO,
+	"IOT":    linuxsignal.SIGIOT,
+	"KILL":   linuxsignal.SIGKILL,
+	"PIPE":   linuxsignal.SIGPIPE,
+	"POLL":   linuxsignal.SIGPOLL,
+	"PROF":   linuxsignal.SIGPROF,
+	"PWR":    linuxsignal.SIGPWR,
+	"QUIT":   linuxsignal.SIGQUIT,
+	"SEGV":   linuxsignal.SIGSEGV,
+	"STKFLT": linuxsignal.SIGSTKFLT,
+	"STOP":   linuxsignal.SIGSTOP,
+	"SYS":    linuxsignal.SIGSYS,
+	"TERM":   linuxsignal.SIGTERM,
+	"TRAP":   linuxsignal.SIGTRAP,
+	"TSTP":   linuxsignal.SIGTSTP,
+	"TTIN":   linuxsignal.SIGTTIN,
+	"TTOU":   linuxsignal.SIGTTOU,
+	"UNUSED": linuxsignal.SIGUNUSED,
+	"URG":    linuxsignal.SIGURG,
+	"USR1":   linuxsignal.SIGUSR1,
+	"USR2":   linuxsignal.SIGUSR2,
+	"VTALRM": linuxsignal.SIGVTALRM,
+	"WINCH":  linuxsignal.SIGWINCH,
+	"XCPU":   linuxsignal.SIGXCPU,
+	"XFSZ":   linuxsignal.SIGXFSZ,
 }
 
 type killContainerCmd struct {
@@ -86,7 +87,7 @@ func parseSignal(rawSignal string) (syscall.Signal, error) {
 	if err == nil {
 		return syscall.Signal(s), nil
 	}
-	signal, ok := signalMap[strings.TrimPrefix(strings.ToUpper(rawSignal), "SIG")]
+	signal, ok := linuxSignalMap[strings.TrimPrefix(strings.ToUpper(rawSignal), "SIG")]
 	if !ok {
 		return -1, fmt.Errorf("unknown signal %q", rawSignal)
 	}
