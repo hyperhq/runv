@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -34,49 +32,10 @@ func containerTtySplice(root, container string, conn net.Conn) (int, error) {
 	}
 	fmt.Printf("tag=%s\n", tag)
 
-	inFd, _ := term.GetFdInfo(os.Stdin)
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
-	oldState, err := term.SetRawTerminal(inFd)
-	if err != nil {
-		return -1, err
-	}
-	defer term.RestoreTerminal(inFd, oldState)
-
-	br := bufio.NewReader(conn)
-
-	receiveStdout := make(chan error, 1)
-	go func() {
-		_, err = io.Copy(os.Stdout, br)
-		receiveStdout <- err
-	}()
-
-	sendStdin := make(chan error, 1)
-	go func() {
-		io.Copy(conn, os.Stdin)
-
-		if sock, ok := conn.(interface {
-			CloseWrite() error
-		}); ok {
-			if err := sock.CloseWrite(); err != nil {
-				fmt.Printf("Couldn't send EOF: %s\n", err.Error())
-			}
-		}
-		// Discard errors due to pipe interruption
-		sendStdin <- nil
-	}()
-
 	newTty(root, container, tag, outFd, isTerminalOut).monitorTtySize()
 
-	if err := <-receiveStdout; err != nil {
-		return -1, err
-	}
-	sendStdin <- nil
-
-	if err := <-sendStdin; err != nil {
-		return -1, err
-	}
-
-	return 0, nil
+	return term.TtySplice(conn)
 }
 
 func newTty(root, container, tag string, termFd uintptr, terminal bool) *tty {
