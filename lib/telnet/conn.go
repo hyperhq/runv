@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/hyperhq/runv/lib/glog"
+	"github.com/golang/glog"
 )
 
 const (

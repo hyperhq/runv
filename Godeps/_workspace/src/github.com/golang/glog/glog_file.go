@@ -43,13 +43,8 @@ var logDir = flag.String("log_dir", "", "If non-empty, write log files in this d
 func createLogDirs() {
 	if *logDir != "" {
 		logDirs = append(logDirs, *logDir)
-	} else {
-		if err := os.MkdirAll("/var/log/hyper/", 0755); err != nil && !os.IsExist(err) {
-			logDirs = append(logDirs, os.TempDir())
-		} else {
-			logDirs = append(logDirs, "/var/log/hyper/")
-		}
 	}
+	logDirs = append(logDirs, os.TempDir())
 }
 
 var (
@@ -119,8 +114,8 @@ func create(tag string, t time.Time) (f *os.File, filename string, err error) {
 		f, err := os.Create(fname)
 		if err == nil {
 			symlink := filepath.Join(dir, link)
-			os.Remove(symlink)         // ignore err
-			os.Symlink(fname, symlink) // ignore err
+			os.Remove(symlink)        // ignore err
+			os.Symlink(name, symlink) // ignore err
 			return f, fname, nil
 		}
 		lastErr = err

@@ -1,8 +1,8 @@
 package hypervisor
 
 import (
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 // reportVmRun() send report to daemon, notify about that:

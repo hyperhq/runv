@@ -1,9 +1,9 @@
 package hypervisor
 
 import (
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 
 	"sync"
 )

@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 func CreateContainer(userPod *pod.UserPod, sharedDir string, hub chan VmEvent) (string, error) {

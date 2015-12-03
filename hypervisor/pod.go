@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/daemon/logger"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 //change first letter to uppercase and add json tag (thanks GNU sed):
