@@ -42,6 +42,11 @@ If not specified, the default value for the 'bundle' is the current directory.
 )
 
 func main() {
+	if os.Args[0] == "runv-ns-daemon" {
+		runvNamespaceDaemon()
+		os.Exit(0)
+	}
+
 	app := cli.NewApp()
 	app.Name = "runv"
 	app.Usage = usage
@@ -80,7 +85,6 @@ func main() {
 		specCommand,
 		execCommand,
 		killCommand,
-		daemonCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

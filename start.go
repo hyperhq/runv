@@ -213,7 +213,7 @@ var startCommand = cli.Command{
 				os.Exit(-1)
 			}
 
-			_, err = utils.ExecInDaemon(path, []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			_, err = utils.ExecInDaemon(path, []string{"runv-ns-daemon", "--root", config.Root, "--id", config.Name})
 			if err != nil {
 				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
 				os.Exit(-1)

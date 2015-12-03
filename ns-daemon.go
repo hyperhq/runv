@@ -1,9 +1,10 @@
 package main
 
 import (
+	"flag"
+	"os"
 	"sync"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
@@ -23,14 +24,19 @@ type nsContext struct {
 	wg          sync.WaitGroup
 }
 
-var daemonCommand = cli.Command{
-	Name:  "daemon",
-	Usage: "internal and hidden daemon command, run in daemon mode",
-	Action: func(cliContext *cli.Context) {
-		context := &nsContext{}
-		context.actives = make(map[string]*startConfig)
-		startVContainer(context, cliContext.GlobalString("root"), cliContext.GlobalString("id"))
-		context.wg.Wait()
-	},
-	HideHelp: true,
+func runvNamespaceDaemon() {
+	var root string
+	var id string
+	flag.StringVar(&root, "root", "", "")
+	flag.StringVar(&id, "id", "", "")
+	flag.Parse()
+	if root == "" || id == "" {
+		// should not happen in daemon
+		os.Exit(-1)
+	}
+
+	context := &nsContext{}
+	context.actives = make(map[string]*startConfig)
+	startVContainer(context, root, id)
+	context.wg.Wait()
 }
