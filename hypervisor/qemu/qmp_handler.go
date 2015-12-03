@@ -6,8 +6,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/utils"
 )
 

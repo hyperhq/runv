@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"encoding/json"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 type Vm struct {

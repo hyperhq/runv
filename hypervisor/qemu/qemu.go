@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 //implement the hypervisor.HypervisorDriver interface

@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/govbox"
 )
 

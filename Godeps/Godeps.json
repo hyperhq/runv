@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -21,6 +21,10 @@
 			"ImportPath": "github.com/docker/docker/pkg/timeutils",
 			"Comment": "v1.4.1-6273-gd2e7ba4",
 			"Rev": "d2e7ba42b10fda5961470adc4ba4d74011203e60"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",

@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/hyperhq/runv/lib/glog"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/lib/telnet"
 	"github.com/hyperhq/runv/lib/utils"
 )

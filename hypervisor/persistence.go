@@ -3,9 +3,9 @@ package hypervisor
 import (
 	"encoding/json"
 	"errors"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 	"sync"
 )
 

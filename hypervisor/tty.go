@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/glog"
 	"github.com/hyperhq/runv/lib/utils"
 )
 

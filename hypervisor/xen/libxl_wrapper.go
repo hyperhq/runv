@@ -782,8 +782,8 @@ import "C"
 
 import (
 	"errors"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/glog"
 	"unsafe"
 )
 

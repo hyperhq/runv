@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperhq/runv/lib/glog"
+	"github.com/golang/glog"
 )
 
 type PortMap struct {

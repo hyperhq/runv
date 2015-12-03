@@ -15,9 +15,9 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/lib/glog"
 )
 
 const (
