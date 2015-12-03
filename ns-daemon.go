@@ -9,8 +9,6 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
-// TODO: logging for daemon
-
 // namespace context for runv daemon
 type nsContext struct {
 	lock        sync.Mutex
