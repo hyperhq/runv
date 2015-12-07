@@ -109,6 +109,16 @@ var startCommand = cli.Command{
 			Name:  "bundle, b",
 			Usage: "path to the root of the bundle directory",
 		},
+		cli.StringFlag{
+			Name:  "verbose, v",
+			Value: "0",
+			Usage: "logging verbosity",
+		},
+		cli.StringFlag{
+			Name:  "log_dir",
+			Value: "/var/log/hyper",
+			Usage: "the directory for the logging (glog style)",
+		},
 	},
 	Action: func(context *cli.Context) {
 		config, err := loadStartConfig(context)
@@ -200,6 +210,9 @@ var startCommand = cli.Command{
 		}
 
 		if sharedContainer != "" {
+			if context.IsSet("verbose") || context.IsSet("log_dir") {
+				fmt.Printf("The logging flags --verbose and --log_dir are only valid for starting the first container, we ignore them here")
+			}
 			initCmd := &initContainerCmd{Name: config.Name, Root: config.Root}
 			conn, err := runvRequest(config.Root, sharedContainer, RUNV_INITCONTAINER, initCmd)
 			if err != nil {
@@ -213,7 +226,15 @@ var startCommand = cli.Command{
 				os.Exit(-1)
 			}
 
-			_, err = utils.ExecInDaemon(path, []string{"runv", "--root", config.Root, "--id", config.Name, "daemon"})
+			os.MkdirAll(context.String("log_dir"), 0755)
+			args := []string{
+				"runv-ns-daemon",
+				"--root", config.Root,
+				"--id", config.Name,
+				"-v", context.String("verbose"),
+				"--log_dir", context.String("log_dir"),
+			}
+			_, err = utils.ExecInDaemon(path, args)
 			if err != nil {
 				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
 				os.Exit(-1)
