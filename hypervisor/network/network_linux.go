@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -29,6 +30,11 @@ const (
 	CIFF_TAP       = 0x0002
 	CIFF_NO_PI     = 0x1000
 	CIFF_ONE_QUEUE = 0x2000
+)
+
+const (
+	ipv4ForwardConf     = "/proc/sys/net/ipv4/ip_forward"
+	ipv4ForwardConfPerm = 0644
 )
 
 var (
@@ -92,6 +98,24 @@ type networkInterface struct {
 type ifaces struct {
 	c map[string]*networkInterface
 	sync.Mutex
+}
+
+func setupIPForwarding() error {
+	// Get current IPv4 forward setup
+	ipv4ForwardData, err := ioutil.ReadFile(ipv4ForwardConf)
+	if err != nil {
+		return fmt.Errorf("Cannot read IP forwarding setup: %v", err)
+	}
+
+	// Enable IPv4 forwarding only if it is not already enabled
+	if ipv4ForwardData[0] != '1' {
+		// Enable IPv4 forwarding
+		if err := ioutil.WriteFile(ipv4ForwardConf, []byte{'1', '\n'}, ipv4ForwardConfPerm); err != nil {
+			return fmt.Errorf("Setup IP forwarding failed: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func setupIPTables(addr net.Addr) error {
@@ -258,6 +282,11 @@ func InitNetwork(bIface, bIP string, disable bool) error {
 	}
 
 	err = setupIPTables(addr)
+	if err != nil {
+		return err
+	}
+
+	err = setupIPForwarding()
 	if err != nil {
 		return err
 	}
