@@ -465,7 +465,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 		}
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply.(*KillCommand) == killCmd {
+		if Response.Reply == killCmd {
 			if Response.Cause != "" {
 				return fmt.Errorf("kill container %v failed: %s", container, Response.Cause)
 			}
@@ -522,7 +522,7 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 		}
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply.(*ExecCommand) == execCmd {
+		if Response.Reply == execCmd {
 			if Response.Cause != "" {
 				return fmt.Errorf("exec command %v failed: %s", command, Response.Cause)
 			}
