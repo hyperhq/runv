@@ -87,7 +87,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	if dc == nil {
 		dc = HDriver.InitContext(homeDir)
 	}
-
 	err = os.MkdirAll(shareDir, 0755)
 	if err != nil {
 		glog.Error("cannot make dir", shareDir, err.Error())
