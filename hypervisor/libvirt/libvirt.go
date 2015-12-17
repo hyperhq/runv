@@ -102,7 +102,7 @@ type domainos struct {
 	Nvram     string    `xml:"nvram,omitempty"`
 }
 
-type feature struct {
+type features struct {
 	Acpi string `xml:"acpi"`
 }
 
@@ -177,15 +177,15 @@ type device struct {
 }
 
 type domain struct {
-	XMLName xml.Name `xml:"domain"`
-	Type    string   `xml:"type,attr"`
-	Name    string   `xml:"name"`
-	Memory  memory   `xml:"memory"`
-	VCpu    vcpu     `xml:"vcpu"`
-	OS      domainos `xml:"os"`
-	Feature feature  `xml:"feature"`
-	CPU     cpu      `xml:"cpu"`
-	Devices device   `xml:"devices"`
+	XMLName  xml.Name `xml:"domain"`
+	Type     string   `xml:"type,attr"`
+	Name     string   `xml:"name"`
+	Memory   memory   `xml:"memory"`
+	VCpu     vcpu     `xml:"vcpu"`
+	OS       domainos `xml:"os"`
+	Features features `xml:"features"`
+	CPU      cpu      `xml:"cpu"`
+	Devices  device   `xml:"devices"`
 }
 
 func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
@@ -204,7 +204,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		Name: ctx.Id,
 	}
 
-	dom.Memory.Unit = "KiB"
+	dom.Memory.Unit = "MB"
 	dom.Memory.Content = ctx.Boot.Memory
 
 	dom.VCpu.Placement = "static"
@@ -341,6 +341,7 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		return
 	}
 	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_AUTODESTROY)
+	glog.V(1).Infof("domainXML: %v", domainXml)
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
@@ -499,7 +500,7 @@ type nicsrc struct {
 }
 
 type nictgt struct {
-	Device string `xml:"dev,attr"`
+	Device string `xml:"dev,attr,omitempty"`
 }
 
 type nicmodel fsdriver
@@ -509,13 +510,14 @@ type nic struct {
 	Type    string   `xml:"type,attr"`
 	Mac     nicmac   `xml:"mac"`
 	Source  nicsrc   `xml:"source"`
-	Target  nictgt   `xml:"target"`
+	Target  *nictgt  `xml:"target,omitempty"`
 	Model   nicmodel `xml:"model"`
 	Address *address `xml:"address"`
 }
 
 func nicXml(bridge, device, mac string, addr int) (string, error) {
-	slot := fmt.Sprintf("0x%x", addr)
+	/* slot 0x05 is used by balloon0 */
+	slot := fmt.Sprintf("0x%x", addr+1)
 	n := nic{
 		Type: "bridge",
 		Mac: nicmac{
@@ -524,7 +526,7 @@ func nicXml(bridge, device, mac string, addr int) (string, error) {
 		Source: nicsrc{
 			Bridge: bridge,
 		},
-		Target: nictgt{
+		Target: &nictgt{
 			Device: device,
 		},
 		Model: nicmodel{
