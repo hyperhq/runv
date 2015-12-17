@@ -11,6 +11,8 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 )
 
+var PersistentMemDisk bool
+
 //implement the hypervisor.HypervisorDriver interface
 type QemuDriver struct {
 	executable string
@@ -24,6 +26,8 @@ type QemuContext struct {
 	wdt         chan string
 	qmpSockName string
 	process     *os.Process
+	devicesArgs []string
+	callbacks   []hypervisor.VmEvent
 }
 
 func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
@@ -157,8 +161,46 @@ func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, 
 	newNetworkDelSession(qc, device, callback)
 }
 
-func (qc *QemuDriver) SupportLazyMode() bool {
+func (qd *QemuDriver) SupportLazyMode() bool {
 	return false
+}
+
+func (qd *QemuDriver) AsyncDiskBoot() bool {
+	return !PersistentMemDisk
+}
+
+func (qd *QemuDriver) AsyncNicBoot() bool {
+	return true
+}
+
+func (qc *QemuContext) InitVM(ctx *hypervisor.VmContext) error {
+	return nil
+}
+
+func (qc *QemuContext) LazyAddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+	qc.devicesArgs = append(qc.devicesArgs,
+		"-drive", "file="+filename+",if=none,id="+"drive"+strconv.Itoa(id)+",format="+format+",cache=writeback",
+		"-device", "scsi-hd,bus=scsi0.0,scsi-id="+strconv.Itoa(id)+",drive=drive"+strconv.Itoa(id)+",id=scsi-disk"+strconv.Itoa(id),
+	)
+
+	callback := &hypervisor.BlockdevInsertedEvent{
+		Name:       name,
+		SourceType: sourceType,
+		DeviceName: scsiId2Name(id),
+		ScsiId:     id,
+	}
+	qc.callbacks = append(qc.callbacks, callback)
+}
+
+func (qc *QemuContext) LazyAddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+}
+
+func (qc *QemuContext) LazyLaunch(ctx *hypervisor.VmContext) {
+	qc.Launch(ctx)
+
+	for _, cb := range qc.callbacks {
+		ctx.Hub <- cb
+	}
 }
 
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
@@ -195,7 +237,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	}
 
-	return append(params,
+	params = append(params,
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
 		"-m", strconv.Itoa(ctx.Boot.Memory), "-smp", strconv.Itoa(ctx.Boot.CPU),
@@ -208,4 +250,6 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 		"-fsdev", fmt.Sprintf("local,id=virtio9p,path=%s,security_model=none", ctx.ShareDir),
 		"-device", fmt.Sprintf("virtio-9p-pci,fsdev=virtio9p,mount_tag=%s", hypervisor.ShareDirTag),
 	)
+
+	return append(params, qc.devicesArgs...)
 }

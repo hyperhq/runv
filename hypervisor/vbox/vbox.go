@@ -408,8 +408,16 @@ func (vc *VBoxContext) detachDisk(disk string, port int) error {
 	return nil
 }
 
-func (vc *VBoxDriver) SupportLazyMode() bool {
+func (vd *VBoxDriver) SupportLazyMode() bool {
 	return true
+}
+
+func (vd *VBoxDriver) AsyncDiskBoot() bool {
+	return false
+}
+
+func (vd *VBoxDriver) AsyncNicBoot() bool {
+	return false
 }
 
 func scsiId2Name(id int) string {

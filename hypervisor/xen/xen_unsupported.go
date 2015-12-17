@@ -36,3 +36,11 @@ func (xd *XenDriver) LoadContext(persisted map[string]interface{}) (hypervisor.D
 func (xd *XenDriver) SupportLazyMode() bool {
 	return false
 }
+
+func (xd *XenDriver) AsyncDiskBoot() bool {
+	return true
+}
+
+func (xd *XenDriver) AsyncNicBoot() bool {
+	return true
+}
