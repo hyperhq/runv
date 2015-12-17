@@ -39,7 +39,7 @@ type HypervisorDriver interface {
 
 	BuildinNetwork() bool
 
-	InitNetwork(bIface, bIP string) error
+	InitNetwork(bIface, bIP string, disableIptables bool) error
 
 	SupportLazyMode() bool
 }

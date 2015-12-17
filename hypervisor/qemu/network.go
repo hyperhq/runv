@@ -11,7 +11,7 @@ func (qd *QemuDriver) BuildinNetwork() bool {
 	return false
 }
 
-func (qd *QemuDriver) InitNetwork(bIface, bIP string) error {
+func (qd *QemuDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
 	return nil
 }
 

@@ -8,11 +8,11 @@ import (
 )
 
 func (ld *LibvirtDriver) BuildinNetwork() bool {
-	return false
+	return true
 }
 
-func (ld *LibvirtDriver) InitNetwork(bIface, bIP string) error {
-	return nil
+func (ld *LibvirtDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
+	return network.InitNetwork(bIface, bIP, disableIptables)
 }
 
 func (lc *LibvirtContext) ConfigureNetwork(vmId, requestedIP string,

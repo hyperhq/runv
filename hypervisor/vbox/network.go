@@ -16,7 +16,7 @@ func (vd *VBoxDriver) BuildinNetwork() bool {
 	return true
 }
 
-func (vd *VBoxDriver) InitNetwork(bIface, bIP string) error {
+func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
 	var i = 0
 
 	if bIP == "" {
