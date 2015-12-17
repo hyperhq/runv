@@ -55,7 +55,7 @@ type DriverContext interface {
 	RemoveDisk(ctx *VmContext, filename, format string, id int, callback VmEvent)
 
 	AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
-	RemoveNic(ctx *VmContext, device, mac string, callback VmEvent)
+	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent)
 
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
@@ -114,7 +114,7 @@ func (ec *EmptyContext) RemoveDisk(ctx *VmContext, filename, format string, id i
 
 func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo) {}
 
-func (ec *EmptyContext) RemoveNic(ctx *VmContext, device, mac string, callback VmEvent) {}
+func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent) {}
 
 func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 

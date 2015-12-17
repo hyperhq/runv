@@ -349,7 +349,7 @@ func (vc *VBoxContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 	}()
 }
 
-func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, callback hypervisor.VmEvent) {
+func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
 	go func() {
 		/*
 			args := "vboxmanage controlvm " + vc.Machine.Name + " nic1 null"
@@ -361,7 +361,7 @@ func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, 
 				return
 			}
 		*/
-		glog.V(1).Infof("nic %s remove succeeded", device)
+		glog.V(1).Infof("nic %s remove succeeded", n.DeviceName)
 		ctx.Hub <- callback
 		return
 	}()

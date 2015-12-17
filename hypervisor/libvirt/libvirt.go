@@ -562,9 +562,8 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 	}
 }
 
-func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, callback hypervisor.VmEvent) {
-	/* FIXME: pass correct bridge and picaddr*/
-	nicXml, err := nicXml("null", device, mac, 1)
+func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
+	nicXml, err := nicXml(n.Bridge, n.HostDevice, n.MacAddr, n.PCIAddr)
 	if err != nil {
 		return
 	}

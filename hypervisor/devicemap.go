@@ -516,7 +516,7 @@ func (ctx *VmContext) removeInterface() {
 	for idx, nic := range ctx.devices.networkMap {
 		glog.V(1).Infof("remove network card %d: %s", idx, nic.IpAddr)
 		ctx.progress.deleting.networks[idx] = true
-		ctx.DCtx.RemoveNic(ctx, nic.DeviceName, nic.MacAddr, &NetDevRemovedEvent{Index: idx})
+		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: idx})
 		maps = nil
 	}
 }
