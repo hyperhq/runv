@@ -123,7 +123,6 @@ type address struct {
 	Slot       string `xml:"slot,attr,omitempty"`
 	Function   string `xml:"function,attr,omitempty"`
 	Target     string `xml:"target,attr,omitempty"`
-	Unit       int    `xml:"uint,attr,omitempty"`
 }
 
 type controller struct {
@@ -375,8 +374,9 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
 		return
 	}
+	glog.V(3).Infof("domainXML: %v", domainXml)
+
 	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_AUTODESTROY)
-	glog.V(1).Infof("domainXML: %v", domainXml)
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
@@ -477,7 +477,7 @@ type disk struct {
 	Address *address   `xml:"address"`
 }
 
-func diskXml(filename, format string, id int) (string, error) {
+func diskXml(filename, format, devname string) (string, error) {
 	d := disk{
 		Type:   "file",
 		Device: "disk",
@@ -488,14 +488,8 @@ func diskXml(filename, format string, id int) (string, error) {
 			File: filename,
 		},
 		Target: disktgt{
+			Dev: devname,
 			Bus: "scsi",
-		},
-		Address: &address{
-			Type:       "drive",
-			Controller: "0",
-			Bus:        "0x00",
-			Target:     "0",
-			Unit:       id,
 		},
 	}
 
@@ -511,12 +505,25 @@ func scsiId2Name(id int) string {
 }
 
 func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
-	diskXml, err := diskXml(filename, format, id)
+	devName := scsiId2Name(id)
+	diskXml, err := diskXml(filename, format, devName)
 	if err != nil {
+		glog.Error("generate attach-disk-xml failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
 		return
 	}
-	lc.domain.AttachDeviceFlags(diskXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
-	devName := scsiId2Name(id)
+	glog.V(3).Infof("diskxml: %s", diskXml)
+
+	err = lc.domain.AttachDeviceFlags(diskXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		glog.Error("attach disk device failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
 	ctx.Hub <- &hypervisor.BlockdevInsertedEvent{
 		Name:       name,
 		SourceType: sourceType,
@@ -526,11 +533,22 @@ func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, f
 }
 
 func (lc *LibvirtContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
-	diskXml, err := diskXml(filename, format, id)
+	diskXml, err := diskXml(filename, format, scsiId2Name(id))
 	if err != nil {
+		glog.Error("generate detach-disk-xml failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
 		return
 	}
-	lc.domain.DetachDeviceFlags(diskXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	err = lc.domain.DetachDeviceFlags(diskXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		glog.Error("detach disk device failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
+		return
+	}
 	ctx.Hub <- callback
 }
 
@@ -594,10 +612,23 @@ func nicXml(bridge, device, mac string, addr int) (string, error) {
 func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
 	nicXml, err := nicXml(host.Bridge, host.Device, host.Mac, guest.Busaddr)
 	if err != nil {
+		glog.Error("generate attach-nic-xml failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+	glog.V(3).Infof("nicxml: %s", nicXml)
+
+	err = lc.domain.AttachDeviceFlags(nicXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		glog.Error("attach nic failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
 		return
 	}
 
-	lc.domain.AttachDeviceFlags(nicXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
 	ctx.Hub <- &hypervisor.NetDevInsertedEvent{
 		Index:      guest.Index,
 		DeviceName: guest.Device,
@@ -608,8 +639,20 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
 	nicXml, err := nicXml(n.Bridge, n.HostDevice, n.MacAddr, n.PCIAddr)
 	if err != nil {
+		glog.Error("generate detach-nic-xml failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
 		return
 	}
-	lc.domain.DetachDeviceFlags(nicXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+
+	err = lc.domain.DetachDeviceFlags(nicXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		glog.Error("detach nic failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
+		return
+	}
 	ctx.Hub <- callback
 }
