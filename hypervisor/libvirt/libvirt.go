@@ -119,9 +119,9 @@ type address struct {
 
 type controller struct {
 	Type    string   `xml:"type,attr"`
-	Index   string   `xml:"index,attr"`
+	Index   string   `xml:"index,attr,omitempty"`
 	Model   string   `xml:"model,attr,omitempty"`
-	Address *address `xml:"address"`
+	Address *address `xml:"address,omitempty"`
 }
 
 type fsdriver struct {
@@ -176,6 +176,10 @@ type device struct {
 	Console     console      `xml:"console"`
 }
 
+type seclab struct {
+	Type string `xml:"type,attr"`
+}
+
 type domain struct {
 	XMLName  xml.Name `xml:"domain"`
 	Type     string   `xml:"type,attr"`
@@ -186,6 +190,7 @@ type domain struct {
 	Features features `xml:"features"`
 	CPU      cpu      `xml:"cpu"`
 	Devices  device   `xml:"devices"`
+	SecLabel seclab   `xml:"seclabel"`
 }
 
 func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
@@ -214,6 +219,8 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	dom.OS.Type.Arch = "x86_64"
 	dom.OS.Type.Machine = "pc-i440fx-2.0"
 	dom.OS.Type.Content = "hvm"
+
+	dom.SecLabel.Type = "none"
 
 	dom.CPU.Mode = "host-passthrough"
 
@@ -252,6 +259,12 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		},
 	}
 	dom.Devices.Controllers = append(dom.Devices.Controllers, scsicontroller)
+
+	usbcontroller := controller{
+		Type:  "usb",
+		Model: "none",
+	}
+	dom.Devices.Controllers = append(dom.Devices.Controllers, usbcontroller)
 
 	sharedfs := filesystem{
 		Type:       "mount",
@@ -384,6 +397,10 @@ func (lc *LibvirtContext) Dump() (map[string]interface{}, error) {
 
 func (lc *LibvirtContext) Shutdown(ctx *hypervisor.VmContext) {
 	go func() {
+		if lc.domain == nil {
+			ctx.Hub <- &hypervisor.VmExit{}
+			return
+		}
 		name, err := lc.domain.GetName()
 		if err != nil {
 			return
@@ -396,6 +413,10 @@ func (lc *LibvirtContext) Shutdown(ctx *hypervisor.VmContext) {
 
 func (lc *LibvirtContext) Kill(ctx *hypervisor.VmContext) {
 	go func() {
+		if lc.domain == nil {
+			ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
+			return
+		}
 		name, err := lc.domain.GetName()
 		if err != nil {
 			return
