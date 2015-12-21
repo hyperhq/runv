@@ -3,6 +3,7 @@ package libvirt
 import (
 	"encoding/xml"
 	"fmt"
+	"os/exec"
 
 	libvirtgo "github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
@@ -224,7 +225,11 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 
 	dom.CPU.Mode = "host-passthrough"
 
-	dom.Devices.Emulator = "/usr/bin/qemu-kvm"
+	cmd, err := exec.LookPath("qemu-system-x86_64")
+	if err != nil {
+		return "", fmt.Errorf("cannot find qemu-system-x86_64 binary")
+	}
+	dom.Devices.Emulator = cmd
 
 	pcicontroller := controller{
 		Type:  "pci",
