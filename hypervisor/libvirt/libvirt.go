@@ -3,6 +3,7 @@ package libvirt
 import (
 	"encoding/xml"
 	"fmt"
+	"os"
 	"os/exec"
 
 	libvirtgo "github.com/alexzorin/libvirt-go"
@@ -77,8 +78,15 @@ type vcpu struct {
 	Content   int    `xml:",chardata"`
 }
 
+type cpumodel struct {
+	Fallback string `xml:"fallback,attr"`
+	Content  string `xml:",chardata"`
+}
+
 type cpu struct {
-	Mode string `xml:"mode,attr"`
+	Mode  string    `xml:"mode,attr"`
+	Match string    `xml:"match,attr,omitempty"`
+	Model *cpumodel `xml:"model,omitempty"`
 }
 
 type ostype struct {
@@ -224,6 +232,15 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	dom.SecLabel.Type = "none"
 
 	dom.CPU.Mode = "host-passthrough"
+	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
+		dom.Type = "qemu"
+		dom.CPU.Mode = "custom"
+		dom.CPU.Match = "exact"
+		dom.CPU.Model = &cpumodel{
+			Fallback: "allow",
+			Content:  "core2duo",
+		}
+	}
 
 	cmd, err := exec.LookPath("qemu-system-x86_64")
 	if err != nil {
