@@ -124,7 +124,7 @@ type address struct {
 	Bus        string `xml:"bus,attr"`
 	Slot       string `xml:"slot,attr,omitempty"`
 	Function   string `xml:"function,attr,omitempty"`
-	Target     string `xml:"target,attr,omitempty"`
+	Target     int    `xml:"target,attr,omitempty"`
 	Unit       int    `xml:"unit,attr,omitempty"`
 }
 
@@ -499,6 +499,11 @@ type disk struct {
 
 func diskXml(filename, format string, id int) (string, error) {
 	devname := scsiId2Name(id)
+	target, unit, err := scsiId2Addr(id)
+	if err != nil {
+		return "", err
+	}
+
 	d := disk{
 		Type:   "file",
 		Device: "disk",
@@ -516,7 +521,8 @@ func diskXml(filename, format string, id int) (string, error) {
 			Type:       "drive",
 			Controller: "0",
 			Bus:        "0",
-			Unit:       id,
+			Target:     target,
+			Unit:       unit,
 		},
 	}
 
@@ -529,6 +535,14 @@ func diskXml(filename, format string, id int) (string, error) {
 
 func scsiId2Name(id int) string {
 	return "sd" + utils.DiskId2Name(id)
+}
+
+func scsiId2Addr(id int) (int, int, error) {
+	if id > 65535 {
+		return -1, -1, fmt.Errorf("id %d too long, exceed 256*256")
+	}
+
+	return id / 256, id % 256, nil
 }
 
 func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
@@ -550,11 +564,13 @@ func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, f
 		}
 		return
 	}
+	target, unit, err := scsiId2Addr(id)
 	ctx.Hub <- &hypervisor.BlockdevInsertedEvent{
 		Name:       name,
 		SourceType: sourceType,
 		DeviceName: scsiId2Name(id),
 		ScsiId:     id,
+		ScsiAddr:   fmt.Sprintf("%d:%d", target, unit),
 	}
 }
 

@@ -156,6 +156,7 @@ type BlockdevInsertedEvent struct {
 	SourceType string //image or volume
 	DeviceName string
 	ScsiId     int
+	ScsiAddr   string // pass scsi addr to hyperstart
 }
 
 type DevSkipEvent struct{}

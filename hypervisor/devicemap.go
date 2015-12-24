@@ -304,6 +304,7 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 		image.info.deviceName = info.DeviceName
 		image.info.scsiId = info.ScsiId
 		ctx.vmSpec.Containers[image.pos].Image = info.DeviceName
+		ctx.vmSpec.Containers[image.pos].Addr = info.ScsiAddr
 	} else if info.SourceType == "volume" {
 		volume := ctx.devices.volumeMap[info.Name]
 		volume.info.deviceName = info.DeviceName
@@ -312,6 +313,7 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 			ctx.vmSpec.Containers[c].Volumes = append(ctx.vmSpec.Containers[c].Volumes,
 				VmVolumeDescriptor{
 					Device:   info.DeviceName,
+					Addr:     info.ScsiAddr,
 					Mount:    vol,
 					Fstype:   volume.info.fstype,
 					ReadOnly: volume.readOnly[c],
