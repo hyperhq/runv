@@ -25,6 +25,8 @@ type LibvirtContext struct {
 }
 
 func InitDriver() *LibvirtDriver {
+	/* Libvirt adds memballoon device by default */
+	hypervisor.PciAddrFrom = 0x06
 	conn, err := libvirtgo.NewVirConnection(LibvirtdAddress)
 	if err != nil {
 		glog.Error("fail to connect to libvirtd ", LibvirtdAddress, err)
@@ -123,6 +125,7 @@ type address struct {
 	Slot       string `xml:"slot,attr,omitempty"`
 	Function   string `xml:"function,attr,omitempty"`
 	Target     string `xml:"target,attr,omitempty"`
+	Unit       int    `xml:"unit,attr,omitempty"`
 }
 
 type controller struct {
@@ -176,12 +179,18 @@ type console struct {
 	Target constgt  `xml:"target"`
 }
 
+type memballoon struct {
+	Model   string   `xml:"model,attr"`
+	Address *address `xml:"address"`
+}
+
 type device struct {
 	Emulator    string       `xml:"emulator"`
 	Controllers []controller `xml:"controller"`
 	Filesystems []filesystem `xml:"filesystem"`
 	Channels    []channel    `xml:"channel"`
 	Console     console      `xml:"console"`
+	Memballoon  memballoon   `xml:"memballoon"`
 }
 
 type seclab struct {
@@ -347,6 +356,17 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		},
 	}
 
+	dom.Devices.Memballoon = memballoon{
+		Model: "virtio",
+		Address: &address{
+			Type:     "pci",
+			Domain:   "0x0000",
+			Bus:      "0x00",
+			Slot:     "0x05",
+			Function: "0x00",
+		},
+	}
+
 	if boot.Bios != "" && boot.Cbfs != "" {
 		dom.OS.Loader = &osloader{
 			ReadOnly: "yes",
@@ -477,7 +497,8 @@ type disk struct {
 	Address *address   `xml:"address"`
 }
 
-func diskXml(filename, format, devname string) (string, error) {
+func diskXml(filename, format string, id int) (string, error) {
+	devname := scsiId2Name(id)
 	d := disk{
 		Type:   "file",
 		Device: "disk",
@@ -490,6 +511,12 @@ func diskXml(filename, format, devname string) (string, error) {
 		Target: disktgt{
 			Dev: devname,
 			Bus: "scsi",
+		},
+		Address: &address{
+			Type:       "drive",
+			Controller: "0",
+			Bus:        "0",
+			Unit:       id,
 		},
 	}
 
@@ -505,8 +532,7 @@ func scsiId2Name(id int) string {
 }
 
 func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
-	devName := scsiId2Name(id)
-	diskXml, err := diskXml(filename, format, devName)
+	diskXml, err := diskXml(filename, format, id)
 	if err != nil {
 		glog.Error("generate attach-disk-xml failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
@@ -527,13 +553,13 @@ func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, f
 	ctx.Hub <- &hypervisor.BlockdevInsertedEvent{
 		Name:       name,
 		SourceType: sourceType,
-		DeviceName: devName,
+		DeviceName: scsiId2Name(id),
 		ScsiId:     id,
 	}
 }
 
 func (lc *LibvirtContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
-	diskXml, err := diskXml(filename, format, scsiId2Name(id))
+	diskXml, err := diskXml(filename, format, id)
 	if err != nil {
 		glog.Error("generate detach-disk-xml failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
@@ -577,8 +603,7 @@ type nic struct {
 }
 
 func nicXml(bridge, device, mac string, addr int) (string, error) {
-	/* slot 0x05 is used by balloon0 */
-	slot := fmt.Sprintf("0x%x", addr+1)
+	slot := fmt.Sprintf("0x%x", addr)
 	n := nic{
 		Type: "bridge",
 		Mac: nicmac{
