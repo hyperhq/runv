@@ -1084,7 +1084,7 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 			Gateway:     config.Gw,
 			Bridge:      config.Bridge,
 			IPPrefixLen: maskSize,
-			Device:      "",
+			Device:      config.Ifname,
 			File:        nil,
 			Automatic:   false,
 		}, nil
