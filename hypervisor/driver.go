@@ -42,6 +42,9 @@ type HypervisorDriver interface {
 	InitNetwork(bIface, bIP string, disableIptables bool) error
 
 	SupportLazyMode() bool
+
+	AsyncDiskBoot() bool
+	AsyncNicBoot() bool
 }
 
 var HDriver HypervisorDriver
@@ -64,16 +67,12 @@ type DriverContext interface {
 	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
 	ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error
 
-	Close()
-}
-
-type LazyDriverContext interface {
-	DriverContext
-
 	LazyLaunch(ctx *VmContext)
 	InitVM(ctx *VmContext) error
 	LazyAddDisk(ctx *VmContext, name, sourceType, filename, format string, id int)
 	LazyAddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
+
+	Close()
 }
 
 type EmptyDriver struct{}
@@ -97,6 +96,14 @@ func (ed *EmptyDriver) LoadContext(persisted map[string]interface{}) (DriverCont
 
 func (ed *EmptyDriver) SupportLazyMode() bool {
 	return false
+}
+
+func (ed *EmptyDriver) AsyncDiskBoot() bool {
+	return true
+}
+
+func (ed *EmptyDriver) AsyncNicBoot() bool {
+	return true
 }
 
 func (ec *EmptyContext) Launch(ctx *VmContext) {}
@@ -136,5 +143,14 @@ func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string,
 	maps []pod.UserContainerPort, file *os.File) error {
 	return nil
 }
+
+func (ec *EmptyContext) LazyLaunch(ctx *VmContext) {}
+
+func (ec *EmptyContext) InitVM(ctx *VmContext) error { return nil }
+
+func (ec *EmptyContext) LazyAddDisk(ctx *VmContext, name, sourceType, filename, format string, id int) {
+}
+
+func (ec *EmptyContext) LazyAddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo) {}
 
 func (ec *EmptyContext) Close() {}

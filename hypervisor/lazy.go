@@ -22,13 +22,7 @@ func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, bo
 		return
 	}
 
-	if _, ok := context.DCtx.(LazyDriverContext); !ok {
-		glog.Error("not a lazy driver, cannot call lazy loop")
-		context.reportBadRequest("not a lazy driver, cannot call lazy loop")
-		return
-	}
-
-	err = context.DCtx.(LazyDriverContext).InitVM(context)
+	err = context.DCtx.InitVM(context)
 	if err != nil {
 		estr := fmt.Sprintf("failed to create VM(%s): %s", vmId, err.Error())
 		glog.Error(estr)
@@ -54,6 +48,8 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 		ctx.Become(nil, "NONE")
 	case COMMAND_EXEC:
 		ctx.execCmd(ev.(*ExecCommand))
+	case COMMAND_ATTACH:
+		ctx.attachCmd(ev.(*AttachCommand))
 	case COMMAND_WINDOWSIZE:
 		cmd := ev.(*WindowSizeCommand)
 		ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -61,7 +57,13 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 		glog.Info("got spec, prepare devices")
 		if ok := ctx.lazyPrepareDevice(ev.(*RunPodCommand)); ok {
 			ctx.startSocks()
-			ctx.DCtx.(LazyDriverContext).LazyLaunch(ctx)
+			ctx.DCtx.LazyLaunch(ctx)
+			if HDriver.AsyncDiskBoot() {
+				ctx.addBlockDevices()
+			}
+			if HDriver.AsyncNicBoot() {
+				ctx.allocateNetworks()
+			}
 			ctx.setTimeout(60)
 			ctx.Become(stateStarting, "STARTING")
 		} else {
@@ -82,17 +84,34 @@ func (ctx *VmContext) lazyPrepareDevice(cmd *RunPodCommand) bool {
 
 	ctx.InitDeviceContext(cmd.Spec, cmd.Wg, cmd.Containers, cmd.Volumes)
 
+	pendings := ctx.pendingTtys
+	ctx.pendingTtys = []*AttachCommand{}
+	for _, acmd := range pendings {
+		idx := ctx.Lookup(acmd.Container)
+		if idx >= 0 {
+			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.attachTty2Container(idx, acmd)
+		} else {
+			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+		}
+	}
+
 	if glog.V(2) {
 		res, _ := json.MarshalIndent(*ctx.vmSpec, "    ", "    ")
 		glog.Info("initial vm spec: ", string(res))
 	}
 
-	err := ctx.lazyAllocateNetworks()
-	if err != nil {
-		ctx.reportVmFault(err.Error())
-		return false
+	if !HDriver.AsyncNicBoot() {
+		err := ctx.lazyAllocateNetworks()
+		if err != nil {
+			ctx.reportVmFault(err.Error())
+			return false
+		}
 	}
-	ctx.lazyAddBlockDevices()
+	if !HDriver.AsyncDiskBoot() {
+		ctx.lazyAddBlockDevices()
+	}
 
 	return true
 }
@@ -122,7 +141,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 		}
 		ctx.interfaceCreated(nic)
 		h, g := networkConfigure(nic)
-		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
+		ctx.DCtx.LazyAddNic(ctx, h, g)
 	}
 
 	return nil
@@ -132,10 +151,10 @@ func (ctx *VmContext) lazyAddBlockDevices() {
 	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
+			ctx.DCtx.LazyAddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
 		} else if info, ok := ctx.devices.imageMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.name, "image", info.info.filename, info.info.format, sid)
+			ctx.DCtx.LazyAddDisk(ctx, info.info.name, "image", info.info.filename, info.info.format, sid)
 		} else {
 			continue
 		}

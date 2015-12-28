@@ -276,6 +276,24 @@ func (xd *XenDriver) SupportLazyMode() bool {
 	return false
 }
 
+func (xd *XenDriver) AsyncDiskBoot() bool {
+	return true
+}
+
+func (xd *XenDriver) AsyncNicBoot() bool {
+	return true
+}
+
+func (xc *XenContext) LazyLaunch(ctx *hypervisor.VmContext) {}
+
+func (xc *XenContext) InitVM(ctx *hypervisor.VmContext) error { return nil }
+
+func (xc *XenContext) LazyAddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+}
+
+func (xc *XenContext) LazyAddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+}
+
 func diskRoutine(add bool, xc *XenContext, ctx *hypervisor.VmContext,
 	name, sourceType, filename, format string, id int, callback hypervisor.VmEvent) {
 	backend := LIBXL_DISK_BACKEND_TAP

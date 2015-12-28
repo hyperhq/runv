@@ -54,10 +54,10 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		Status   = make(chan *types.VmResponse, 128)
 	)
 
-	if vm.Lazy {
-		go LazyVmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
-	} else {
+	if HDriver.AsyncDiskBoot() && HDriver.AsyncNicBoot() {
 		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
+	} else {
+		go LazyVmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
 	vm.VmChan = PodEvent
