@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/hypervisor/libvirt"
 	"github.com/hyperhq/runv/hypervisor/qemu"
 	"github.com/hyperhq/runv/hypervisor/vbox"
 	"github.com/hyperhq/runv/hypervisor/xen"
@@ -23,6 +24,12 @@ func Probe(driver string) (hypervisor.HypervisorDriver, error) {
 		if xd != nil {
 			fmt.Printf("Xen Driver Loaded.\n")
 			return xd, nil
+		}
+	case "libvirt":
+		ld := libvirt.InitDriver()
+		if ld != nil {
+			fmt.Printf("Libvirt Driver Loaded.\n")
+			return ld, nil
 		}
 	case "kvm":
 		fallthrough

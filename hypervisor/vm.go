@@ -223,7 +223,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	cList []*ContainerInfo, vList []*VolumeInfo) *types.VmResponse {
 	mypod.Vm = vm.Id
-
+	var ok bool = false
 	vm.Pod = mypod
 	vm.Status = types.S_VM_ASSOCIATED
 
@@ -280,7 +280,16 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 
 	// wait for the VM response
 	for {
-		response = <-Status
+		response, ok = <-Status
+		if !ok {
+			response = &types.VmResponse{
+				Code:  -1,
+				Cause: "Start pod failed",
+				Data:  nil,
+			}
+			glog.V(1).Infof("return response %v", response)
+			break
+		}
 		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
 		if response.Code == types.E_VM_RUNNING {
 			continue

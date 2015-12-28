@@ -11,7 +11,7 @@ func (xd *XenDriver) BuildinNetwork() bool {
 	return false
 }
 
-func (xd *XenDriver) InitNetwork(bIface, bIP string) error {
+func (xd *XenDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
 	return nil
 }
 

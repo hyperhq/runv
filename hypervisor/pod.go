@@ -54,6 +54,7 @@ type LogStatus struct {
 // Vm DataStructure
 type VmVolumeDescriptor struct {
 	Device   string `json:"device"`
+	Addr     string `json:"addr,omitempty"`
 	Mount    string `json:"mount"`
 	Fstype   string `json:"fstype,omitempty"`
 	ReadOnly bool   `json:"readOnly"`
@@ -75,6 +76,7 @@ type VmContainer struct {
 	Rootfs        string               `json:"rootfs"`
 	Fstype        string               `json:"fstype,omitempty"`
 	Image         string               `json:"image"`
+	Addr          string               `json:"addr,omitempty"`
 	Volumes       []VmVolumeDescriptor `json:"volumes,omitempty"`
 	Fsmap         []VmFsmapDescriptor  `json:"fsmap,omitempty"`
 	Sysctl        map[string]string    `json:"sysctl,omitempty"`

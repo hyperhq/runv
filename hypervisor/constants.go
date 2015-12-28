@@ -8,11 +8,11 @@ const (
 	ShareDirTag     = "share_dir"
 	DefaultKernel   = "/var/lib/hyper/kernel"
 	DefaultInitrd   = "/var/lib/hyper/hyper-initrd.img"
-	PciAddrFrom     = 0x05
 	ExitChar        = 4
 )
 
 var InterfaceCount int = 1
+var PciAddrFrom int = 0x05
 
 const (
 	EVENT_VM_START_FAILED = iota

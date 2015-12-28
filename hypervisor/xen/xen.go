@@ -257,15 +257,15 @@ func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNic
 	}()
 }
 
-func (xc *XenContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, callback hypervisor.VmEvent) {
+func (xc *XenContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
 	go func() {
-		res := HyperxlNicRemove(xc.driver.Ctx, (uint32)(xc.domId), mac)
+		res := HyperxlNicRemove(xc.driver.Ctx, (uint32)(xc.domId), n.MacAddr)
 		if res == 0 {
-			glog.V(1).Infof("nic %s remove succeeded", device)
+			glog.V(1).Infof("nic %s remove succeeded", n.DeviceName)
 			ctx.Hub <- callback
 			return
 		}
-		glog.Errorf("nic %s remove failed", device)
+		glog.Errorf("nic %s remove failed", n.DeviceName)
 		ctx.Hub <- &hypervisor.DeviceFailed{
 			Session: callback,
 		}

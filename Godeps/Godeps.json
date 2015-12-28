@@ -8,6 +8,11 @@
 			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
 		},
 		{
+			"ImportPath": "github.com/alexzorin/libvirt-go",
+			"Comment": "v2.12.0-2-g3793956",
+			"Rev": "379395637960a7e11936e61344ab761aedcdb44e"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-107-g942282e",
 			"Rev": "942282e931e8286aa802a30b01fa7e16befb50f3"

@@ -153,8 +153,8 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 	newNetworkAddSession(qc, host.Fd, guest.Device, host.Mac, guest.Index, guest.Busaddr)
 }
 
-func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, device, mac string, callback hypervisor.VmEvent) {
-	newNetworkDelSession(qc, device, callback)
+func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
+	newNetworkDelSession(qc, n.DeviceName, callback)
 }
 
 func (qc *QemuDriver) SupportLazyMode() bool {
