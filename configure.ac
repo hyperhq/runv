@@ -55,6 +55,19 @@ esac
 
 # Checks for libraries.
 
+LIBVIRT_REQUIRED="1.2.2"
+
+AC_ARG_WITH([libvirt],
+            [AS_HELP_STRING([--without-libvirt],
+                            [run runv with libvirt])],
+            [with_libvirt=no],[with_libvirt=yes])
+
+if test "$with_libvirt" = yes; then
+	PKG_CHECK_MODULES([LIBVIRT], [libvirt >= $LIBVIRT_REQUIRED], [], [with_libvirt=no])
+fi
+
+AM_CONDITIONAL([WITH_LIBVIRT], [test "x$with_libvirt" == "xyes"])
+
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h libxl.h])
 
@@ -70,7 +83,7 @@ AC_CHECK_FUNCS([strdup])
 
 AC_ARG_WITH([xen],
             [AS_HELP_STRING([--without-xen],
-                            [run hyperd with xen (libxl, need xen 4.5 or higher)])],
+                            [run runv with xen (libxl, need xen 4.5 or higher)])],
             [with_xen=no],[with_xen=yes])
 
 if test "x$with_xen" != "xno" ; then
@@ -99,6 +112,8 @@ AC_MSG_RESULT([
 	has go:     ${has_go}
 
 	with xen:   ${with_xen}
+
+	with libvirt: ${with_libvirt}
 
 	has virtualbox: ${has_virtualbox}
 ])

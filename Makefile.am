@@ -1,10 +1,17 @@
 export GOPATH:=$(abs_top_srcdir)/Godeps/_workspace:$(GOPATH)
 if WITH_XEN
-HYPER_BULD_TAGS=with_xen
+XEN_BUILD_TAG=with_xen
 else
-HYPER_BULD_TAGS=
+XEN_BUILD_TAG=
 endif
 
+if WITH_LIBVIRT
+LIBVIRT_BUILD_TAG=with_libvirt
+else
+LIBVIRT_BUILD_TAG=
+endif
+
+HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
 all-local: build-runv
 clean-local:
 	-rm -f runv
