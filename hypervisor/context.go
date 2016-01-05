@@ -219,7 +219,7 @@ func (ctx *VmContext) Lookup(container string) int {
 
 func (ctx *VmContext) ClosePendingTtys() {
 	for _, tty := range ctx.pendingTtys {
-		tty.Streams.Close()
+		tty.Streams.Close(255)
 	}
 	ctx.pendingTtys = []*AttachCommand{}
 }

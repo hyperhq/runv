@@ -29,6 +29,7 @@ const (
 	RUNV_STARTCONTAINER
 	RUNV_ACK
 	RUNV_EXECCMD
+	RUNV_EXITSTATUS
 	RUNV_WINSIZE
 	RUNV_KILLCONTAINER
 )
@@ -289,28 +290,58 @@ func cleanupRunvPod(context *nsContext, name string) {
 	os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId))
 }
 
-func startVContainer(context *nsContext, root, container string) {
+func createVSocket(context *nsContext, root, container string) error {
 	// create stateDir
 	stateDir := filepath.Join(root, container)
 	_, err := os.Stat(stateDir)
 	if err == nil {
 		fmt.Printf("Container %s exists\n", container)
-		return
+		return err
 	}
 	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
-		return
+		return err
 	}
-	defer os.RemoveAll(stateDir)
-
+	defer func() {
+		if err != nil {
+			os.RemoveAll(stateDir)
+		}
+	}()
 	// create connection sock
 	sock, err := net.Listen("unix", filepath.Join(stateDir, "runv.sock"))
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
+		return err
+	}
+	context.sockets[container] = sock
+	return nil
+}
+
+func cleanupVSocket(context *nsContext, root, container string) {
+	stateDir := filepath.Join(root, container)
+	if sock, ok := context.sockets[container]; ok {
+		sock.Close()
+		delete(context.sockets, container)
+	}
+	os.RemoveAll(stateDir)
+}
+
+func startVContainer(context *nsContext, root, container string) {
+	stateDir := filepath.Join(root, container)
+
+	err := createVSocket(context, root, container)
+	if err != nil {
+		fmt.Printf("create runv Socket err: %v\n", err)
 		return
 	}
-	defer sock.Close()
+
+	sock, ok := context.sockets[container]
+	if !ok {
+		fmt.Printf("can not find runv Socket, container %v\n", container)
+		return
+	}
+
 	conn, err := sock.Accept()
 	if err != nil {
 		fmt.Printf("accept on runv Socket err: %v\n", err)
@@ -369,7 +400,6 @@ func startVContainer(context *nsContext, root, container string) {
 		utils.Umount(rootDir)
 		os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
-
 	tag, _ := runvAllocAndRespondTag(conn)
 	ttyCallback := make(chan *types.VmResponse, 1)
 	err = context.vm.Attach(conn, conn, tag, info.Id, ttyCallback, nil)
@@ -393,7 +423,10 @@ func startVContainer(context *nsContext, root, container string) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	<-ttyCallback
+	err = context.vm.GetExitCode(tag, ttyCallback)
+	if err != nil {
+		fmt.Printf("get exit code failed %s\n", err.Error())
+	}
 
 	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
 	if err != nil {
@@ -458,6 +491,12 @@ func runvGetTag(conn net.Conn) (tag string, err error) {
 	return string(msg.Message), nil
 }
 
+type ttyTagCmd struct {
+	Root      string
+	Container string
+	Tag       string
+}
+
 func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn net.Conn) {
 	defer context.wg.Done()
 	defer conn.Close()
@@ -488,6 +527,36 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
+			}
+		}
+	case RUNV_EXITSTATUS:
+		{
+			var code uint8 = 255
+
+			tagCmd := &ttyTagCmd{}
+			err = json.Unmarshal(msg.Message, &tagCmd)
+			if err != nil {
+				fmt.Printf("parse exit status failed: %v\n", err)
+				return
+			}
+
+			fmt.Printf("client get exit status: tag %v\n", tagCmd)
+			_, ok := context.vm.ExitCodes[tagCmd.Tag]
+			if ok {
+				code = uint8(context.vm.ExitCodes[tagCmd.Tag])
+				delete(context.vm.ExitCodes, tagCmd.Tag)
+			}
+
+			m := &hypervisor.DecodedMessage{
+				Code:    RUNV_EXITSTATUS,
+				Message: []byte{code},
+			}
+
+			data := hypervisor.NewVmMessage(m)
+			conn.Write(data)
+			/* Get exit code of Container, it's time to let container go */
+			if tagCmd.Container != "" {
+				cleanupVSocket(context, tagCmd.Root, tagCmd.Container)
 			}
 		}
 	case RUNV_WINSIZE:
