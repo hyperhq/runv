@@ -101,7 +101,7 @@ func getDefaultID() string {
 
 func getDefaultDriver() string {
 	if runtime.GOOS == "linux" {
-		return "kvm"
+		return "qemu"
 	}
 	if runtime.GOOS == "darwin" {
 		return "vbox"
