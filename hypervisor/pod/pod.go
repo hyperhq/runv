@@ -104,17 +104,18 @@ type PodLogConfig struct {
 }
 
 type UserPod struct {
-	Name          string          `json:"id"`
-	Containers    []UserContainer `json:"containers"`
-	Resource      UserResource    `json:"resource"`
-	Files         []UserFile      `json:"files"`
-	Volumes       []UserVolume    `json:"volumes"`
-	Interfaces    []UserInterface `json:"interfaces,omitempty"`
-	Services      []UserService   `json:"services,omitempty"`
-	LogConfig     PodLogConfig    `json:"log"`
-	Dns           []string        `json:"dns,omitempty"`
-	Tty           bool            `json:"tty"`
-	Type          string          `json:"type"`
+	Name          string            `json:"id"`
+	Containers    []UserContainer   `json:"containers"`
+	Resource      UserResource      `json:"resource"`
+	Files         []UserFile        `json:"files"`
+	Volumes       []UserVolume      `json:"volumes"`
+	Interfaces    []UserInterface   `json:"interfaces,omitempty"`
+	Labels        map[string]string `json:"labels"`
+	Services      []UserService     `json:"services,omitempty"`
+	LogConfig     PodLogConfig      `json:"log"`
+	Dns           []string          `json:"dns,omitempty"`
+	Tty           bool              `json:"tty"`
+	Type          string            `json:"type"`
 	RestartPolicy string
 }
 

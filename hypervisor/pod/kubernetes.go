@@ -16,7 +16,8 @@ type KSpec struct {
 }
 
 type KMeta struct {
-	Name string `json:"name"`
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type KContainer struct {
@@ -155,6 +156,7 @@ func (kp *KPod) Convert() (*UserPod, error) {
 	return &UserPod{
 		Name:       name,
 		Containers: containers,
+		Labels:     kp.Meta.Labels,
 		Resource: UserResource{
 			Vcpu:   1,
 			Memory: int(memory / 1024 / 1024),
