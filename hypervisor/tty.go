@@ -143,7 +143,16 @@ func waitPts(ctx *VmContext) {
 		if ta, ok := ctx.ptys.ttys[res.session]; ok {
 			if len(res.message) == 0 {
 				glog.V(1).Infof("session %d closed by peer, close pty", res.session)
-				ctx.ptys.Close(ctx, res.session)
+				var code uint8 = 255
+
+				res, err = readTtyMessage(conn.(*net.UnixConn))
+				if err != nil {
+					glog.V(1).Info("get exit code failed ", err.Error())
+				} else {
+					code = uint8(res.message[0])
+				}
+
+				ctx.ptys.Close(ctx, res.session, code)
 			} else {
 				for _, tty := range ta.attachments {
 					if tty.Stdout != nil && tty.liner == nil {
@@ -199,10 +208,10 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	}
 }
 
-func (ta *ttyAttachments) close() []string {
+func (ta *ttyAttachments) close(code uint8) []string {
 	tags := []string{}
 	for _, t := range ta.attachments {
-		tags = append(tags, t.Close())
+		tags = append(tags, t.Close(code))
 	}
 	ta.attachments = []*TtyIO{}
 	return tags
@@ -212,7 +221,7 @@ func (ta *ttyAttachments) empty() bool {
 	return len(ta.attachments) == 0
 }
 
-func (tty *TtyIO) Close() string {
+func (tty *TtyIO) Close(code uint8) string {
 
 	glog.V(1).Info("Close tty ", tty.ClientTag)
 
@@ -226,8 +235,8 @@ func (tty *TtyIO) Close() string {
 		tty.Callback <- &types.VmResponse{
 			Code:  types.E_EXEC_FINISH,
 			Cause: "Command finished",
+			Data:  code,
 		}
-		close(tty.Callback)
 	}
 	return tty.ClientTag
 }
@@ -238,16 +247,16 @@ func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 		ta.detach(tty)
 		ctx.ptys.lock.Unlock()
 		if !ta.persistent && ta.empty() {
-			ctx.ptys.Close(ctx, session)
+			ctx.ptys.Close(ctx, session, 0)
 		}
-		ctx.clientDereg(tty.Close())
+		ctx.clientDereg(tty.Close(0))
 	}
 }
 
-func (pts *pseudoTtys) Close(ctx *VmContext, session uint64) {
+func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
-		tags := ta.close()
+		tags := ta.close(code)
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
 		for _, t := range tags {

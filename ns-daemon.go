@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"net"
 	"os"
 	"sync"
 
@@ -19,6 +20,7 @@ type nsContext struct {
 	vm          *hypervisor.Vm
 	firstConfig *startConfig
 	actives     map[string]*startConfig
+	sockets     map[string]net.Listener
 	wg          sync.WaitGroup
 }
 
@@ -35,6 +37,8 @@ func runvNamespaceDaemon() {
 
 	context := &nsContext{}
 	context.actives = make(map[string]*startConfig)
+	context.sockets = make(map[string]net.Listener)
+
 	startVContainer(context, root, id)
 	context.wg.Wait()
 }

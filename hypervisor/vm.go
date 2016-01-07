@@ -22,8 +22,9 @@ type Vm struct {
 	Lazy   bool
 	Keep   int
 
-	VmChan  chan VmEvent
-	clients *Fanout
+	VmChan    chan VmEvent
+	ExitCodes map[string]uint8
+	clients   *Fanout
 }
 
 func (vm *Vm) GetRequestChan() (chan VmEvent, error) {
@@ -486,6 +487,21 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	return nil
 }
 
+func (vm *Vm) GetExitCode(tag string, callback chan *types.VmResponse) error {
+	Response, ok := <-callback
+	if !ok {
+		return fmt.Errorf("get response failed")
+	}
+
+	glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+	if Response.Code == types.E_EXEC_FINISH {
+		vm.ExitCodes[tag] = Response.Data.(uint8)
+	}
+
+	close(callback)
+	return nil
+}
+
 func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, container string) error {
 	var command []string
 	Callback := make(chan *types.VmResponse, 1)
@@ -540,9 +556,7 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 		}
 	}
 
-	<-Callback
-
-	return nil
+	return vm.GetExitCode(tag, Callback)
 }
 
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
@@ -587,12 +601,13 @@ func errorResponse(cause string) *types.VmResponse {
 
 func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
 	return &Vm{
-		Id:     vmId,
-		Pod:    nil,
-		Lazy:   lazy,
-		Status: types.S_VM_IDLE,
-		Cpu:    cpu,
-		Mem:    memory,
-		Keep:   keep,
+		Id:        vmId,
+		Pod:       nil,
+		Lazy:      lazy,
+		Status:    types.S_VM_IDLE,
+		Cpu:       cpu,
+		Mem:       memory,
+		Keep:      keep,
+		ExitCodes: make(map[string]uint8),
 	}
 }

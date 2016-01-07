@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/term"
 )
 
@@ -25,7 +26,7 @@ type ttyWinSize struct {
 }
 
 // stdin/stdout <-> conn
-func containerTtySplice(root, container string, conn net.Conn) (int, error) {
+func containerTtySplice(root, container string, conn net.Conn, isContainer bool) (int, error) {
 	tag, err := runvGetTag(conn)
 	if err != nil {
 		return -1, err
@@ -34,8 +35,33 @@ func containerTtySplice(root, container string, conn net.Conn) (int, error) {
 
 	outFd, isTerminalOut := term.GetFdInfo(os.Stdout)
 	newTty(root, container, tag, outFd, isTerminalOut).monitorTtySize()
+	_, err = term.TtySplice(conn)
+	if err != nil {
+		return -1, err
+	}
 
-	return term.TtySplice(conn)
+	cmd := &ttyTagCmd{Root: root, Container: "", Tag: tag}
+	if isContainer {
+		cmd.Container = container
+	}
+	conn, err = runvRequest(root, container, RUNV_EXITSTATUS, cmd)
+	if err != nil {
+		fmt.Printf("runvRequest failed: %v\n", err)
+		return -1, err
+	}
+	defer conn.Close()
+
+	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
+	if err != nil {
+		fmt.Printf("read runv server data failed: %v\n", err)
+		return -1, err
+	}
+
+	if msg.Code != RUNV_EXITSTATUS {
+		return -1, fmt.Errorf("unexpected respond code")
+	}
+
+	return int(msg.Message[0]), nil
 }
 
 func newTty(root, container, tag string, termFd uintptr, terminal bool) *tty {

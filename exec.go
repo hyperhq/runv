@@ -32,8 +32,8 @@ var execCommand = cli.Command{
 		if err != nil {
 			fmt.Printf("exec failed: %v", err)
 		}
-		status, err := containerTtySplice(root, container, conn)
-		os.Exit(status)
+		code, err := containerTtySplice(root, container, conn, false)
+		os.Exit(code)
 	},
 }
 

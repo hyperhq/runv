@@ -273,5 +273,5 @@ func startContainer(config *startConfig) (int, error) {
 		return -1, err
 	}
 
-	return containerTtySplice(config.Root, config.Name, conn)
+	return containerTtySplice(config.Root, config.Name, conn, true)
 }
