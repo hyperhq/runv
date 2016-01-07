@@ -1,3 +1,5 @@
+// +build linux,with_libvirt
+
 package libvirt
 
 import (
