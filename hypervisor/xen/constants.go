@@ -1,3 +1,5 @@
+// +build linux,with_xen
+
 package xen
 
 const (
