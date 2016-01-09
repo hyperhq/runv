@@ -10,6 +10,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"time"
 )
 
 /*
@@ -106,7 +107,7 @@ func GetCPUStats(domain *libvirtgo.VirDomain) (types.CpuStats, error) {
 		return stats, fmt.Errorf("Can't get per-cpu stats")
 	}
 	for _, stat := range perCPUStats {
-		stats.Usage.PerCpu = append(stats.Usage.PerCpu, uint64(stat.Value))
+		stats.Usage.PerCpu = append(stats.Usage.PerCpu, stat.Value.(uint64))
 	}
 	glog.V(4).Infof("Get per-cpu stats: %v", perCPUStats)
 
@@ -123,11 +124,11 @@ func GetCPUStats(domain *libvirtgo.VirDomain) (types.CpuStats, error) {
 	for _, stat := range cpuStats {
 		switch stat.Name {
 		case VIR_DOMAIN_CPU_STATS_CPUTIME:
-			stats.Usage.Total = uint64(stat.Value)
+			stats.Usage.Total = stat.Value.(uint64)
 		case VIR_DOMAIN_CPU_STATS_USERTIME:
-			stats.Usage.User = uint64(stat.Value)
+			stats.Usage.User = stat.Value.(uint64)
 		case VIR_DOMAIN_CPU_STATS_SYSTEMTIME:
-			stats.Usage.System = uint64(stat.Value)
+			stats.Usage.System = stat.Value.(uint64)
 		}
 	}
 	glog.V(4).Infof("Get total cpu stats: %v", cpuStats)
@@ -143,10 +144,17 @@ func GetMemoryStats(domain *libvirtgo.VirDomain) (types.MemoryStats, error) {
 		return stats, err
 	}
 
+	var unused, available uint64
 	for _, stat := range memStats {
-		if stat.Tag == VIR_DOMAIN_MEMORY_STAT_ACTUAL_BALLOON {
-			stats.Usage = uint64(stat.Val) * 1024
+		if stat.Tag == VIR_DOMAIN_MEMORY_STAT_UNUSED {
+			unused = stat.Val
+		} else if stat.Tag == VIR_DOMAIN_MEMORY_STAT_AVAILABLE {
+			available = stat.Val
 		}
+	}
+
+	if available > unused {
+		stats.Usage = (available - unused) * 1024
 	}
 
 	return stats, nil
@@ -165,24 +173,24 @@ func GetNetworkStats(domain *libvirtgo.VirDomain, virDomain *VirDomain) (types.N
 
 		stats.Interfaces = append(stats.Interfaces, types.InterfaceStats{
 			Name:      iface.Device.Dev,
-			RxBytes:   ifaceStats.TxBytes,
-			RxPackets: ifaceStats.RxPackets,
-			RxErrors:  ifaceStats.RxErrs,
-			RxDropped: ifaceStats.RxDrop,
-			TxBytes:   ifaceStats.TxBytes,
-			TxPackets: ifaceStats.TxPackets,
-			TxErrors:  ifaceStats.TxErrs,
-			TxDropped: ifaceStats.TxDrop,
+			RxBytes:   uint64(ifaceStats.TxBytes),
+			RxPackets: uint64(ifaceStats.RxPackets),
+			RxErrors:  uint64(ifaceStats.RxErrs),
+			RxDropped: uint64(ifaceStats.RxDrop),
+			TxBytes:   uint64(ifaceStats.TxBytes),
+			TxPackets: uint64(ifaceStats.TxPackets),
+			TxErrors:  uint64(ifaceStats.TxErrs),
+			TxDropped: uint64(ifaceStats.TxDrop),
 		})
 
-		stats.RxBytes = stats.RxBytes + ifaceStats.TxBytes
-		stats.RxPackets = stats.RxPackets + ifaceStats.RxPackets
-		stats.RxErrors = stats.RxErrors + ifaceStats.RxErrs
-		stats.RxDropped = stats.RxDropped + ifaceStats.RxDrop
-		stats.TxBytes = stats.TxBytes + ifaceStats.TxBytes
-		stats.TxPackets = stats.TxPackets + ifaceStats.TxPackets
-		stats.TxErrors = stats.TxErrors + ifaceStats.TxErrs
-		stats.TxDropped = stats.TxDropped + ifaceStats.TxDrop
+		stats.RxBytes = stats.RxBytes + uint64(ifaceStats.TxBytes)
+		stats.RxPackets = stats.RxPackets + uint64(ifaceStats.RxPackets)
+		stats.RxErrors = stats.RxErrors + uint64(ifaceStats.RxErrs)
+		stats.RxDropped = stats.RxDropped + uint64(ifaceStats.RxDrop)
+		stats.TxBytes = stats.TxBytes + uint64(ifaceStats.TxBytes)
+		stats.TxPackets = stats.TxPackets + uint64(ifaceStats.TxPackets)
+		stats.TxErrors = stats.TxErrors + uint64(ifaceStats.TxErrs)
+		stats.TxDropped = stats.TxDropped + uint64(ifaceStats.TxDrop)
 	}
 
 	return stats, nil
@@ -201,16 +209,16 @@ func GetBlockStats(domain *libvirtgo.VirDomain, virDomain *VirDomain) (types.Blo
 
 		stats.IoStats = append(stats.IoStats, types.DiskStats{
 			DiskName:   blk.Target.Dev,
-			RdRequests: blkStats.RdReq,
-			WrRequests: blkStats.WrReq,
-			RdBytes:    blkStats.RdBytes,
-			WrBytes:    blkStats.WrBytes,
+			RdRequests: uint64(blkStats.RdReq),
+			WrRequests: uint64(blkStats.WrReq),
+			RdBytes:    uint64(blkStats.RdBytes),
+			WrBytes:    uint64(blkStats.WrBytes),
 		})
 
-		stats.RdBytes = stats.RdBytes + blkStats.RdBytes
-		stats.RdRequests = stats.RdRequests + blkStats.RdReq
-		stats.WrBytes = stats.WrBytes + blkStats.WrBytes
-		stats.WrRequests = stats.WrRequests + blkStats.WrReq
+		stats.RdBytes = stats.RdBytes + uint64(blkStats.RdBytes)
+		stats.RdRequests = stats.RdRequests + uint64(blkStats.RdReq)
+		stats.WrBytes = stats.WrBytes + uint64(blkStats.WrBytes)
+		stats.WrRequests = stats.WrRequests + uint64(blkStats.WrReq)
 	}
 
 	return stats, nil
@@ -230,30 +238,31 @@ func (lc *LibvirtContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, err
 	}
 	glog.V(4).Infof("Get domain description: %v", virDomain)
 
-	cpuStats, err := GetCPUStats(domain)
+	cpuStats, err := GetCPUStats(lc.domain)
 	if err != nil {
 		return nil, err
 	}
 
-	memoryStats, err := GetMemoryStats(domain)
+	memoryStats, err := GetMemoryStats(lc.domain)
 	if err != nil {
 		return nil, err
 	}
 
-	networkStats, err := GetNetworkStats(domain, &virDomain)
+	networkStats, err := GetNetworkStats(lc.domain, &virDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	blockStats, err := GetBlockStats(domain, &virDomain)
+	blockStats, err := GetBlockStats(lc.domain, &virDomain)
 	if err != nil {
 		return nil, err
 	}
 
 	return &types.PodStats{
-		Cpu:     cpuStats,
-		Memory:  memoryStats,
-		Disk:    blockStats,
-		Network: networkStats,
+		Cpu:       cpuStats,
+		Memory:    memoryStats,
+		Disk:      blockStats,
+		Network:   networkStats,
+		Timestamp: time.Now(),
 	}, nil
 }

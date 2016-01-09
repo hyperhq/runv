@@ -51,11 +51,11 @@ const (
 	COMMAND_DETACH
 	COMMAND_WINDOWSIZE
 	COMMAND_ACK
+	COMMAND_GET_POD_STATS
 	ERROR_INIT_FAIL
 	ERROR_QMP_FAIL
 	ERROR_INTERRUPTED
 	ERROR_CMD_FAIL
-	COMMAND_GET_POD_STATS
 )
 
 const (
@@ -159,6 +159,8 @@ func EventString(ev int) string {
 		return "COMMAND_WINDOWSIZE"
 	case COMMAND_ACK:
 		return "COMMAND_ACK"
+	case COMMAND_GET_POD_STATS:
+		return "COMMAND_GET_POD_STATS"
 	case ERROR_INIT_FAIL:
 		return "ERROR_INIT_FAIL"
 	case ERROR_QMP_FAIL:
@@ -167,8 +169,6 @@ func EventString(ev int) string {
 		return "ERROR_INTERRUPTED"
 	case ERROR_CMD_FAIL:
 		return "ERROR_CMD_FAIL"
-	case COMMAND_GET_POD_STATS:
-		return "COMMAND_GET_POD_STATS"
 	}
 	return "UNKNOWN"
 }
