@@ -140,4 +140,8 @@ func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string,
 	return nil
 }
 
+func (ec *EmptyContext) Stats(ctx *VmContext) (*types.PodStats, error) {
+	return nil, nil
+}
+
 func (ec *EmptyContext) Close() {}

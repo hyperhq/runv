@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 //implement the hypervisor.HypervisorDriver interface
@@ -131,6 +132,10 @@ func (qc *QemuContext) Kill(ctx *hypervisor.VmContext) {
 		}
 	}()
 	qc.wdt <- "kill"
+}
+
+func (qc *QemuContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error) {
+	return nil, nil
 }
 
 func (qc *QemuContext) Close() {

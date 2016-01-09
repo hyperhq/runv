@@ -228,6 +228,10 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 	}()
 }
 
+func (vc *VBoxContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error) {
+	return nil, nil
+}
+
 func (vc *VBoxContext) Close() {}
 
 func (vc *VBoxContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
