@@ -33,17 +33,25 @@ type CpuStats struct {
 	LoadAverage int32 `json:"load_average"`
 }
 
-type DiskStats struct {
-	DiskName   string `json:"name"`
-	RdRequests uint64 `json:"read_requests"`
-	WrRequests uint64 `json:"write_requests"`
-	RdBytes    uint64 `json:"read_bytes"`
-	WrBytes    uint64 `json:"write_bytes"`
+// BlkioStatEntry is one small entity to store a piece of Blkio stats
+type BlkioStatEntry struct {
+	Name  string            `json:"name"`
+	Major uint64            `json:"major"`
+	Minor uint64            `json:"minor"`
+	Stat  map[string]uint64 `json:"stat"`
 }
 
-type BlockStats struct {
-	DiskStats
-	IoStats []DiskStats `json:"io_stats,omitempty"`
+// BlkioStats stores All IO service stats for data read and write
+type BlkioStats struct {
+	// number of bytes transferred to and from the block device
+	IoServiceBytesRecursive []BlkioStatEntry `json:"io_service_bytes_recursive"`
+	IoServicedRecursive     []BlkioStatEntry `json:"io_serviced_recursive"`
+	IoQueuedRecursive       []BlkioStatEntry `json:"io_queue_recursive"`
+	IoServiceTimeRecursive  []BlkioStatEntry `json:"io_service_time_recursive"`
+	IoWaitTimeRecursive     []BlkioStatEntry `json:"io_wait_time_recursive"`
+	IoMergedRecursive       []BlkioStatEntry `json:"io_merged_recursive"`
+	IoTimeRecursive         []BlkioStatEntry `json:"io_time_recursive"`
+	SectorsRecursive        []BlkioStatEntry `json:"sectors_recursive"`
 }
 
 type MemoryStats struct {
@@ -90,8 +98,7 @@ type InterfaceStats struct {
 }
 
 type NetworkStats struct {
-	InterfaceStats `json:",inline"`
-	Interfaces     []InterfaceStats `json:"interfaces,omitempty"`
+	Interfaces []InterfaceStats `json:"interfaces,omitempty"`
 	// TCP connection stats (Established, Listen...)
 	Tcp TcpStat `json:"tcp"`
 	// TCP6 connection stats (Established, Listen...)
@@ -194,7 +201,7 @@ type FsStats struct {
 type ContainerStats struct {
 	ContainerID string       `json:"id"`
 	Cpu         CpuStats     `json:"cpu,omitempty"`
-	Disk        BlockStats   `json:"disk,omitempty"`
+	Block       BlkioStats   `json:"block,omitempty"`
 	Memory      MemoryStats  `json:"memory,omitempty"`
 	Network     NetworkStats `json:"network,omitempty"`
 	Filesystem  []FsStats    `json:"filesystem,omitempty"`
@@ -203,7 +210,7 @@ type ContainerStats struct {
 
 type PodStats struct {
 	Cpu        CpuStats     `json:"cpu,omitempty"`
-	Disk       BlockStats   `json:"disk,omitempty"`
+	Block      BlkioStats   `json:"block,omitempty"`
 	Memory     MemoryStats  `json:"memory,omitempty"`
 	Network    NetworkStats `json:"network,omitempty"`
 	Filesystem []FsStats    `json:"filesystem,omitempty"`
