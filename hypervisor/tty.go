@@ -29,6 +29,7 @@ type TtyIO struct {
 type ttyAttachments struct {
 	container   int
 	persistent  bool
+	closed      bool
 	attachments []*TtyIO
 }
 
@@ -143,15 +144,13 @@ func waitPts(ctx *VmContext) {
 		if ta, ok := ctx.ptys.ttys[res.session]; ok {
 			if len(res.message) == 0 {
 				glog.V(1).Infof("session %d closed by peer, close pty", res.session)
+				ta.closed = true
+			} else if ta.closed {
 				var code uint8 = 255
-
-				res, err = readTtyMessage(conn.(*net.UnixConn))
-				if err != nil {
-					glog.V(1).Info("get exit code failed ", err.Error())
-				} else {
+				if len(res.message) == 1 {
 					code = uint8(res.message[0])
 				}
-
+				glog.V(1).Infof("session %d, exit code", res.session, code)
 				ctx.ptys.Close(ctx, res.session, code)
 			} else {
 				for _, tty := range ta.attachments {
