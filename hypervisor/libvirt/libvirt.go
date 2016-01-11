@@ -453,7 +453,7 @@ func (lc *LibvirtContext) Shutdown(ctx *hypervisor.VmContext) {
 		if err != nil {
 			return
 		}
-		lc.domain.ShutdownFlags(libvirtgo.VIR_DOMAIN_SHUTDOWN_DEFAULT)
+		lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
 		delete(lc.driver.domains, name)
 		ctx.Hub <- &hypervisor.VmExit{}
 	}()
