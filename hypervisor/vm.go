@@ -595,13 +595,7 @@ func (vm *Vm) Stats() *types.VmResponse {
 	var response *types.VmResponse
 
 	if nil == vm.Pod || vm.Pod.Status != types.S_POD_RUNNING {
-		err := fmt.Errorf("The pod is not running, can not get stats for it")
-		response = &types.VmResponse{
-			Code:  -1,
-			Cause: err.Error(),
-			Data:  nil,
-		}
-		return response
+		return errorResponse("The pod is not running, can not get stats for it")
 	}
 
 	PodEvent, err := vm.GetRequestChan()

@@ -174,7 +174,7 @@ func getNetworkStats(domain *libvirtgo.VirDomain, virDomain *VirDomain) (types.N
 
 		stats.Interfaces = append(stats.Interfaces, types.InterfaceStats{
 			Name:      iface.Device.Dev,
-			RxBytes:   uint64(ifaceStats.TxBytes),
+			RxBytes:   uint64(ifaceStats.RxBytes),
 			RxPackets: uint64(ifaceStats.RxPackets),
 			RxErrors:  uint64(ifaceStats.RxErrs),
 			RxDropped: uint64(ifaceStats.RxDrop),
