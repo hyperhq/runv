@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/hypervisor/types"
 	"os"
 )
 
@@ -63,6 +64,8 @@ type DriverContext interface {
 	ConfigureNetwork(vmId, requestedIP string, maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error)
 	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
 	ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error
+
+	Stats(ctx *VmContext) (*types.PodStats, error)
 
 	Close()
 }
@@ -135,6 +138,10 @@ func (ec *EmptyContext) AllocateNetwork(vmId, requestedIP string,
 func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string,
 	maps []pod.UserContainerPort, file *os.File) error {
 	return nil
+}
+
+func (ec *EmptyContext) Stats(ctx *VmContext) (*types.PodStats, error) {
+	return nil, nil
 }
 
 func (ec *EmptyContext) Close() {}

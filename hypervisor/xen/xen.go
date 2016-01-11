@@ -16,6 +16,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
@@ -199,6 +200,10 @@ func (xc *XenContext) Kill(ctx *hypervisor.VmContext) {
 		res := HyperxlDomainDestroy(xc.driver.Ctx, (uint32)(xc.domId))
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: res == 0}
 	}()
+}
+
+func (xc *XenContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error) {
+	return nil, nil
 }
 
 func (xc *XenContext) Close() {}

@@ -140,6 +140,25 @@ func (ctx *VmContext) reportPodIP(ev VmEvent) {
 	}
 }
 
+func (ctx *VmContext) reportPodStats(ev VmEvent) {
+	response := types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_POD_STATS,
+		Cause: "",
+		Reply: ev,
+		Data:  nil,
+	}
+
+	stats, err := ctx.DCtx.Stats(ctx)
+	if err != nil {
+		response.Cause = "Get pod stats failed"
+	} else {
+		response.Data = stats
+	}
+
+	ctx.client <- &response
+}
+
 func (ctx *VmContext) reportFile(reply VmEvent, code uint32, data []byte, err bool) {
 	response := &types.VmResponse{
 		VmId:  ctx.Id,

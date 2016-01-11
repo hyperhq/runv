@@ -628,6 +628,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP(ev)
+		case COMMAND_GET_POD_STATS:
+			ctx.reportPodStats(ev)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod running")
 		}

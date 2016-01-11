@@ -411,6 +411,10 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
 		return
 	}
+	err = lc.domain.SetMemoryStatsPeriod(1, 0)
+	if err != nil {
+		glog.Errorf("SetMemoryStatsPeriod failed for domain %v", name)
+	}
 	lc.driver.domains[name] = ctx
 }
 
