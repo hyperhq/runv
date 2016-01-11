@@ -538,7 +538,6 @@ func (vm *Vm) Exec(Stdin io.ReadCloser, Stdout io.WriteCloser, cmd, tag, contain
 	defer vm.ReleaseResponseChan(Status)
 
 	Event <- execCmd
-	vm.ReleaseRequestChan(Event)
 
 	for {
 		Response, ok := <-Status
