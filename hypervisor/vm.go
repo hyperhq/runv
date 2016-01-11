@@ -637,11 +637,11 @@ func errorResponse(cause string) *types.VmResponse {
 	}
 }
 
-func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
+func NewVm(vmId string, cpu, memory int, keep int) *Vm {
 	return &Vm{
 		Id:        vmId,
 		Pod:       nil,
-		Lazy:      lazy,
+		Lazy:      HDriver.SupportLazyMode(),
 		Status:    types.S_VM_IDLE,
 		Cpu:       cpu,
 		Mem:       memory,
