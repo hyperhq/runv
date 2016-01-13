@@ -3,10 +3,12 @@ package hypervisor
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"time"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 func (ctx *VmContext) timedKill(seconds int) {
@@ -118,7 +120,7 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	c := ctx.prepareContainer(cmd)
 
-	jsonCmd, err := json.Marshal(*c)
+	jsonCmd, err := utils.JsonMarshal(*c, true)
 	if err != nil {
 		ctx.Hub <- &InitFailedEvent{
 			Reason: "Generated wrong run profile " + err.Error(),
@@ -190,7 +192,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
-	pkg, err := json.Marshal(*cmd)
+	pkg, err := utils.JsonMarshal(*cmd, true)
 	if err != nil {
 		cmd.Streams.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
@@ -269,7 +271,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 }
 
 func (ctx *VmContext) startPod() {
-	pod, err := json.Marshal(*ctx.vmSpec)
+	pod, err := utils.JsonMarshal(*ctx.vmSpec, true)
 	if err != nil {
 		ctx.Hub <- &InitFailedEvent{
 			Reason: "Generated wrong run profile " + err.Error(),

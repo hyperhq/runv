@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
 	"time"
 )
@@ -23,4 +25,16 @@ func UnixSocketConnect(name string) (conn net.Conn, err error) {
 	}
 
 	return
+}
+
+func JsonMarshal(v interface{}, shellFriendly bool) ([]byte, error) {
+	b, err := json.Marshal(v)
+
+	if err == nil && shellFriendly {
+		b = bytes.Replace(b, []byte("\\u003c"), []byte("<"), -1)
+		b = bytes.Replace(b, []byte("\\u003e"), []byte(">"), -1)
+		b = bytes.Replace(b, []byte("\\u0026"), []byte("&"), -1)
+	}
+
+	return b, err
 }
