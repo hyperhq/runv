@@ -244,7 +244,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	dom.CPU.Mode = "host-passthrough"
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		dom.Type = "qemu"
-		dom.CPU.Mode = "custom"
+		dom.CPU.Mode = "host-model"
 		dom.CPU.Match = "exact"
 		dom.CPU.Model = &cpumodel{
 			Fallback: "allow",
