@@ -17,22 +17,23 @@ type deviceMap struct {
 	networkMap map[int]*InterfaceCreated
 }
 
-type blockDescriptor struct {
-	name       string
-	filename   string
-	format     string
-	fstype     string
-	deviceName string
-	scsiId     int
+type BlockDescriptor struct {
+	Name       string
+	Filename   string
+	Format     string
+	Fstype     string
+	DeviceName string
+	ScsiId     int
+	Options    map[string]string
 }
 
 type imageInfo struct {
-	info *blockDescriptor
+	info *BlockDescriptor
 	pos  int
 }
 
 type volumeInfo struct {
-	info     *blockDescriptor
+	info     *BlockDescriptor
 	pos      volumePosition
 	readOnly map[int]bool
 }
@@ -161,8 +162,8 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 	} else {
 		container.Fstype = info.Fstype
 		ctx.devices.imageMap[info.Image] = &imageInfo{
-			info: &blockDescriptor{
-				name: info.Image, filename: info.Image, format: "raw", fstype: info.Fstype, deviceName: ""},
+			info: &BlockDescriptor{
+				Name: info.Image, Filename: info.Image, Format: "raw", Fstype: info.Fstype, DeviceName: ""},
 			pos: index,
 		}
 		ctx.progress.adding.blockdevs[info.Image] = true
@@ -174,47 +175,40 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 	for _, vol := range spec.Volumes {
 		if vol.Source == "" || vol.Driver == "" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info:     &blockDescriptor{name: vol.Name, filename: "", format: "", fstype: "", deviceName: ""},
+				info:     &BlockDescriptor{Name: vol.Name, Filename: "", Format: "", Fstype: "", DeviceName: ""},
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
 
 		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &blockDescriptor{
-					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
+				info: &BlockDescriptor{
+					Name: vol.Name, Filename: vol.Source, Format: vol.Driver, Fstype: "ext4", DeviceName: ""},
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
 			ctx.progress.adding.blockdevs[vol.Name] = true
 		} else if vol.Driver == "vfs" {
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &blockDescriptor{
-					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "dir", deviceName: ""},
+				info: &BlockDescriptor{
+					Name: vol.Name, Filename: vol.Source, Format: vol.Driver, Fstype: "dir", DeviceName: ""},
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
 		} else if vol.Driver == "rbd" {
-			user := vol.Option.User
-			keyring := vol.Option.Keyring
-
-			if keyring != "" && user != "" {
-				vol.Source += ":id=" + user + ":key=" + keyring
-			}
-
-			for i, m := range vol.Option.Monitors {
-				monitor := strings.Replace(m, ":", "\\:", -1)
-				if i == 0 {
-					vol.Source += ":mon_host=" + monitor
-					continue
-				}
-				vol.Source += ";" + monitor
-			}
-
-			glog.V(1).Infof("volume %s, Source %s", vol.Name, vol.Source)
 			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &blockDescriptor{
-					name: vol.Name, filename: vol.Source, format: vol.Driver, fstype: "ext4", deviceName: ""},
+				info: &BlockDescriptor{
+					Name:       vol.Name,
+					Filename:   vol.Source,
+					Format:     vol.Driver,
+					Fstype:     "ext4",
+					DeviceName: "",
+					Options: map[string]string{
+						"user":     vol.Option.User,
+						"keyring":  vol.Option.Keyring,
+						"monitors": strings.Join(vol.Option.Monitors, ";"),
+					},
+				},
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
 			}
@@ -230,14 +224,14 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 		return
 	}
 
-	vol.info.filename = info.Filepath
-	vol.info.format = info.Format
+	vol.info.Filename = info.Filepath
+	vol.info.Format = info.Format
 
 	if info.Fstype != "dir" {
-		vol.info.fstype = info.Fstype
+		vol.info.Fstype = info.Fstype
 		ctx.progress.adding.blockdevs[info.Name] = true
 	} else {
-		vol.info.fstype = ""
+		vol.info.Fstype = ""
 		for i, mount := range vol.pos {
 			glog.V(1).Infof("insert volume %s to %s on %d", info.Name, mount, i)
 			ctx.vmSpec.Containers[i].Fsmap = append(ctx.vmSpec.Containers[i].Fsmap, VmFsmapDescriptor{
@@ -275,10 +269,12 @@ func (ctx *VmContext) addBlockDevices() {
 	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.AddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
+			info.info.ScsiId = sid
+			ctx.DCtx.AddDisk(ctx, "volume", info.info)
 		} else if info, ok := ctx.devices.imageMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.AddDisk(ctx, info.info.name, "image", info.info.filename, info.info.format, sid)
+			info.info.ScsiId = sid
+			ctx.DCtx.AddDisk(ctx, "image", info.info)
 		} else {
 			continue
 		}
@@ -301,21 +297,21 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 
 	if info.SourceType == "image" {
 		image := ctx.devices.imageMap[info.Name]
-		image.info.deviceName = info.DeviceName
-		image.info.scsiId = info.ScsiId
+		image.info.DeviceName = info.DeviceName
+		image.info.ScsiId = info.ScsiId
 		ctx.vmSpec.Containers[image.pos].Image = info.DeviceName
 		ctx.vmSpec.Containers[image.pos].Addr = info.ScsiAddr
 	} else if info.SourceType == "volume" {
 		volume := ctx.devices.volumeMap[info.Name]
-		volume.info.deviceName = info.DeviceName
-		volume.info.scsiId = info.ScsiId
+		volume.info.DeviceName = info.DeviceName
+		volume.info.ScsiId = info.ScsiId
 		for c, vol := range volume.pos {
 			ctx.vmSpec.Containers[c].Volumes = append(ctx.vmSpec.Containers[c].Volumes,
 				VmVolumeDescriptor{
 					Device:   info.DeviceName,
 					Addr:     info.ScsiAddr,
 					Mount:    vol,
-					Fstype:   volume.info.fstype,
+					Fstype:   volume.info.Fstype,
 					ReadOnly: volume.readOnly[c],
 				})
 		}
@@ -375,9 +371,9 @@ func (ctx *VmContext) onContainerRemoved(c *ContainerUnmounted) bool {
 	if ctx.vmSpec.Containers[c.Index].Fstype != "" {
 		for name, image := range ctx.devices.imageMap {
 			if image.pos == c.Index {
-				glog.V(1).Info("need remove image dm file", image.info.filename)
+				glog.V(1).Info("need remove image dm file", image.info.Filename)
 				ctx.progress.deleting.blockdevs[name] = true
-				go UmountDMDevice(image.info.filename, name, ctx.Hub)
+				go UmountDMDevice(image.info.Filename, name, ctx.Hub)
 			}
 		}
 	}
@@ -400,10 +396,10 @@ func (ctx *VmContext) onVolumeRemoved(v *VolumeUnmounted) bool {
 		delete(ctx.progress.deleting.volumes, v.Name)
 	}
 	vol := ctx.devices.volumeMap[v.Name]
-	if vol.info.fstype != "" {
-		glog.V(1).Info("need remove dm file ", vol.info.filename)
-		ctx.progress.deleting.blockdevs[vol.info.name] = true
-		go UmountDMDevice(vol.info.filename, vol.info.name, ctx.Hub)
+	if vol.info.Fstype != "" {
+		glog.V(1).Info("need remove dm file ", vol.info.Filename)
+		ctx.progress.deleting.blockdevs[vol.info.Name] = true
+		go UmountDMDevice(vol.info.Filename, vol.info.Name, ctx.Hub)
 	}
 	return v.Success
 }
@@ -418,27 +414,27 @@ func (ctx *VmContext) onBlockReleased(v *BlockdevRemovedEvent) bool {
 
 func (ctx *VmContext) releaseVolumeDir() {
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.fstype == "" {
-			glog.V(1).Info("need umount dir ", vol.info.filename)
+		if vol.info.Fstype == "" {
+			glog.V(1).Info("need umount dir ", vol.info.Filename)
 			ctx.progress.deleting.volumes[name] = true
-			go UmountVolume(ctx.ShareDir, vol.info.filename, name, ctx.Hub)
+			go UmountVolume(ctx.ShareDir, vol.info.Filename, name, ctx.Hub)
 		}
 	}
 }
 
 func (ctx *VmContext) removeDMDevice() {
 	for name, container := range ctx.devices.imageMap {
-		if container.info.fstype != "dir" {
-			glog.V(1).Info("need remove dm file", container.info.filename)
+		if container.info.Fstype != "dir" {
+			glog.V(1).Info("need remove dm file", container.info.Filename)
 			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(container.info.filename, name, ctx.Hub)
+			go UmountDMDevice(container.info.Filename, name, ctx.Hub)
 		}
 	}
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.fstype != "" {
-			glog.V(1).Info("need remove dm file ", vol.info.filename)
+		if vol.info.Fstype != "" {
+			glog.V(1).Info("need remove dm file ", vol.info.Filename)
 			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(vol.info.filename, name, ctx.Hub)
+			go UmountDMDevice(vol.info.Filename, name, ctx.Hub)
 		}
 	}
 }
@@ -471,9 +467,9 @@ func (ctx *VmContext) releaseAufsDir() {
 
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.format == "raw" || vol.info.format == "qcow2" || vol.info.format == "vdi" || vol.info.format == "rbd" {
-			glog.V(1).Infof("need detach volume %s (%s) ", name, vol.info.deviceName)
-			ctx.DCtx.RemoveDisk(ctx, vol.info.filename, vol.info.format, vol.info.scsiId, &VolumeUnmounted{Name: name, Success: true})
+		if vol.info.Format == "raw" || vol.info.Format == "qcow2" || vol.info.Format == "vdi" || vol.info.Format == "rbd" {
+			glog.V(1).Infof("need detach volume %s (%s) ", name, vol.info.DeviceName)
+			ctx.DCtx.RemoveDisk(ctx, vol.info, &VolumeUnmounted{Name: name, Success: true})
 			ctx.progress.deleting.volumes[name] = true
 		}
 	}
@@ -481,10 +477,10 @@ func (ctx *VmContext) removeVolumeDrive() {
 
 func (ctx *VmContext) removeImageDrive() {
 	for _, image := range ctx.devices.imageMap {
-		if image.info.fstype != "dir" {
-			glog.V(1).Infof("need eject no.%d image block device: %s", image.pos, image.info.deviceName)
+		if image.info.Fstype != "dir" {
+			glog.V(1).Infof("need eject no.%d image block device: %s", image.pos, image.info.DeviceName)
 			ctx.progress.deleting.containers[image.pos] = true
-			ctx.DCtx.RemoveDisk(ctx, image.info.filename, image.info.format, image.info.scsiId, &ContainerUnmounted{Index: image.pos, Success: true})
+			ctx.DCtx.RemoveDisk(ctx, image.info, &ContainerUnmounted{Index: image.pos, Success: true})
 		}
 	}
 }

@@ -208,11 +208,20 @@ func (xc *XenContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error) 
 
 func (xc *XenContext) Close() {}
 
-func (xc *XenContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+func (xc *XenContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
+	name := blockInfo.Name
+	filename := blockInfo.Filename
+	format := blockInfo.Format
+	id := blockInfo.ScsiId
+
 	go diskRoutine(true, xc, ctx, name, sourceType, filename, format, id, nil)
 }
 
-func (xc *XenContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
+func (xc *XenContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
+	filename := blockInfo.Filename
+	format := blockInfo.Format
+	id := blockInfo.ScsiId
+
 	go diskRoutine(false, xc, ctx, "", "", filename, format, id, callback)
 }
 

@@ -234,7 +234,10 @@ func (vc *VBoxContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error)
 
 func (vc *VBoxContext) Close() {}
 
-func (vc *VBoxContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+func (vc *VBoxContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
+	name := blockInfo.Name
+	filename := blockInfo.Filename
+	id := blockInfo.ScsiId
 
 	//	go func() {
 	/*
@@ -280,7 +283,10 @@ func (vc *VBoxContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, file
 	//	}()
 }
 
-func (vc *VBoxContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
+func (vc *VBoxContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
+	filename := blockInfo.Filename
+	id := blockInfo.ScsiId
+
 	//	go func() {
 	m := vc.Machine
 	if m == nil {

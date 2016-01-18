@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	libvirtgo "github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
@@ -484,8 +485,28 @@ type diskdriver struct {
 	Name string `xml:"name,attr,omitempty"`
 }
 
+type monitor struct {
+	XMLName xml.Name `xml:"host"`
+	Name    string   `xml:"name,attr"`
+	Port    string   `xml:"port,attr"`
+}
+
+type cephsecret struct {
+	Type string `xml:"type,attr"`
+	UUID string `xml:"uuid,attr"`
+}
+
+type cephauth struct {
+	XMLName  xml.Name   `xml:"auth"`
+	UserName string     `xml:"username,attr"`
+	Secret   cephsecret `xml:"secret"`
+}
+
 type disksrc struct {
-	File string `xml:"file,attr"`
+	File     string `xml:"file,attr,omitempty"`
+	Protocol string `xml:"protocol,attr,omitempty"`
+	Name     string `xml:"name,attr,omitempty"`
+	Monitors []monitor
 }
 
 type disktgt struct {
@@ -494,16 +515,21 @@ type disktgt struct {
 }
 
 type disk struct {
-	XMLName xml.Name   `xml:"disk"`
-	Type    string     `xml:"type,attr"`
-	Device  string     `xml:"device,attr"`
-	Driver  diskdriver `xml:"driver"`
-	Source  disksrc    `xml:"source"`
-	Target  disktgt    `xml:"target"`
-	Address *address   `xml:"address"`
+	XMLName xml.Name    `xml:"disk"`
+	Type    string      `xml:"type,attr"`
+	Device  string      `xml:"device,attr"`
+	Driver  *diskdriver `xml:"driver,omitempty"`
+	Source  disksrc     `xml:"source"`
+	Target  disktgt     `xml:"target"`
+	Address *address    `xml:"address"`
+	Auth    *cephauth   `xml: "name,auth,omitempty"`
 }
 
-func diskXml(filename, format string, id int) (string, error) {
+func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, error) {
+	filename := blockInfo.Filename
+	format := blockInfo.Format
+	id := blockInfo.ScsiId
+
 	devname := scsiId2Name(id)
 	target, unit, err := scsiId2Addr(id)
 	if err != nil {
@@ -511,13 +537,9 @@ func diskXml(filename, format string, id int) (string, error) {
 	}
 
 	d := disk{
-		Type:   "file",
 		Device: "disk",
-		Driver: diskdriver{
+		Driver: &diskdriver{
 			Type: format,
-		},
-		Source: disksrc{
-			File: filename,
 		},
 		Target: disktgt{
 			Dev: devname,
@@ -532,11 +554,79 @@ func diskXml(filename, format string, id int) (string, error) {
 		},
 	}
 
+	if strings.HasPrefix(filename, "rbd:") {
+		if blockInfo.Options == nil {
+			return "", fmt.Errorf("Volume options is required for rbd")
+		}
+		d.Type = "network"
+		d.Source = disksrc{
+			Protocol: "rbd",
+			Name:     strings.TrimPrefix(filename, "rbd:"),
+			Monitors: make([]monitor, 0, 1),
+		}
+
+		d.Auth = &cephauth{
+			UserName: blockInfo.Options["user"],
+			Secret: cephsecret{
+				Type: "ceph",
+				UUID: secretUUID,
+			},
+		}
+
+		monitors := blockInfo.Options["monitors"]
+		for _, m := range strings.Split(monitors, ";") {
+			hostport := strings.Split(m, ":")
+			d.Source.Monitors = append(d.Source.Monitors, monitor{
+				Name: hostport[0],
+				Port: hostport[1],
+			})
+		}
+
+	} else {
+		d.Type = "file"
+		d.Source = disksrc{
+			File: filename,
+		}
+	}
+
 	data, err := xml.Marshal(d)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func (lc *LibvirtContext) diskSecretUUID(blockInfo *hypervisor.BlockDescriptor) (res string, err error) {
+	var sec libvirtgo.VirSecret
+
+	filename := blockInfo.Filename
+	if strings.HasPrefix(filename, "rbd:") {
+		if blockInfo.Options == nil {
+			return "", fmt.Errorf("Volume options is required for rbd")
+		}
+
+		username := blockInfo.Options["user"]
+		sec, err = lc.driver.conn.LookupSecretByUsage(libvirtgo.VIR_SECRET_USAGE_TYPE_CEPH, "client."+username)
+		if err != nil {
+			secretXML := fmt.Sprintf("<secret ephemeral='no' private='no'><usage type='ceph'><name>client.%v</name></usage></secret>", username)
+			sec, err = lc.driver.conn.SecretDefineXML(secretXML, 0)
+			if err != nil {
+				return
+			}
+
+			res, err = sec.GetUUIDString()
+			if err != nil {
+				return
+			}
+
+			err = lc.driver.conn.SecretSetValue(res, blockInfo.Options["keyring"])
+			return
+		}
+
+		res, err = sec.GetUUIDString()
+	}
+
+	return
 }
 
 func scsiId2Name(id int) string {
@@ -551,8 +641,19 @@ func scsiId2Addr(id int) (int, int, error) {
 	return id / 256, id % 256, nil
 }
 
-func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
-	diskXml, err := diskXml(filename, format, id)
+func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
+	name := blockInfo.Name
+	id := blockInfo.ScsiId
+	secretUUID, err := lc.diskSecretUUID(blockInfo)
+	if err != nil {
+		glog.Error("generate disk-get-secret failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
+	diskXml, err := diskXml(blockInfo, secretUUID)
 	if err != nil {
 		glog.Error("generate attach-disk-xml failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
@@ -580,8 +681,17 @@ func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, f
 	}
 }
 
-func (lc *LibvirtContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
-	diskXml, err := diskXml(filename, format, id)
+func (lc *LibvirtContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
+	secretUUID, err := lc.diskSecretUUID(blockInfo)
+	if err != nil {
+		glog.Error("generate disk-get-secret failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
+	diskXml, err := diskXml(blockInfo, secretUUID)
 	if err != nil {
 		glog.Error("generate detach-disk-xml failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
