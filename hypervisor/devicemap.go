@@ -230,7 +230,10 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 		return
 	}
 
-	vol.info.filename = info.Filepath
+	if len(vol.info.filename) == 0 {
+		vol.info.filename = info.Filepath
+	}
+
 	vol.info.format = info.Format
 
 	if info.Fstype != "dir" {
