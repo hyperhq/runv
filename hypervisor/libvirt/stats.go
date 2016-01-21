@@ -58,7 +58,9 @@ type VirDisk struct {
 }
 
 type VirDiskSource struct {
-	File string `xml:"file,attr"`
+	File     string `xml:"file,attr,omitempty"`
+	Protocol string `xml:"protocol,attr,omitempty"`
+	Name     string `xml:"name,attr,omitempty"`
 }
 
 type VirDiskTarget struct {
@@ -189,6 +191,11 @@ func getNetworkStats(domain *libvirtgo.VirDomain, virDomain *VirDomain) (types.N
 }
 
 func getBlockNumber(path string) (uint64, uint64, error) {
+	// return zero for network block devices
+	if len(path) == 0 {
+		return 0, 0, nil
+	}
+
 	stat := syscall.Stat_t{}
 	err := syscall.Stat(path, &stat)
 	if err != nil {
@@ -215,19 +222,28 @@ func getBlockStats(domain *libvirtgo.VirDomain, virDomain *VirDomain) (types.Blk
 			return stats, err
 		}
 
+		sourceDevice := blk.Source.File
+		if len(sourceDevice) == 0 {
+			sourceDevice = blk.Source.Name
+		}
+
 		stats.IoServiceBytesRecursive = append(stats.IoServiceBytesRecursive, types.BlkioStatEntry{
-			Name:  blk.Target.Dev,
-			Major: major,
-			Minor: minor,
+			Name:   blk.Target.Dev,
+			Type:   blk.Type,
+			Source: sourceDevice,
+			Major:  major,
+			Minor:  minor,
 			Stat: map[string]uint64{
 				"Read":  uint64(blkStats.RdBytes),
 				"Write": uint64(blkStats.WrBytes),
 			},
 		})
 		stats.IoServicedRecursive = append(stats.IoServicedRecursive, types.BlkioStatEntry{
-			Name:  blk.Target.Dev,
-			Major: major,
-			Minor: minor,
+			Name:   blk.Target.Dev,
+			Type:   blk.Type,
+			Source: sourceDevice,
+			Major:  major,
+			Minor:  minor,
 			Stat: map[string]uint64{
 				"Read":  uint64(blkStats.RdReq),
 				"Write": uint64(blkStats.WrReq),

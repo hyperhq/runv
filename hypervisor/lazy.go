@@ -132,10 +132,10 @@ func (ctx *VmContext) lazyAddBlockDevices() {
 	for blk := range ctx.progress.adding.blockdevs {
 		if info, ok := ctx.devices.volumeMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.name, "volume", info.info.filename, info.info.format, sid)
+			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.Name, "volume", info.info.Filename, info.info.Format, sid)
 		} else if info, ok := ctx.devices.imageMap[blk]; ok {
 			sid := ctx.nextScsiId()
-			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.name, "image", info.info.filename, info.info.format, sid)
+			ctx.DCtx.(LazyDriverContext).LazyAddDisk(ctx, info.info.Name, "image", info.info.Filename, info.info.Format, sid)
 		} else {
 			continue
 		}

@@ -52,8 +52,8 @@ type DriverContext interface {
 	Associate(ctx *VmContext)
 	Dump() (map[string]interface{}, error)
 
-	AddDisk(ctx *VmContext, name, sourceType, filename, format string, id int)
-	RemoveDisk(ctx *VmContext, filename, format string, id int, callback VmEvent)
+	AddDisk(ctx *VmContext, sourceType string, blockInfo *BlockDescriptor)
+	RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent)
 
 	AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
 	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent)
@@ -110,9 +110,9 @@ func (ec *EmptyContext) Dump() (map[string]interface{}, error) {
 	return map[string]interface{}{"hypervisor": "empty"}, nil
 }
 
-func (ec *EmptyContext) AddDisk(ctx *VmContext, name, sourceType, filename, format string, id int) {}
+func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *BlockDescriptor) {}
 
-func (ec *EmptyContext) RemoveDisk(ctx *VmContext, filename, format string, id int, callback VmEvent) {
+func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent) {
 }
 
 func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo) {}

@@ -35,10 +35,12 @@ type CpuStats struct {
 
 // BlkioStatEntry is one small entity to store a piece of Blkio stats
 type BlkioStatEntry struct {
-	Name  string            `json:"name"`
-	Major uint64            `json:"major"`
-	Minor uint64            `json:"minor"`
-	Stat  map[string]uint64 `json:"stat"`
+	Name   string            `json:"name"`
+	Type   string            `json:"type"`
+	Source string            `json:"source"`
+	Major  uint64            `json:"major"`
+	Minor  uint64            `json:"minor"`
+	Stat   map[string]uint64 `json:"stat"`
 }
 
 // BlkioStats stores All IO service stats for data read and write

@@ -103,25 +103,25 @@ func (ctx *VmContext) loadHwStatus(pinfo *PersistInfo) {
 	ctx.attachId = pinfo.HwStat.AttachId
 }
 
-func (blk *blockDescriptor) dump() *PersistVolumeInfo {
+func (blk *BlockDescriptor) dump() *PersistVolumeInfo {
 	return &PersistVolumeInfo{
-		Name:       blk.name,
-		Filename:   blk.filename,
-		Format:     blk.format,
-		Fstype:     blk.fstype,
-		DeviceName: blk.deviceName,
-		ScsiId:     blk.scsiId,
+		Name:       blk.Name,
+		Filename:   blk.Filename,
+		Format:     blk.Format,
+		Fstype:     blk.Fstype,
+		DeviceName: blk.DeviceName,
+		ScsiId:     blk.ScsiId,
 	}
 }
 
-func (vol *PersistVolumeInfo) blockInfo() *blockDescriptor {
-	return &blockDescriptor{
-		name:       vol.Name,
-		filename:   vol.Filename,
-		format:     vol.Format,
-		fstype:     vol.Fstype,
-		deviceName: vol.DeviceName,
-		scsiId:     vol.ScsiId,
+func (vol *PersistVolumeInfo) blockInfo() *BlockDescriptor {
+	return &BlockDescriptor{
+		Name:       vol.Name,
+		Filename:   vol.Filename,
+		Format:     vol.Format,
+		Fstype:     vol.Fstype,
+		DeviceName: vol.DeviceName,
+		ScsiId:     vol.ScsiId,
 	}
 }
 

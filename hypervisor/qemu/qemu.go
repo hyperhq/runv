@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
@@ -146,11 +147,38 @@ func (qc *QemuContext) Close() {
 	close(qc.wdt)
 }
 
-func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
+	name := blockInfo.Name
+	filename := blockInfo.Filename
+	format := blockInfo.Format
+	id := blockInfo.ScsiId
+
+	if format == "rbd" {
+		if blockInfo.Options != nil {
+			keyring := blockInfo.Options["keyring"]
+			user := blockInfo.Options["user"]
+			if keyring != "" && user != "" {
+				filename += ":id=" + user + ":key=" + keyring
+			}
+
+			monitors := blockInfo.Options["monitors"]
+			for i, m := range strings.Split(monitors, ";") {
+				monitor := strings.Replace(m, ":", "\\:", -1)
+				if i == 0 {
+					filename += ":mon_host=" + monitor
+					continue
+				}
+				filename += ";" + monitor
+			}
+		}
+	}
+
 	newDiskAddSession(qc, name, sourceType, filename, format, id)
 }
 
-func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, filename, format string, id int, callback hypervisor.VmEvent) {
+func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
+	id := blockInfo.ScsiId
+
 	newDiskDelSession(qc, id, callback)
 }
 
