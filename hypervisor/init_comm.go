@@ -265,7 +265,9 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			if timeout && pongTimer == nil {
 				glog.V(1).Info("message sent, set pong timer")
 				pongTimer = time.AfterFunc(30*time.Second, func() {
-					ctx.Hub <- &Interrupted{Reason: "init not reply ping mesg"}
+					if !ctx.Paused {
+						ctx.Hub <- &Interrupted{Reason: "init not reply ping mesg"}
+					}
 				})
 			}
 		}

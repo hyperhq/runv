@@ -147,6 +147,10 @@ func (qc *QemuContext) Close() {
 	close(qc.wdt)
 }
 
+func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
+	glog.Warning("doesn't support pause for qemu right now")
+}
+
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
 	name := blockInfo.Name
 	filename := blockInfo.Filename

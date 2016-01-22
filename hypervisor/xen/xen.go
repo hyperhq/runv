@@ -183,6 +183,10 @@ func (xc *XenContext) Dump() (map[string]interface{}, error) {
 	}, nil
 }
 
+func (xc *XenContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
+	glog.Warning("doesn't support pause for xen right now")
+}
+
 func (xc *XenContext) Shutdown(ctx *hypervisor.VmContext) {
 	go func() {
 		res := HyperxlDomainDestroy(xc.driver.Ctx, (uint32)(xc.domId))

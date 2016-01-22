@@ -32,6 +32,14 @@ func (ctx *VmContext) reportVmShutdown() {
 	}
 }
 
+func (ctx *VmContext) reportPauseResult(result *PauseResult) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Reply: result.Reply,
+		Cause: result.Cause,
+	}
+}
+
 func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,

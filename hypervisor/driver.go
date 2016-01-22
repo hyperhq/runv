@@ -61,6 +61,8 @@ type DriverContext interface {
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
 
+	Pause(ctx *VmContext, cmd *PauseCommand)
+
 	ConfigureNetwork(vmId, requestedIP string, maps []pod.UserContainerPort, config pod.UserInterface) (*network.Settings, error)
 	AllocateNetwork(vmId, requestedIP string, maps []pod.UserContainerPort) (*network.Settings, error)
 	ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error
@@ -122,6 +124,8 @@ func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback 
 func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 
 func (ec *EmptyContext) Kill(ctx *VmContext) {}
+
+func (ec *EmptyContext) Pause(ctx *VmContext, cmd *PauseCommand) {}
 
 func (ec *EmptyContext) BuildinNetwork() bool { return false }
 
