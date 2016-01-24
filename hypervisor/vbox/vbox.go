@@ -371,6 +371,18 @@ func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	}()
 }
 
+func (vc *VBoxContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
+func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
 // Prepare the conditions for the vm startup
 // * Create VM machine
 // * Create serial port

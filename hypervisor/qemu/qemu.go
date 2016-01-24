@@ -162,6 +162,44 @@ func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	newNetworkDelSession(qc, n.DeviceName, callback)
 }
 
+func (qc *QemuContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+	commands := make([]*QmpCommand, 1)
+	commands[0] = &QmpCommand{
+		Execute: "cpu-add",
+		Arguments: map[string]interface{}{
+			"id": id,
+		},
+	}
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		callback: callback,
+	}
+}
+
+func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+	commands := make([]*QmpCommand, 2)
+	commands[0] = &QmpCommand{
+		Execute: "object-add",
+		Arguments: map[string]interface{}{
+			"qom-type": "memory-backend-ram",
+			"id":       "mem" + strconv.Itoa(slot),
+			"props":    map[string]interface{}{"size": int64(size) << 20},
+		},
+	}
+	commands[1] = &QmpCommand{
+		Execute: "device_add",
+		Arguments: map[string]interface{}{
+			"driver": "pc-dimm",
+			"id":     "dimm" + strconv.Itoa(slot),
+			"memdev": "mem" + strconv.Itoa(slot),
+		},
+	}
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		callback: callback,
+	}
+}
+
 func (qc *QemuDriver) SupportLazyMode() bool {
 	return false
 }
@@ -178,10 +216,10 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	boot := ctx.Boot
 
 	params := []string{
-		"-machine", "pc-i440fx-2.0,accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
+		"-machine", "pc-i440fx-2.1,accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		glog.V(1).Info("kvm not exist change to no kvm mode")
-		params = []string{"-machine", "pc-i440fx-2.0,usb=off", "-cpu", "core2duo"}
+		params = []string{"-machine", "pc-i440fx-2.1,usb=off", "-cpu", "core2duo"}
 	}
 
 	if boot.Bios != "" && boot.Cbfs != "" {
@@ -200,10 +238,13 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	}
 
+	mem_params := fmt.Sprintf("size=%d,slots=1,maxmem=%s", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+	cpu_params := fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
+
 	return append(params,
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
-		"-m", strconv.Itoa(ctx.Boot.Memory), "-smp", strconv.Itoa(ctx.Boot.CPU),
+		"-m", mem_params, "-smp", cpu_params,
 		"-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
 		"-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3",
 		"-chardev", fmt.Sprintf("socket,id=charch0,path=%s,server,nowait", ctx.HyperSockName),

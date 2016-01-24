@@ -319,6 +319,18 @@ func diskRoutine(add bool, xc *XenContext, ctx *hypervisor.VmContext,
 	}
 }
 
+func (xc *XenContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
+func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
 func XlStartDomain(ctx LibxlCtxPtr, id string, boot *hypervisor.BootConfig, hyperSock, ttySock, consoleSock string, extra []string) (int, unsafe.Pointer, error) {
 
 	config := &DomainConfig{
