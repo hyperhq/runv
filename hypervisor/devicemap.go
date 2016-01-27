@@ -2,6 +2,7 @@ package hypervisor
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -610,6 +611,71 @@ func (ctx *VmContext) ReleaseInterface(index int, ipAddr string, file *os.File,
 		success = false
 	}
 	ctx.Hub <- &InterfaceReleased{Index: index, Success: success}
+}
+
+func (ctx *VmContext) SetupEtcHosts(device, ipAddress string) {
+	var (
+		deviceName = "eth0"
+		hostsPath  = "/etc/hosts"
+		replaced   = false
+		volumeName = ""
+		volumePath = ""
+	)
+
+	if device != deviceName {
+		return
+	}
+
+	for _, c := range ctx.userSpec.Containers {
+		for _, v := range c.Volumes {
+			if v.Path == hostsPath && !v.ReadOnly {
+				volumeName = v.Volume
+				break
+			}
+		}
+	}
+
+	if volumeName == "" {
+		return
+	}
+
+	for _, vol := range ctx.userSpec.Volumes {
+		if vol.Name == volumeName && vol.Driver == "vfs" {
+			volumePath = vol.Source
+		}
+	}
+
+	if volumePath == "" {
+		return
+	}
+
+	data, err := ioutil.ReadFile(volumePath)
+	if err != nil {
+		glog.Errorf("SetupEtcHosts failed: %v", err)
+		return
+	}
+
+	// update new ip address to hosts
+	hosts := strings.Split(string(data), "\n")
+	newHost := fmt.Sprintf("%s\t%s\n", ipAddress, ctx.vmSpec.Hostname)
+	for idx, host := range hosts {
+		if strings.Contains(host, ctx.vmSpec.Hostname) {
+			hosts[idx] = newHost
+			replaced = true
+		}
+	}
+
+	if !replaced {
+		// Add new record to hosts
+		hosts = append(hosts, newHost)
+	}
+
+	err = ioutil.WriteFile(volumePath, []byte(strings.Join(hosts, "\n")), 0644)
+	if err != nil {
+		glog.Errorf("SetupEtcHosts failed: %v", err)
+		return
+	}
+
 }
 
 func interfaceGot(index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
