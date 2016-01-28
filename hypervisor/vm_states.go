@@ -134,6 +134,24 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	glog.Infof("sent INIT_NEWCONTAINER")
 }
 
+func (ctx *VmContext) pauseVm(cmd *PauseCommand) {
+	/* FIXME: only support pause whole vm now */
+	ctx.DCtx.Pause(ctx, cmd)
+}
+
+func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
+	if ev.Cause == "" {
+		ctx.Paused = ev.Reply.Pause
+		if ctx.Paused {
+			glog.V(1).Info("vm is paused")
+		} else {
+			glog.V(1).Info("vm is resumed")
+		}
+	}
+
+	ctx.reportPauseResult(ev)
+}
+
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	if session, ok := ctx.ttySessions[tag]; ok {
 		cmd := map[string]interface{}{
@@ -455,7 +473,8 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
-		COMMAND_RELEASE:
+		COMMAND_RELEASE,
+		COMMAND_PAUSEVM:
 		ctx.reportUnexpectedRequest(ev, state)
 	default:
 		glog.Warning("got unexpected event during ", state)
@@ -500,6 +519,10 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "")
 			ctx.Become(stateDestroying, "DESTRYING")
 			ctx.reportVmShutdown()
+		case COMMAND_PAUSEVM:
+			ctx.pauseVm(ev.(*PauseCommand))
+		case EVENT_PAUSE_RESULT:
+			ctx.handlePauseResult(ev.(*PauseResult))
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_NEWCONTAINER:
@@ -622,6 +645,10 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.killCmd(ev.(*KillCommand))
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
+		case COMMAND_PAUSEVM:
+			ctx.pauseVm(ev.(*PauseCommand))
+		case EVENT_PAUSE_RESULT:
+			ctx.handlePauseResult(ev.(*PauseResult))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:

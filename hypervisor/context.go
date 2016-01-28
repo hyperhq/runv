@@ -27,7 +27,8 @@ type VmHwStatus struct {
 type VmContext struct {
 	Id string
 
-	Boot *BootConfig
+	Paused bool
+	Boot   *BootConfig
 
 	// Communication Context
 	Hub    chan VmEvent
@@ -101,6 +102,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	return &VmContext{
 		Id:              id,
 		Boot:            boot,
+		Paused:          false,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
 		attachId:        1,

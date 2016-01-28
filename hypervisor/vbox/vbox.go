@@ -175,6 +175,10 @@ func (vc *VBoxContext) Dump() (map[string]interface{}, error) {
 	}, nil
 }
 
+func (vc *VBoxContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
+	glog.Warning("doesn't support pause for vbox right now")
+}
+
 func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {
 	go func() {
 		// detach the bootable Disk

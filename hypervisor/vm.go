@@ -719,6 +719,47 @@ func (vm *Vm) Stats() *types.VmResponse {
 	return response
 }
 
+func (vm *Vm) Pause(pause bool) error {
+	pauseCmd := &PauseCommand{Pause: pause}
+
+	command := "pause"
+	if !pause {
+		command = "unpause"
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- pauseCmd
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("%s failed: get response failed", command)
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply == pauseCmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("%s failed: %s", command, Response.Cause)
+			}
+
+			break
+		}
+	}
+
+	return nil
+}
+
 func errorResponse(cause string) *types.VmResponse {
 	return &types.VmResponse{
 		Code:  -1,

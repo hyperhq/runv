@@ -480,6 +480,28 @@ func (lc *LibvirtContext) Close() {
 	lc.domain = nil
 }
 
+func (lc *LibvirtContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
+	if lc.domain == nil {
+		ctx.Hub <- &hypervisor.PauseResult{Cause: fmt.Sprintf("Cannot find domain"), Reply: cmd}
+		return
+	}
+
+	var err error
+
+	if cmd.Pause {
+		err = lc.domain.Suspend()
+	} else {
+		err = lc.domain.Resume()
+	}
+
+	cause := ""
+	if err != nil {
+		cause = err.Error()
+	}
+
+	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+}
+
 type diskdriver struct {
 	Type string `xml:type,attr`
 	Name string `xml:"name,attr,omitempty"`
