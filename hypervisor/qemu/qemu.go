@@ -243,11 +243,22 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	}
 	boot := ctx.Boot
 
+	var machineClass, memParams, cpuParams string
+	if ctx.Boot.HotAddCpuMem {
+		machineClass = "pc-i440fx-2.1"
+		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%s", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
+	} else {
+		machineClass = "pc-i440fx-2.0"
+		memParams = strconv.Itoa(ctx.Boot.Memory)
+		cpuParams = strconv.Itoa(ctx.Boot.CPU)
+	}
+
 	params := []string{
-		"-machine", "pc-i440fx-2.1,accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
+		"-machine", machineClass + ",accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		glog.V(1).Info("kvm not exist change to no kvm mode")
-		params = []string{"-machine", "pc-i440fx-2.1,usb=off", "-cpu", "core2duo"}
+		params = []string{"-machine", machineClass + ",usb=off", "-cpu", "core2duo"}
 	}
 
 	if boot.Bios != "" && boot.Cbfs != "" {
@@ -266,13 +277,10 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	}
 
-	mem_params := fmt.Sprintf("size=%d,slots=1,maxmem=%s", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
-	cpu_params := fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
-
 	return append(params,
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
-		"-m", mem_params, "-smp", cpu_params,
+		"-m", memParams, "-smp", cpuParams,
 		"-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
 		"-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3",
 		"-chardev", fmt.Sprintf("socket,id=charch0,path=%s,server,nowait", ctx.HyperSockName),
