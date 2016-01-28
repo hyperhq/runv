@@ -487,6 +487,96 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	return nil
 }
 
+func (vm *Vm) AddCpu(totalCpu int) error {
+	if vm.Cpu >= totalCpu {
+		return nil
+	}
+
+	addCpuCmd := &AddCpuCommand{
+		CpusBefore: vm.Cpu,
+		CpusAfter:  totalCpu,
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- addCpuCmd
+	vm.ReleaseRequestChan(Event)
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("add cpu failed: get response failed")
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply == addCpuCmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("add cpu failed: %s", Response.Cause)
+			}
+
+			break
+		}
+	}
+	vm.Cpu = totalCpu
+
+	return nil
+}
+
+func (vm *Vm) AddMem(totalMem int) error {
+	if vm.Mem >= totalMem {
+		return nil
+	}
+
+	addMemCmd := &AddMemCommand{
+		MemBefore: vm.Mem,
+		MemAfter:  totalMem,
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- addMemCmd
+	vm.ReleaseRequestChan(Event)
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("add memory failed: get response failed")
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply == addMemCmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("add memory failed: %s", Response.Cause)
+			}
+
+			break
+		}
+	}
+	vm.Mem = totalMem
+
+	return nil
+}
+
 func (vm *Vm) GetExitCode(tag string, callback chan *types.VmResponse) error {
 	Response, ok := <-callback
 	if !ok {

@@ -70,6 +70,25 @@ type KillCommand struct {
 	Signal    syscall.Signal `json:"signal"`
 }
 
+type AddCpuCommand struct {
+	CpusBefore int
+	CpusAfter  int
+}
+
+type AddCpuCommandAck struct {
+	cmd *AddCpuCommand
+	cur int
+}
+
+type AddMemCommand struct {
+	MemBefore int
+	MemAfter  int
+}
+
+type AddMemCommandAck struct {
+	cmd *AddMemCommand
+}
+
 type WriteFileCommand struct {
 	Container string `json:"container"`
 	File      string `json:"file"`
@@ -237,6 +256,10 @@ func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *KillCommand) Event() int           { return COMMAND_KILL }
+func (qe *AddCpuCommand) Event() int         { return COMMAND_ADDCPU }
+func (qe *AddCpuCommandAck) Event() int      { return COMMAND_ADDCPU_ACK }
+func (qe *AddMemCommand) Event() int         { return COMMAND_ADDMEM }
+func (qe *AddMemCommandAck) Event() int      { return COMMAND_ADDMEM_ACK }
 func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
 func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }

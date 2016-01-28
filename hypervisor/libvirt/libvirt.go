@@ -813,3 +813,15 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 	}
 	ctx.Hub <- callback
 }
+
+func (lc *LibvirtContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
+func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}

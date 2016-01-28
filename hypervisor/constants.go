@@ -9,6 +9,10 @@ const (
 	DefaultKernel   = "/var/lib/hyper/kernel"
 	DefaultInitrd   = "/var/lib/hyper/hyper-initrd.img"
 	ExitChar        = 4
+
+	// cpu/mem hotplug constants
+	DefaultMaxCpus = 8 // CONFIG_NR_CPUS hyperstart.git/build/kernel_config
+	DefaultMaxMem  = "32G"
 )
 
 var InterfaceCount int = 1
@@ -45,6 +49,10 @@ const (
 	COMMAND_NEWCONTAINER
 	COMMAND_EXEC
 	COMMAND_KILL
+	COMMAND_ADDCPU
+	COMMAND_ADDCPU_ACK
+	COMMAND_ADDMEM
+	COMMAND_ADDMEM_ACK
 	COMMAND_WRITEFILE
 	COMMAND_READFILE
 	COMMAND_ATTACH

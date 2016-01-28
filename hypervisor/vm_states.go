@@ -188,6 +188,38 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 	}
 }
 
+func (ctx *VmContext) addCpuOrReport(cmd *AddCpuCommand, cpu int) {
+	if cpu < cmd.CpusAfter {
+		ctx.DCtx.AddCpu(ctx, cpu, &AddCpuCommandAck{cmd: cmd, cur: cpu})
+	} else {
+		ctx.client <- &types.VmResponse{
+			VmId:  ctx.Id,
+			Code:  types.E_ADDCPU,
+			Reply: cmd,
+		}
+	}
+}
+
+func (ctx *VmContext) addCpuCmd(cmd *AddCpuCommand) {
+	ctx.addCpuOrReport(cmd, cmd.CpusBefore)
+}
+
+func (ctx *VmContext) addCpuCmdAck(cmd *AddCpuCommandAck) {
+	ctx.addCpuOrReport(cmd.cmd, cmd.cur+1)
+}
+
+func (ctx *VmContext) addMemCmd(cmd *AddMemCommand) {
+	ctx.DCtx.AddMem(ctx, 1, cmd.MemAfter-cmd.MemBefore, &AddMemCommandAck{cmd: cmd})
+}
+
+func (ctx *VmContext) addMemCmdAck(cmd *AddMemCommandAck) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_ADDMEM,
+		Reply: cmd.cmd,
+	}
+}
+
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
@@ -418,6 +450,8 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
 		COMMAND_KILL,
+		COMMAND_ADDCPU,
+		COMMAND_ADDMEM,
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
@@ -472,6 +506,14 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
+		case COMMAND_ADDCPU:
+			ctx.addCpuCmd(ev.(*AddCpuCommand))
+		case COMMAND_ADDCPU_ACK:
+			ctx.addCpuCmdAck(ev.(*AddCpuCommandAck))
+		case COMMAND_ADDMEM:
+			ctx.addMemCmd(ev.(*AddMemCommand))
+		case COMMAND_ADDMEM_ACK:
+			ctx.addMemCmdAck(ev.(*AddMemCommandAck))
 		case COMMAND_WRITEFILE:
 			ctx.writeFile(ev.(*WriteFileCommand))
 		case COMMAND_READFILE:
