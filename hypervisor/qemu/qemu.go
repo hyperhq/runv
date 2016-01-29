@@ -148,7 +148,9 @@ func (qc *QemuContext) Close() {
 }
 
 func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
-	glog.Warning("doesn't support pause for qemu right now")
+	cause := "doesn't support pause for qemu right now"
+	glog.Warning(cause)
+	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
