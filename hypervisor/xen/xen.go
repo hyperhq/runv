@@ -184,7 +184,9 @@ func (xc *XenContext) Dump() (map[string]interface{}, error) {
 }
 
 func (xc *XenContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
-	glog.Warning("doesn't support pause for xen right now")
+	cause := "doesn't support pause for xen right now"
+	glog.Warning(cause)
+	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
 }
 
 func (xc *XenContext) Shutdown(ctx *hypervisor.VmContext) {

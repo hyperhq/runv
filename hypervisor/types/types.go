@@ -33,6 +33,7 @@ const (
 
 	S_VM_IDLE
 	S_VM_ASSOCIATED
+	S_VM_PAUSED
 )
 
 const (
