@@ -311,7 +311,10 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		}
 	}
 
-	hostname := spec.Name
+	hostname := spec.Hostname
+	if len(hostname) == 0 {
+		hostname = spec.Name
+	}
 	if len(hostname) > 64 {
 		hostname = spec.Name[:64]
 	}
