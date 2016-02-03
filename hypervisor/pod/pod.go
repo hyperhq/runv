@@ -105,6 +105,7 @@ type PodLogConfig struct {
 
 type UserPod struct {
 	Name          string            `json:"id"`
+	Hostname      string            `json:"hostname"`
 	Containers    []UserContainer   `json:"containers"`
 	Resource      UserResource      `json:"resource"`
 	Files         []UserFile        `json:"files"`
@@ -118,6 +119,11 @@ type UserPod struct {
 	Type          string            `json:"type"`
 	RestartPolicy string
 }
+
+var (
+	validHostNamePattern  = `^[a-zA-Z0-9][a-zA-Z0-9-]+$`
+	validHostNameMartcher = regexp.MustCompile(validHostNamePattern)
+)
 
 func ProcessPodFile(jsonFile string) (*UserPod, error) {
 	if _, err := os.Stat(jsonFile); err != nil && os.IsNotExist(err) {
@@ -206,6 +212,14 @@ func (pod *UserPod) Validate() error {
 		"vdi":   true,
 		"vfs":   true,
 		"rbd":   true,
+	}
+
+	hostnameLen := len(pod.Hostname)
+	if hostnameLen > 63 {
+		return fmt.Errorf("Hostname exceeds the maximum length 63, len: %d", hostnameLen)
+	}
+	if hostnameLen > 0 && !validHostNameMartcher.MatchString(pod.Hostname) {
+		return fmt.Errorf("Hostname should fullfil the pattern: %s, input hostname: %s", validHostNamePattern, pod.Hostname)
 	}
 
 	hasGw := false
