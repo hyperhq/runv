@@ -416,6 +416,7 @@ func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
 			Busaddr: info.PCIAddr,
 		}
 		ctx.DCtx.AddNic(ctx, h, g)
+		ctx.SetupEtcHosts(info.DeviceName, info.IpAddr)
 	case EVENT_INTERFACE_INSERTED:
 		info := ev.(*NetDevInsertedEvent)
 		ctx.netdevInserted(info)
