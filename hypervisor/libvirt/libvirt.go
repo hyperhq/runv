@@ -229,7 +229,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		Name: ctx.Id,
 	}
 
-	dom.Memory.Unit = "MB"
+	dom.Memory.Unit = "MiB"
 	dom.Memory.Content = ctx.Boot.Memory
 
 	dom.VCpu.Placement = "static"
