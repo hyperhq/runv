@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	libvirtgo "github.com/alexzorin/libvirt-go"
@@ -78,8 +79,15 @@ type memory struct {
 	Content int    `xml:",chardata"`
 }
 
+type maxmem struct {
+	Unit    string `xml:"unit,attr"`
+	Slots   string `xml:"slots,attr"`
+	Content int    `xml:",chardata"`
+}
+
 type vcpu struct {
 	Placement string `xml:"placement,attr"`
+	Current   string `xml:"current,attr"`
 	Content   int    `xml:",chardata"`
 }
 
@@ -88,10 +96,22 @@ type cpumodel struct {
 	Content  string `xml:",chardata"`
 }
 
+type cell struct {
+	Id     string `xml:"id,attr"`
+	Cpus   string `xml:"cpus,attr"`
+	Memory string `xml:"memory,attr"`
+	Unit   string `xml:"unit,attr"`
+}
+
+type numa struct {
+	Cell []cell `xml:"cell"`
+}
+
 type cpu struct {
 	Mode  string    `xml:"mode,attr"`
 	Match string    `xml:"match,attr,omitempty"`
 	Model *cpumodel `xml:"model,omitempty"`
+	Numa  *numa     `xml:"numa,omitempty"`
 }
 
 type ostype struct {
@@ -205,6 +225,7 @@ type domain struct {
 	Type     string   `xml:"type,attr"`
 	Name     string   `xml:"name"`
 	Memory   memory   `xml:"memory"`
+	MaxMem   *maxmem  `xml:"maxMemory",omitempty`
 	VCpu     vcpu     `xml:"vcpu"`
 	OS       domainos `xml:"os"`
 	Features features `xml:"features"`
@@ -233,6 +254,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	dom.Memory.Content = ctx.Boot.Memory
 
 	dom.VCpu.Placement = "static"
+	dom.VCpu.Current = strconv.Itoa(ctx.Boot.CPU)
 	dom.VCpu.Content = ctx.Boot.CPU
 
 	dom.OS.Supported = "yes"
@@ -251,6 +273,20 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 			Fallback: "allow",
 			Content:  "core2duo",
 		}
+	}
+
+	if ctx.Boot.HotAddCpuMem {
+		dom.OS.Type.Machine = "pc-i440fx-2.1"
+		dom.VCpu.Content = hypervisor.DefaultMaxCpus
+		dom.MaxMem = &maxmem{Unit: "GiB", Slots: "1", Content: 16}
+
+		cells := make([]cell, 1)
+		cells[0].Id = "0"
+		cells[0].Cpus = fmt.Sprintf("0-%d", hypervisor.DefaultMaxCpus-1)
+		cells[0].Memory = strconv.Itoa(ctx.Boot.Memory)
+		cells[0].Unit = "MiB"
+
+		dom.CPU.Numa = &numa{Cell: cells}
 	}
 
 	cmd, err := exec.LookPath("qemu-system-x86_64")
@@ -837,13 +873,32 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 }
 
 func (lc *LibvirtContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
+	// TODO: add allcpus at ones
+	glog.V(3).Infof("add cpu %d", id)
+	err := lc.domain.SetVcpusFlags(uint(id+1), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
+	if err != nil {
+		glog.Error("add cpu failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
+		return
 	}
+
+	ctx.Hub <- callback
 }
 
 func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
+	memdevXml := fmt.Sprintf("<memory model='dimm'><target><size unit='MiB'>%d</size><node>0</node></target></memory>", size)
+	glog.V(3).Infof("memdevXml: %s", memdevXml)
+
+	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		glog.Error("attach memory failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
+		return
 	}
+
+	ctx.Hub <- callback
 }
