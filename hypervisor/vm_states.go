@@ -238,6 +238,13 @@ func (ctx *VmContext) addMemCmdAck(cmd *AddMemCommandAck) {
 	}
 }
 
+func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
+	ctx.vm <- &DecodedMessage{
+		Code:    INIT_ONLINECPUMEM,
+		Message: []byte{},
+	}
+}
+
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
@@ -537,6 +544,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.addMemCmd(ev.(*AddMemCommand))
 		case COMMAND_ADDMEM_ACK:
 			ctx.addMemCmdAck(ev.(*AddMemCommandAck))
+		case COMMAND_ONLINECPUMEM:
+			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 		case COMMAND_WRITEFILE:
 			ctx.writeFile(ev.(*WriteFileCommand))
 		case COMMAND_READFILE:
