@@ -577,6 +577,27 @@ func (vm *Vm) AddMem(totalMem int) error {
 	return nil
 }
 
+func (vm *Vm) OnlineCpuMem() error {
+	onlineCmd := &OnlineCpuMemCommand{}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- onlineCmd
+	vm.ReleaseRequestChan(Event)
+
+	return nil
+}
+
 func (vm *Vm) GetExitCode(tag string, callback chan *types.VmResponse) error {
 	Response, ok := <-callback
 	if !ok {
