@@ -221,17 +221,20 @@ type seclab struct {
 }
 
 type domain struct {
-	XMLName  xml.Name `xml:"domain"`
-	Type     string   `xml:"type,attr"`
-	Name     string   `xml:"name"`
-	Memory   memory   `xml:"memory"`
-	MaxMem   *maxmem  `xml:"maxMemory",omitempty`
-	VCpu     vcpu     `xml:"vcpu"`
-	OS       domainos `xml:"os"`
-	Features features `xml:"features"`
-	CPU      cpu      `xml:"cpu"`
-	Devices  device   `xml:"devices"`
-	SecLabel seclab   `xml:"seclabel"`
+	XMLName    xml.Name `xml:"domain"`
+	Type       string   `xml:"type,attr"`
+	Name       string   `xml:"name"`
+	Memory     memory   `xml:"memory"`
+	MaxMem     *maxmem  `xml:"maxMemory",omitempty`
+	VCpu       vcpu     `xml:"vcpu"`
+	OS         domainos `xml:"os"`
+	Features   features `xml:"features"`
+	CPU        cpu      `xml:"cpu"`
+	OnPowerOff string   `xml:"on_poweroff"`
+	OnReboot   string   `xml:"on_reboot"`
+	OnCrash    string   `xml:"on_crash"`
+	Devices    device   `xml:"devices"`
+	SecLabel   seclab   `xml:"seclabel"`
 }
 
 func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
@@ -294,6 +297,10 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		return "", fmt.Errorf("cannot find qemu-system-x86_64 binary")
 	}
 	dom.Devices.Emulator = cmd
+
+	dom.OnPowerOff = "destroy"
+	dom.OnReboot = "destroy"
+	dom.OnCrash = "destroy"
 
 	pcicontroller := controller{
 		Type:  "pci",
