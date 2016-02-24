@@ -9,14 +9,18 @@ import (
 )
 
 type BootConfig struct {
-	CPU          int
-	Memory       int
-	HotAddCpuMem bool
-	Kernel       string
-	Initrd       string
-	Bios         string
-	Cbfs         string
-	Vbox         string
+	CPU              int
+	Memory           int
+	HotAddCpuMem     bool
+	BootToBeTemplate bool
+	BootFromTemplate bool
+	MemoryPath       string
+	DevicesStatePath string
+	Kernel           string
+	Initrd           string
+	Bios             string
+	Cbfs             string
+	Vbox             string
 }
 
 type HostNicInfo struct {
@@ -61,6 +65,8 @@ type DriverContext interface {
 
 	AddCpu(ctx *VmContext, id int, callback VmEvent)
 	AddMem(ctx *VmContext, slot, size int, callback VmEvent)
+
+	Save(ctx *VmContext, path string, callback VmEvent)
 
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
@@ -128,6 +134,8 @@ func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback 
 func (ec *EmptyContext) AddCpu(ctx *VmContext, id int, callback VmEvent) {}
 func (ec *EmptyContext) AddMem(ctx *VmContext, slot, size int, callback VmEvent) {
 }
+
+func (ec *EmptyContext) Save(ctx *VmContext, path string, callback VmEvent) {}
 
 func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 

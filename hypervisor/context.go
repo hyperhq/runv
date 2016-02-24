@@ -102,7 +102,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	return &VmContext{
 		Id:              id,
 		Boot:            boot,
-		Paused:          false,
+		Paused:          boot.BootFromTemplate,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
 		attachId:        1,

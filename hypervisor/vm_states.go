@@ -245,6 +245,17 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	}
 }
 
+func (ctx *VmContext) save(cmd *SaveCommand) {
+	ctx.DCtx.Save(ctx, cmd.Path, &SaveCommandAck{cmd: cmd})
+}
+
+func (ctx *VmContext) save_ack(cmd *SaveCommandAck) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Reply: cmd.cmd,
+	}
+}
+
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
@@ -477,6 +488,8 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_KILL,
 		COMMAND_ADDCPU,
 		COMMAND_ADDMEM,
+		COMMAND_SAVE,
+		COMMAND_SAVE_ACK,
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
@@ -546,6 +559,11 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.addMemCmdAck(ev.(*AddMemCommandAck))
 		case COMMAND_ONLINECPUMEM:
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
+		case COMMAND_SAVE:
+			// TODO: current only support save when init(for template)
+			ctx.save(ev.(*SaveCommand))
+		case COMMAND_SAVE_ACK:
+			ctx.save_ack(ev.(*SaveCommandAck))
 		case COMMAND_WRITEFILE:
 			ctx.writeFile(ev.(*WriteFileCommand))
 		case COMMAND_READFILE:

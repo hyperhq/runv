@@ -395,6 +395,12 @@ func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callbac
 	}
 }
 
+func (vc *VBoxContext) Save(ctx *hypervisor.VmContext, path string, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
 // Prepare the conditions for the vm startup
 // * Create VM machine
 // * Create serial port

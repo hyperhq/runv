@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"syscall"
 	"time"
 
@@ -598,6 +599,44 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
+func (vm *Vm) Save(path string) error {
+	cmd := &SaveCommand{
+		Path: path,
+	}
+
+	Event, err := vm.GetRequestChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseRequestChan(Event)
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return nil
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	Event <- cmd
+	vm.ReleaseRequestChan(Event)
+
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return fmt.Errorf("save state failed: get response failed")
+		}
+
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Reply == cmd {
+			if Response.Cause != "" {
+				return fmt.Errorf("save state failed: %s", Response.Cause)
+			}
+
+			break
+		}
+	}
+	return nil
+}
+
 func (vm *Vm) GetExitCode(tag string, callback chan *types.VmResponse) error {
 	Response, ok := <-callback
 	if !ok {
@@ -800,4 +839,36 @@ func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
 		Keep:      keep,
 		ExitCodes: make(map[string]uint8),
 	}
+}
+
+func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool, keep int) (vm *Vm, err error) {
+	var id string
+	for {
+		id = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+		if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
+			break
+		}
+	}
+	vm = NewVm(id, b.CPU, b.Memory, lazy, keep)
+	if err = vm.Launch(b); err != nil {
+		return nil, err
+	}
+
+	if waitStarted {
+		// wait init connected
+		Status, err := vm.GetResponseChan()
+		if err != nil {
+			vm.Kill()
+			return nil, err
+		}
+		defer vm.ReleaseResponseChan(Status)
+		for {
+			vmResponse, ok := <-Status
+			if !ok || vmResponse.Code == types.E_VM_RUNNING {
+				break
+			}
+		}
+	}
+	return vm, nil
+
 }

@@ -346,6 +346,12 @@ func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback
 	}
 }
 
+func (xc *XenContext) Save(ctx *hypervisor.VmContext, path string, callback hypervisor.VmEvent) {
+	ctx.Hub <- &hypervisor.DeviceFailed{
+		Session: callback,
+	}
+}
+
 func XlStartDomain(ctx LibxlCtxPtr, id string, boot *hypervisor.BootConfig, hyperSock, ttySock, consoleSock string, extra []string) (int, unsafe.Pointer, error) {
 
 	config := &DomainConfig{
