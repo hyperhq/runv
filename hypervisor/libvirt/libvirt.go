@@ -963,18 +963,32 @@ type nictgt struct {
 
 type nicmodel fsdriver
 
-type nic struct {
-	XMLName xml.Name `xml:"interface"`
-	Type    string   `xml:"type,attr"`
-	Mac     nicmac   `xml:"mac"`
-	Source  nicsrc   `xml:"source"`
-	Target  *nictgt  `xml:"target,omitempty"`
-	Model   nicmodel `xml:"model"`
-	Address *address `xml:"address"`
+type nicBound struct {
+	// in kilobytes/second
+	Average string `xml:"average,attr"`
+	Peak    string `xml:"peak,attr"`
 }
 
-func nicXml(bridge, device, mac string, addr int) (string, error) {
+type bandwidth struct {
+	XMLName  xml.Name  `xml:"bandwidth"`
+	Inbound  *nicBound `xml:"inbound,omitempty"`
+	Outbound *nicBound `xml:"outbound,omitempty"`
+}
+
+type nic struct {
+	XMLName   xml.Name   `xml:"interface"`
+	Type      string     `xml:"type,attr"`
+	Mac       nicmac     `xml:"mac"`
+	Source    nicsrc     `xml:"source"`
+	Target    *nictgt    `xml:"target,omitempty"`
+	Model     nicmodel   `xml:"model"`
+	Address   *address   `xml:"address"`
+	Bandwidth *bandwidth `xml:"bandwidth,omitempty"`
+}
+
+func nicXml(bridge, device, mac string, addr int, config *hypervisor.BootConfig) (string, error) {
 	slot := fmt.Sprintf("0x%x", addr)
+
 	n := nic{
 		Type: "bridge",
 		Mac: nicmac{
@@ -998,6 +1012,17 @@ func nicXml(bridge, device, mac string, addr int) (string, error) {
 		},
 	}
 
+	if config.InboundAverage != "" || config.OutboundAverage != "" {
+		b := &bandwidth{}
+		if config.InboundAverage != "" {
+			b.Inbound = &nicBound{Average: config.InboundAverage, Peak: config.InboundPeak}
+		}
+		if config.OutboundAverage != "" {
+			b.Outbound = &nicBound{Average: config.OutboundAverage, Peak: config.OutboundPeak}
+		}
+		n.Bandwidth = b
+	}
+
 	data, err := xml.Marshal(n)
 	if err != nil {
 		return "", err
@@ -1014,7 +1039,7 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 		return
 	}
 
-	nicXml, err := nicXml(host.Bridge, host.Device, host.Mac, guest.Busaddr)
+	nicXml, err := nicXml(host.Bridge, host.Device, host.Mac, guest.Busaddr, ctx.Boot)
 	if err != nil {
 		glog.Error("generate attach-nic-xml failed, ", err.Error())
 		result <- &hypervisor.DeviceFailed{
@@ -1049,7 +1074,7 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 		return
 	}
 
-	nicXml, err := nicXml(n.Bridge, n.HostDevice, n.MacAddr, n.PCIAddr)
+	nicXml, err := nicXml(n.Bridge, n.HostDevice, n.MacAddr, n.PCIAddr, ctx.Boot)
 	if err != nil {
 		glog.Error("generate detach-nic-xml failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
