@@ -442,7 +442,7 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 	}
 	glog.V(3).Infof("domainXML: %v", domainXml)
 
-	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_AUTODESTROY)
+	domain, err := lc.driver.conn.DomainCreateXML(domainXml, 0)
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
@@ -900,6 +900,22 @@ func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, call
 
 	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
 	if err != nil {
+		glog.Error("attach memory failed, ", err.Error())
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: callback,
+		}
+		return
+	}
+
+	ctx.Hub <- callback
+}
+
+func (lc *LibvirtContext) Save(ctx *hypervisor.VmContext, path string, callback hypervisor.VmEvent) {
+	glog.V(3).Infof("save domain to: %s", path)
+
+	err := lc.domain.Save(path)
+	if err != nil {
+		// TODO: use differect way to handle failure
 		glog.Error("attach memory failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
 			Session: callback,

@@ -148,9 +148,24 @@ func (qc *QemuContext) Close() {
 }
 
 func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
-	cause := "doesn't support pause for qemu right now"
-	glog.Warning(cause)
-	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+	commands := make([]*QmpCommand, 1)
+
+	if cmd.Pause {
+		commands[0] = &QmpCommand{
+			Execute: "stop",
+		}
+	} else {
+		commands[0] = &QmpCommand{
+			Execute: "cont",
+		}
+	}
+
+	// TODO: handle qmp error
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		callback: &hypervisor.PauseResult{Reply: cmd},
+	}
+
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
@@ -234,6 +249,34 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callbac
 	}
 }
 
+func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, callback hypervisor.VmEvent) {
+	commands := make([]*QmpCommand, 2)
+
+	commands[1] = &QmpCommand{
+		Execute: "migrate",
+		Arguments: map[string]interface{}{
+			"uri": fmt.Sprintf("exec:cat>%s", path),
+		},
+	}
+	if ctx.Boot.BootToBeTemplate {
+		cap := map[string]interface{}{"capability": "bypass-shared-memory", "state": true}
+		caplist := []map[string]interface{}{cap}
+		commands[0] = &QmpCommand{
+			Execute: "migrate-set-capabilities",
+			Arguments: map[string]interface{}{
+				"capabilities": caplist,
+			},
+		}
+	} else {
+		commands = commands[1:]
+	}
+	// TODO: use query-migrate to query until completed
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		callback: callback,
+	}
+}
+
 func (qc *QemuDriver) SupportLazyMode() bool {
 	return false
 }
@@ -250,14 +293,14 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	boot := ctx.Boot
 
 	var machineClass, memParams, cpuParams string
-	if ctx.Boot.HotAddCpuMem {
+	if boot.HotAddCpuMem || boot.BootToBeTemplate || boot.BootFromTemplate {
 		machineClass = "pc-i440fx-2.1"
-		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%s", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
-		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
+		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%s", boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
 	} else {
 		machineClass = "pc-i440fx-2.0"
-		memParams = strconv.Itoa(ctx.Boot.Memory)
-		cpuParams = strconv.Itoa(ctx.Boot.CPU)
+		memParams = strconv.Itoa(boot.Memory)
+		cpuParams = strconv.Itoa(boot.CPU)
 	}
 
 	params := []string{
@@ -283,11 +326,27 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
 	}
 
-	return append(params,
+	params = append(params,
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
-		"-m", memParams, "-smp", cpuParams,
-		"-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
+		"-m", memParams, "-smp", cpuParams)
+
+	if boot.BootToBeTemplate || boot.BootFromTemplate {
+		memObject := fmt.Sprintf("memory-backend-file,id=hyper-template-memory,size=%dM,mem-path=%s", boot.Memory, boot.MemoryPath)
+		if boot.BootToBeTemplate {
+			memObject = memObject + ",share=on"
+		}
+		nodeConfig := fmt.Sprintf("node,nodeid=0,cpus=0-%d,memdev=hyper-template-memory", hypervisor.DefaultMaxCpus-1)
+		params = append(params, "-object", memObject, "-numa", nodeConfig)
+		if boot.BootFromTemplate {
+			params = append(params, "-incoming", fmt.Sprintf("exec:cat %s", boot.DevicesStatePath))
+		}
+	} else if boot.HotAddCpuMem {
+		nodeConfig := fmt.Sprintf("node,nodeid=0,cpus=0-%d,mem=%d", hypervisor.DefaultMaxCpus-1, boot.Memory)
+		params = append(params, "-numa", nodeConfig)
+	}
+
+	return append(params, "-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
 		"-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3",
 		"-chardev", fmt.Sprintf("socket,id=charch0,path=%s,server,nowait", ctx.HyperSockName),
 		"-device", "virtserialport,bus=virtio-serial0.0,nr=1,chardev=charch0,id=channel0,name=sh.hyper.channel.0",

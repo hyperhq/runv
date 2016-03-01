@@ -100,6 +100,14 @@ type AddMemCommandAck struct {
 
 type OnlineCpuMemCommand struct{}
 
+type SaveCommand struct {
+	Path string
+}
+
+type SaveCommandAck struct {
+	cmd *SaveCommand
+}
+
 type WriteFileCommand struct {
 	Container string `json:"container"`
 	File      string `json:"file"`
@@ -274,6 +282,8 @@ func (qe *AddCpuCommandAck) Event() int      { return COMMAND_ADDCPU_ACK }
 func (qe *AddMemCommand) Event() int         { return COMMAND_ADDMEM }
 func (qe *AddMemCommandAck) Event() int      { return COMMAND_ADDMEM_ACK }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
+func (qe *SaveCommand) Event() int           { return COMMAND_SAVE }
+func (qe *SaveCommandAck) Event() int        { return COMMAND_SAVE_ACK }
 func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
 func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
