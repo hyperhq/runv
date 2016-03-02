@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"syscall"
 	"time"
 
@@ -800,4 +801,36 @@ func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
 		Keep:      keep,
 		ExitCodes: make(map[string]uint8),
 	}
+}
+
+func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool, keep int) (vm *Vm, err error) {
+	var id string
+	for {
+		id = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+		if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
+			break
+		}
+	}
+	vm = NewVm(id, b.CPU, b.Memory, lazy, keep)
+	if err = vm.Launch(b); err != nil {
+		return nil, err
+	}
+
+	if waitStarted {
+		// wait init connected
+		Status, err := vm.GetResponseChan()
+		if err != nil {
+			vm.Kill()
+			return nil, err
+		}
+		defer vm.ReleaseResponseChan(Status)
+		for {
+			vmResponse, ok := <-Status
+			if !ok || vmResponse.Code == types.E_VM_RUNNING {
+				break
+			}
+		}
+	}
+	return vm, nil
+
 }
