@@ -148,9 +148,24 @@ func (qc *QemuContext) Close() {
 }
 
 func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
-	cause := "doesn't support pause for qemu right now"
-	glog.Warning(cause)
-	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+	commands := make([]*QmpCommand, 1)
+
+	if cmd.Pause {
+		commands[0] = &QmpCommand{
+			Execute: "stop",
+		}
+	} else {
+		commands[0] = &QmpCommand{
+			Execute: "cont",
+		}
+	}
+
+	// TODO: handle qmp error
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		callback: &hypervisor.PauseResult{Reply: cmd},
+	}
+
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
