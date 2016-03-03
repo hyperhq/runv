@@ -161,11 +161,6 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 		return nil
 	}
 	var response *types.VmResponse
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
@@ -176,7 +171,7 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	getPodIPEvent := &GetPodIPCommand{
 		Id: mypod.Vm,
 	}
-	PodEvent <- getPodIPEvent
+	vm.Hub <- getPodIPEvent
 	// wait for the VM response
 	for {
 		response = <-Status
