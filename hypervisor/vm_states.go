@@ -249,14 +249,14 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Sequence = ctx.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
-		cmd.Streams.Callback <- &types.VmResponse{
+		cmd.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
 			Cause: fmt.Sprintf("command %s parse failed", cmd.Command), Data: cmd.Sequence,
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.Streams)
-	ctx.clientReg(cmd.Streams.ClientTag, cmd.Sequence)
+	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO)
+	ctx.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,

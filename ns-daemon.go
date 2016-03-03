@@ -19,9 +19,11 @@ type nsContext struct {
 	podStatus   *hypervisor.PodStatus
 	vm          *hypervisor.Vm
 	firstConfig *startConfig
+	ttyList     map[string]*hypervisor.TtyIO
 	actives     map[string]*startConfig
 	sockets     map[string]net.Listener
 	wg          sync.WaitGroup
+	sync.RWMutex
 }
 
 func runvNamespaceDaemon() {
@@ -38,6 +40,7 @@ func runvNamespaceDaemon() {
 	context := &nsContext{}
 	context.actives = make(map[string]*startConfig)
 	context.sockets = make(map[string]net.Listener)
+	context.ttyList = make(map[string]*hypervisor.TtyIO)
 
 	startVContainer(context, root, id)
 	context.wg.Wait()

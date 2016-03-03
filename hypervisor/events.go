@@ -1,11 +1,12 @@
 package hypervisor
 
 import (
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"net"
 	"os"
 	"sync"
 	"syscall"
+
+	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
 type VmEvent interface {
@@ -68,10 +69,10 @@ type NewContainerCommand struct {
 }
 
 type ExecCommand struct {
-	Container string   `json:"container,omitempty"`
+	*TtyIO    `json:"-"`
 	Sequence  uint64   `json:"seq"`
+	Container string   `json:"container,omitempty"`
 	Command   []string `json:"cmd"`
-	Streams   *TtyIO   `json:"-"`
 }
 
 type KillCommand struct {
@@ -118,10 +119,10 @@ type ShutdownCommand struct {
 type ReleaseVMCommand struct{}
 
 type AttachCommand struct {
-	Container string
 	Streams   *TtyIO
 	Stderr    *TtyIO
 	Size      *WindowSize
+	Container string
 }
 
 type CommandAck struct {
