@@ -9,12 +9,19 @@ matrix:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y autoconf automake pkg-config libdevmapper-dev libvirt-dev -qq
+  - sudo apt-get install -y autoconf automake pkg-config libdevmapper-dev libsqlite3-dev libvirt-dev qemu libvirt-bin -qq
+  - cd `mktemp -d`
+  - mkdir -p ${GOPATH}/src/github.com/hyperhq
+  - git clone https://github.com/hyperhq/hyper.git ${GOPATH}/src/github.com/hyperhq/hyper
+  - wget https://git.fedorahosted.org/cgit/lvm2.git/snapshot/lvm2-2_02_131.tar.xz
+  - tar xf lvm2-2_02_131.tar.xz
+  - cd lvm2-2_02_131
+  - ./configure && make device-mapper && sudo make install
 
-script: 
+script:
   - cd ${TRAVIS_BUILD_DIR}
-  - ./verify-gofmt.sh
+  - hack/verify-gofmt.sh
   - ./autogen.sh
-  - ./configure 
+  - ./configure
   - make
-
+  - hack/test-cmd.sh
