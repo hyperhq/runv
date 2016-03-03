@@ -22,12 +22,12 @@ type Vm struct {
 	Lazy   bool
 	Keep   int
 
-	VmChan  chan VmEvent
+	Hub     chan VmEvent
 	clients *Fanout
 }
 
 func (vm *Vm) GetRequestChan() (chan VmEvent, error) {
-	return vm.VmChan, nil
+	return vm.Hub, nil
 }
 
 func (vm *Vm) ReleaseRequestChan(chan VmEvent) {
@@ -60,7 +60,7 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
-	vm.VmChan = PodEvent
+	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
 	return nil
@@ -124,7 +124,7 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 		return errors.New("load vm status failed")
 	}
 
-	vm.VmChan = PodEvent
+	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
 	mypod.Status = types.S_POD_RUNNING
