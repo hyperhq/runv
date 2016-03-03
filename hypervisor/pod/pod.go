@@ -266,7 +266,7 @@ func (pod *UserPod) Validate() error {
 			}
 			if f.Perm != "0" {
 				if !permReg.Match([]byte(f.Perm)) {
-					return fmt.Errorf("in container %d, the permission %s only accept Octal digital in string")
+					return fmt.Errorf("in container %d, the permission %s only accept Octal digital in string", idx, f.Perm)
 				}
 			}
 		}
