@@ -400,9 +400,21 @@ func startVContainer(context *nsContext, root, container string) {
 		utils.Umount(rootDir)
 		os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId, hypervisor.ShareDirTag, info.Id))
 	}()
+
 	tag, _ := runvAllocAndRespondTag(conn)
-	ttyCallback := make(chan *types.VmResponse, 1)
-	err = context.vm.Attach(conn, conn, tag, info.Id, ttyCallback, nil)
+
+	tty := &hypervisor.TtyIO{
+		ClientTag: tag,
+		Stdin:     conn,
+		Stdout:    conn,
+		Callback:  make(chan *types.VmResponse, 1),
+	}
+
+	context.Lock()
+	context.ttyList[tag] = tty
+	context.Unlock()
+
+	err = context.vm.Attach(tty, info.Id, nil)
 	if err != nil {
 		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
 		return
@@ -423,7 +435,7 @@ func startVContainer(context *nsContext, root, container string) {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
 
-	err = context.vm.GetExitCode(tag, ttyCallback)
+	err = tty.WaitForFinish()
 	if err != nil {
 		fmt.Printf("get exit code failed %s\n", err.Error())
 	}
@@ -523,8 +535,17 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			tag, _ := runvAllocAndRespondTag(conn)
 
 			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
-			err = context.vm.Exec(conn, conn, string(msg.Message[:]), tag, info.Id)
+			tty := &hypervisor.TtyIO{
+				ClientTag: tag,
+				Stdin:     conn,
+				Stdout:    conn,
+				Callback:  make(chan *types.VmResponse, 1),
+			}
 
+			context.Lock()
+			context.ttyList[tag] = tty
+			context.Unlock()
+			err = context.vm.Exec(tty, info.Id, string(msg.Message[:]))
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
 			}
@@ -541,11 +562,13 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			}
 
 			fmt.Printf("client get exit status: tag %v\n", tagCmd)
-			_, ok := context.vm.ExitCodes[tagCmd.Tag]
-			if ok {
-				code = uint8(context.vm.ExitCodes[tagCmd.Tag])
-				delete(context.vm.ExitCodes, tagCmd.Tag)
+
+			context.Lock()
+			if tty, ok := context.ttyList[tagCmd.Tag]; ok {
+				code = uint8(tty.ExitCode)
+				delete(context.ttyList, tagCmd.Tag)
 			}
+			context.Unlock()
 
 			m := &hypervisor.DecodedMessage{
 				Code:    RUNV_EXITSTATUS,

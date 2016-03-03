@@ -26,7 +26,8 @@ func TtySplice(conn net.Conn) (int, error) {
 
 	sendStdin := make(chan error, 1)
 	go func() {
-		io.Copy(conn, os.Stdin)
+		written, err := io.Copy(conn, os.Stdin)
+		fmt.Printf("copy from stdin to remote %v, err %v\n", written, err)
 
 		if sock, ok := conn.(interface {
 			CloseWrite() error

@@ -2,6 +2,7 @@ package hypervisor
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -22,8 +23,27 @@ type TtyIO struct {
 	Stdout    io.WriteCloser
 	ClientTag string
 	Callback  chan *types.VmResponse
+	ExitCode  uint8
 
 	liner StreamTansformer
+}
+
+func (tty *TtyIO) WaitForFinish() error {
+	tty.ExitCode = 255
+
+	Response, ok := <-tty.Callback
+	if !ok {
+		return fmt.Errorf("get response failed")
+	}
+
+	glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+	if Response.Code == types.E_EXEC_FINISH {
+		tty.ExitCode = Response.Data.(uint8)
+		glog.V(1).Infof("Exit code %d", tty.ExitCode)
+	}
+
+	close(tty.Callback)
+	return nil
 }
 
 type ttyAttachments struct {
@@ -386,18 +406,9 @@ func TtyLiner(conn io.Reader, output chan string) {
 	}
 }
 
-func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
-	container string, callback chan *types.VmResponse, size *WindowSize) error {
-
-	ttyIO := &TtyIO{
-		Stdin:     Stdin,
-		Stdout:    Stdout,
-		ClientTag: tag,
-		Callback:  callback,
-	}
-
-	var attachCommand = &AttachCommand{
-		Streams:   ttyIO,
+func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
+	attachCommand := &AttachCommand{
+		Streams:   tty,
 		Size:      size,
 		Container: container,
 	}
@@ -416,7 +427,6 @@ func (vm *Vm) Attach(Stdin io.ReadCloser, Stdout io.WriteCloser, tag,
 func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
 	stdout, stdoutStub := io.Pipe()
 	stderr, stderrStub := io.Pipe()
-
 	outIO := &TtyIO{
 		Stdin:     nil,
 		Stdout:    stdoutStub,
