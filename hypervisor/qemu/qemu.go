@@ -160,10 +160,16 @@ func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCom
 		}
 	}
 
-	// TODO: handle qmp error
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond:  defaultRespond(ctx, &hypervisor.PauseResult{Reply: cmd}),
+		respond: func(err error) {
+			cause := ""
+			if err != nil {
+				cause = err.Error()
+			}
+
+			ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+		},
 	}
 
 }
