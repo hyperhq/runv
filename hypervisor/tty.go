@@ -413,13 +413,7 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 		Container: container,
 	}
 
-	VmEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(VmEvent)
-
-	VmEvent <- attachCommand
+	vm.Hub <- attachCommand
 
 	return nil
 }
@@ -446,13 +440,7 @@ func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmRespons
 		Container: container,
 	}
 
-	VmEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer vm.ReleaseRequestChan(VmEvent)
-
-	VmEvent <- cmd
+	vm.Hub <- cmd
 
 	return stdout, stderr, nil
 }

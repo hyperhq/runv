@@ -22,17 +22,8 @@ type Vm struct {
 	Lazy   bool
 	Keep   int
 
-	VmChan  chan VmEvent
+	Hub     chan VmEvent
 	clients *Fanout
-}
-
-func (vm *Vm) GetRequestChan() (chan VmEvent, error) {
-	return vm.VmChan, nil
-}
-
-func (vm *Vm) ReleaseRequestChan(chan VmEvent) {
-	//do nothing, the existence of this method is just let the
-	//API be symmetric
 }
 
 func (vm *Vm) GetResponseChan() (chan *types.VmResponse, error) {
@@ -60,18 +51,13 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
 	}
 
-	vm.VmChan = PodEvent
+	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
 	return nil
 }
 
 func (vm *Vm) Kill() (int, string, error) {
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return -1, "", err
-	}
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return -1, "", err
@@ -79,7 +65,7 @@ func (vm *Vm) Kill() (int, string, error) {
 
 	var Response *types.VmResponse
 	shutdownPodEvent := &ShutdownCommand{Wait: false}
-	PodEvent <- shutdownPodEvent
+	vm.Hub <- shutdownPodEvent
 	// wait for the VM response
 	stop := false
 	for !stop {
@@ -87,7 +73,6 @@ func (vm *Vm) Kill() (int, string, error) {
 		Response, ok = <-Status
 		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN {
 			vm.ReleaseResponseChan(Status)
-			vm.ReleaseRequestChan(PodEvent)
 			vm.clients.Close()
 			vm.clients = nil
 			stop = true
@@ -124,7 +109,7 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 		return errors.New("load vm status failed")
 	}
 
-	vm.VmChan = PodEvent
+	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
 	mypod.Status = types.S_POD_RUNNING
@@ -139,11 +124,6 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 
 func (vm *Vm) ReleaseVm() (int, error) {
 	var Response *types.VmResponse
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return -1, err
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
@@ -153,7 +133,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 
 	if vm.Status == types.S_VM_IDLE {
 		shutdownPodEvent := &ShutdownCommand{Wait: false}
-		PodEvent <- shutdownPodEvent
+		vm.Hub <- shutdownPodEvent
 		for {
 			Response = <-Status
 			if Response.Code == types.E_VM_SHUTDOWN {
@@ -162,7 +142,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 		}
 	} else {
 		releasePodEvent := &ReleaseVMCommand{}
-		PodEvent <- releasePodEvent
+		vm.Hub <- releasePodEvent
 		for {
 			Response = <-Status
 			if Response.Code == types.E_VM_SHUTDOWN ||
@@ -250,12 +230,6 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 		return response
 	}
 
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return errorResponse(err.Error())
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return errorResponse(err.Error())
@@ -276,7 +250,7 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 		Wg:         mypod.Wg,
 	}
 
-	PodEvent <- runPodEvent
+	vm.Hub <- runPodEvent
 
 	// wait for the VM response
 	for {
@@ -305,12 +279,6 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 	var Response *types.VmResponse
 
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return errorResponse(err.Error())
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return errorResponse(err.Error())
@@ -324,7 +292,7 @@ func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 	if stopVm == "yes" {
 		mypod.Wg.Add(1)
 		shutdownPodEvent := &ShutdownCommand{Wait: true}
-		PodEvent <- shutdownPodEvent
+		vm.Hub <- shutdownPodEvent
 		// wait for the VM response
 		for {
 			Response = <-Status
@@ -338,7 +306,7 @@ func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 		mypod.Wg.Wait()
 	} else {
 		stopPodEvent := &StopPodCommand{}
-		PodEvent <- stopPodEvent
+		vm.Hub <- stopPodEvent
 		// wait for the VM response
 		for {
 			Response = <-Status
@@ -362,12 +330,6 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 		return fmt.Errorf("'write' without file")
 	}
 
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
@@ -381,7 +343,7 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 	}
 
 	writeEvent.Data = append(writeEvent.Data, data[:]...)
-	PodEvent <- writeEvent
+	vm.Hub <- writeEvent
 
 	cause := "get response failed"
 	for {
@@ -407,12 +369,6 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		return nil, fmt.Errorf("'read' without file")
 	}
 
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return nil, err
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil, err
@@ -424,7 +380,7 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		File:      target,
 	}
 
-	PodEvent <- readEvent
+	vm.Hub <- readEvent
 
 	cause := "get response failed"
 	for {
@@ -452,20 +408,13 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 		Signal:    signal,
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- killCmd
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- killCmd
 
 	for {
 		Response, ok := <-Status
@@ -496,20 +445,13 @@ func (vm *Vm) AddCpu(totalCpu int) error {
 		CpusAfter:  totalCpu,
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- addCpuCmd
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- addCpuCmd
 
 	for {
 		Response, ok := <-Status
@@ -541,20 +483,13 @@ func (vm *Vm) AddMem(totalMem int) error {
 		MemAfter:  totalMem,
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- addMemCmd
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- addMemCmd
 
 	for {
 		Response, ok := <-Status
@@ -579,20 +514,13 @@ func (vm *Vm) AddMem(totalMem int) error {
 func (vm *Vm) OnlineCpuMem() error {
 	onlineCmd := &OnlineCpuMemCommand{}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- onlineCmd
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- onlineCmd
 
 	return nil
 }
@@ -614,19 +542,13 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 		TtyIO:     tty,
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- execCmd
+	vm.Hub <- execCmd
 
 	for {
 		Response, ok := <-Status
@@ -653,13 +575,7 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 		info:      info,
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-
-	Event <- newContainerCommand
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- newContainerCommand
 	return nil
 }
 
@@ -669,13 +585,7 @@ func (vm *Vm) Tty(tag string, row, column int) error {
 		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-
-	Event <- ttySizeCommand
-	vm.ReleaseRequestChan(Event)
+	vm.Hub <- ttySizeCommand
 	return nil
 }
 
@@ -686,12 +596,6 @@ func (vm *Vm) Stats() *types.VmResponse {
 		return errorResponse("The pod is not running, can not get stats for it")
 	}
 
-	PodEvent, err := vm.GetRequestChan()
-	if err != nil {
-		return errorResponse(err.Error())
-	}
-	defer vm.ReleaseRequestChan(PodEvent)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return errorResponse(err.Error())
@@ -701,7 +605,7 @@ func (vm *Vm) Stats() *types.VmResponse {
 	getPodStatsEvent := &GetPodStatsCommand{
 		Id: vm.Id,
 	}
-	PodEvent <- getPodStatsEvent
+	vm.Hub <- getPodStatsEvent
 
 	// wait for the VM response
 	for {
@@ -726,19 +630,13 @@ func (vm *Vm) Pause(pause bool) error {
 		command = "unpause"
 	}
 
-	Event, err := vm.GetRequestChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseRequestChan(Event)
-
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return nil
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	Event <- pauseCmd
+	vm.Hub <- pauseCmd
 
 	for {
 		Response, ok := <-Status
