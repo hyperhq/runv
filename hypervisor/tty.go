@@ -53,10 +53,11 @@ type ttyAttachments struct {
 }
 
 type pseudoTtys struct {
-	attachId uint64 //next available attachId for attached tty
-	channel  chan *ttyMessage
-	ttys     map[uint64]*ttyAttachments
-	lock     *sync.Mutex
+	attachId    uint64 //next available attachId for attached tty
+	channel     chan *ttyMessage
+	ttys        map[uint64]*ttyAttachments
+	ttySessions map[string]uint64
+	lock        *sync.Mutex
 }
 
 type ttyMessage struct {
@@ -75,10 +76,11 @@ func (tm *ttyMessage) toBuffer() []byte {
 
 func newPts() *pseudoTtys {
 	return &pseudoTtys{
-		attachId: 1,
-		channel:  make(chan *ttyMessage, 256),
-		ttys:     make(map[uint64]*ttyAttachments),
-		lock:     &sync.Mutex{},
+		attachId:    1,
+		channel:     make(chan *ttyMessage, 256),
+		ttys:        make(map[uint64]*ttyAttachments),
+		ttySessions: make(map[string]uint64),
+		lock:        &sync.Mutex{},
 	}
 }
 
@@ -267,6 +269,23 @@ func (pts *pseudoTtys) nextAttachId() uint64 {
 	return id
 }
 
+func (pts *pseudoTtys) clientReg(tag string, session uint64) {
+	pts.lock.Lock()
+	pts.ttySessions[tag] = session
+	pts.lock.Unlock()
+}
+
+func (pts *pseudoTtys) clientDereg(tag string) {
+	if tag == "" {
+		return
+	}
+	pts.lock.Lock()
+	if _, ok := pts.ttySessions[tag]; ok {
+		delete(pts.ttySessions, tag)
+	}
+	pts.lock.Unlock()
+}
+
 func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 	if ta, ok := ctx.ptys.ttys[session]; ok {
 		ctx.ptys.lock.Lock()
@@ -275,7 +294,7 @@ func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 		if !ta.persistent && ta.empty() {
 			ctx.ptys.Close(ctx, session, 0)
 		}
-		ctx.clientDereg(tty.Close(0))
+		ctx.ptys.clientDereg(tty.Close(0))
 	}
 }
 
@@ -286,7 +305,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
 		for _, t := range tags {
-			ctx.clientDereg(t)
+			ctx.ptys.clientDereg(t)
 		}
 	}
 }

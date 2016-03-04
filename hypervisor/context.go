@@ -41,7 +41,6 @@ type VmContext struct {
 	InterfaceCount int
 
 	ptys        *pseudoTtys
-	ttySessions map[string]uint64
 	pendingTtys []*AttachCommand
 
 	// Specification
@@ -101,7 +100,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		DCtx:            dc,
 		vm:              vmChannel,
 		ptys:            newPts(),
-		ttySessions:     make(map[string]uint64),
 		pendingTtys:     []*AttachCommand{},
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
@@ -168,23 +166,6 @@ func (ctx *VmContext) nextPciAddr() int {
 	ctx.pciAddr++
 	ctx.lock.Unlock()
 	return addr
-}
-
-func (ctx *VmContext) clientReg(tag string, session uint64) {
-	ctx.lock.Lock()
-	ctx.ttySessions[tag] = session
-	ctx.lock.Unlock()
-}
-
-func (ctx *VmContext) clientDereg(tag string) {
-	if tag == "" {
-		return
-	}
-	ctx.lock.Lock()
-	if _, ok := ctx.ttySessions[tag]; ok {
-		delete(ctx.ttySessions, tag)
-	}
-	ctx.lock.Unlock()
 }
 
 func (ctx *VmContext) Lookup(container string) int {

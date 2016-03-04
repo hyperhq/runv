@@ -153,7 +153,7 @@ func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
 }
 
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
-	if session, ok := ctx.ttySessions[tag]; ok {
+	if session, ok := ctx.ptys.ttySessions[tag]; ok {
 		cmd := map[string]interface{}{
 			"seq":    session,
 			"row":    size.Row,
@@ -256,7 +256,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		return
 	}
 	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO)
-	ctx.clientReg(cmd.ClientTag, cmd.Sequence)
+	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
@@ -305,7 +305,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 	session := ctx.vmSpec.Containers[idx].Tty
 	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
-	ctx.clientReg(cmd.Streams.ClientTag, session)
+	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session
