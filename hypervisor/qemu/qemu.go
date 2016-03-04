@@ -122,7 +122,7 @@ func (qc *QemuContext) Dump() (map[string]interface{}, error) {
 }
 
 func (qc *QemuContext) Shutdown(ctx *hypervisor.VmContext) {
-	qmpQemuQuit(qc)
+	qmpQemuQuit(ctx, qc)
 }
 
 func (qc *QemuContext) Kill(ctx *hypervisor.VmContext) {
@@ -160,10 +160,16 @@ func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCom
 		}
 	}
 
-	// TODO: handle qmp error
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		callback: &hypervisor.PauseResult{Reply: cmd},
+		respond: func(err error) {
+			cause := ""
+			if err != nil {
+				cause = err.Error()
+			}
+
+			ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+		},
 	}
 
 }
@@ -194,21 +200,21 @@ func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blo
 		}
 	}
 
-	newDiskAddSession(qc, name, sourceType, filename, format, id)
+	newDiskAddSession(ctx, qc, name, sourceType, filename, format, id)
 }
 
 func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
 	id := blockInfo.ScsiId
 
-	newDiskDelSession(qc, id, callback)
+	newDiskDelSession(ctx, qc, id, callback)
 }
 
 func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
-	newNetworkAddSession(qc, host.Fd, guest.Device, host.Mac, guest.Index, guest.Busaddr)
+	newNetworkAddSession(ctx, qc, host.Fd, guest.Device, host.Mac, guest.Index, guest.Busaddr)
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
-	newNetworkDelSession(qc, n.DeviceName, callback)
+	newNetworkDelSession(ctx, qc, n.DeviceName, callback)
 }
 
 func (qc *QemuContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
@@ -221,7 +227,7 @@ func (qc *QemuContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hyperv
 	}
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		callback: callback,
+		respond:  defaultRespond(ctx, callback),
 	}
 }
 
@@ -245,7 +251,7 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callbac
 	}
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		callback: callback,
+		respond:  defaultRespond(ctx, callback),
 	}
 }
 

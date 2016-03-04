@@ -2,6 +2,7 @@ package qemu
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"syscall"
 	"time"
@@ -28,13 +29,13 @@ type QmpInternalError struct{ cause string }
 
 type QmpSession struct {
 	commands []*QmpCommand
-	callback hypervisor.VmEvent
+	respond  func(err error)
 }
 
 type QmpFinish struct {
-	success  bool
-	reason   map[string]interface{}
-	callback hypervisor.VmEvent
+	success bool
+	reason  map[string]interface{}
+	respond func(err error)
 }
 
 type QmpCommand struct {
@@ -73,8 +74,8 @@ func (qmp *QmpInternalError) MessageType() int { return QMP_INTERNAL_ERROR }
 func (qmp *QmpSession) MessageType() int       { return QMP_SESSION }
 func (qmp *QmpSession) Finish() *QmpFinish {
 	return &QmpFinish{
-		success:  true,
-		callback: qmp.callback,
+		success: true,
+		respond: qmp.respond,
 	}
 }
 func (qmp *QmpFinish) MessageType() int { return QMP_FINISH }
@@ -82,11 +83,11 @@ func (qmp *QmpFinish) MessageType() int { return QMP_FINISH }
 func (qmp *QmpResult) MessageType() int { return QMP_RESULT }
 
 func (qmp *QmpError) MessageType() int { return QMP_ERROR }
-func (qmp *QmpError) Finish(callback hypervisor.VmEvent) *QmpFinish {
+func (qmp *QmpError) Finish(respond func(err error)) *QmpFinish {
 	return &QmpFinish{
-		success:  false,
-		reason:   qmp.Cause,
-		callback: callback,
+		success: false,
+		reason:  qmp.Cause,
+		respond: respond,
 	}
 }
 
@@ -124,11 +125,11 @@ func (qmp *QmpResponse) UnmarshalJSON(raw []byte) error {
 	return err
 }
 
-func qmpFail(err string, callback hypervisor.VmEvent) *QmpFinish {
+func qmpFail(err string, respond func(err error)) *QmpFinish {
 	return &QmpFinish{
-		success:  false,
-		reason:   map[string]interface{}{"error": err},
-		callback: callback,
+		success: false,
+		reason:  map[string]interface{}{"error": err},
+		respond: respond,
 	}
 }
 
@@ -225,7 +226,7 @@ func qmpCommander(handler chan QmpInteraction, conn *net.UnixConn, session *QmpS
 	for _, cmd := range session.commands {
 		msg, err := json.Marshal(*cmd)
 		if err != nil {
-			handler <- qmpFail("cannot marshal command", session.callback)
+			handler <- qmpFail("cannot marshal command", session.respond)
 			return
 		}
 
@@ -264,7 +265,7 @@ func qmpCommander(handler chan QmpInteraction, conn *net.UnixConn, session *QmpS
 		}
 
 		if !success {
-			handler <- qe.Finish(session.callback)
+			handler <- qe.Finish(session.respond)
 			return
 		}
 	}
@@ -302,18 +303,14 @@ func qmpHandler(ctx *hypervisor.VmContext) {
 			r := msg.(*QmpFinish)
 			if r.success {
 				glog.V(1).Info("success ")
-				if r.callback != nil {
-					ctx.Hub <- r.callback
-				}
+				r.respond(nil)
 			} else {
 				reason := "unknown"
 				if c, ok := r.reason["error"]; ok {
 					reason = c.(string)
 				}
 				glog.Error("QMP command failed ", reason)
-				ctx.Hub <- &hypervisor.DeviceFailed{
-					Session: r.callback,
-				}
+				r.respond(errors.New(reason))
 			}
 			buf = buf[1:]
 			if len(buf) > 0 {
