@@ -66,7 +66,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	pid, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
 	if err != nil {
 		//fail to daemonize
-		glog.Error("%v", err)
+		glog.Errorf("%v", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "try to start qemu failed"}
 		return
 	}

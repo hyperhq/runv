@@ -38,7 +38,7 @@ func TestMessageParse(t *testing.T) {
 func testQmpInitHelper(t *testing.T, ctx *QemuContext) (*net.UnixListener, net.Conn) {
 	t.Log("setup ", ctx.qmpSockName)
 
-	ss, err := net.ListenUnix("unix", &net.UnixAddr{ctx.qmpSockName, "unix"})
+	ss, err := net.ListenUnix("unix", &net.UnixAddr{Name: ctx.qmpSockName, Net: "unix"})
 	if err != nil {
 		t.Error("fail to setup connect to qmp socket", err.Error())
 	}
@@ -127,7 +127,7 @@ func TestInitFail(t *testing.T) {
 
 	t.Log("setup ", qc.qmpSockName)
 
-	ss, err := net.ListenUnix("unix", &net.UnixAddr{qc.qmpSockName, "unix"})
+	ss, err := net.ListenUnix("unix", &net.UnixAddr{Name: qc.qmpSockName, Net: "unix"})
 	if err != nil {
 		t.Error("fail to setup connect to qmp socket", err.Error())
 	}
@@ -202,7 +202,7 @@ func TestQmpInitTimeout(t *testing.T) {
 
 	t.Log("connecting to ", qc.qmpSockName)
 
-	ss, err := net.ListenUnix("unix", &net.UnixAddr{qc.qmpSockName, "unix"})
+	ss, err := net.ListenUnix("unix", &net.UnixAddr{Name: qc.qmpSockName, Net: "unix"})
 	if err != nil {
 		t.Error("fail to setup connect to qmp socket", err.Error())
 	}

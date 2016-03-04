@@ -327,7 +327,6 @@ func (c *Conn) readUntil(read bool, delims ...string) ([]byte, int, error) {
 			}
 		}
 	}
-	panic(nil)
 }
 
 // ReadUntilIndex reads from connection until one of delimiters occurs. Returns
