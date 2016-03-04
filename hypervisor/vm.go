@@ -537,9 +537,10 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 	}
 
 	execCmd := &ExecCommand{
-		Command:   command,
-		Container: container,
-		TtyIO:     tty,
+		Command:     command,
+		Container:   container,
+		TtyIO:       tty,
+		StartedChan: make(chan bool, 1),
 	}
 
 	Status, err := vm.GetResponseChan()
@@ -553,12 +554,14 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 	for {
 		Response, ok := <-Status
 		if !ok {
+			execCmd.StartedChan <- false
 			return fmt.Errorf("exec command %v failed: get response failed", command)
 		}
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 		if Response.Reply == execCmd {
 			if Response.Cause != "" {
+				execCmd.StartedChan <- false
 				return fmt.Errorf("exec command %v failed: %s", command, Response.Cause)
 			}
 
@@ -566,13 +569,15 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 		}
 	}
 
+	execCmd.StartedChan <- true
 	return execCmd.WaitForFinish()
 }
 
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	newContainerCommand := &NewContainerCommand{
-		container: c,
-		info:      info,
+		container:   c,
+		info:        info,
+		startedChan: make(chan bool),
 	}
 
 	vm.Hub <- newContainerCommand

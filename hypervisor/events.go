@@ -64,15 +64,18 @@ type PauseResult struct {
 }
 
 type NewContainerCommand struct {
-	container *pod.UserContainer
-	info      *ContainerInfo
+	container   *pod.UserContainer
+	info        *ContainerInfo
+	pendingNum  int
+	startedChan chan bool
 }
 
 type ExecCommand struct {
-	*TtyIO    `json:"-"`
-	Sequence  uint64   `json:"seq"`
-	Container string   `json:"container,omitempty"`
-	Command   []string `json:"cmd"`
+	*TtyIO      `json:"-"`
+	StartedChan chan bool `json:"-"`
+	Sequence    uint64    `json:"seq"`
+	Container   string    `json:"container,omitempty"`
+	Command     []string  `json:"cmd"`
 }
 
 type KillCommand struct {

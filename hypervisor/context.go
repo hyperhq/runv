@@ -52,6 +52,8 @@ type VmContext struct {
 	ptys        *pseudoTtys
 	ttySessions map[string]uint64
 	pendingTtys []*AttachCommand
+	pendingNum  int
+	startedChan chan bool
 
 	// Specification
 	userSpec *pod.UserPod
@@ -113,6 +115,8 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		ptys:            newPts(),
 		ttySessions:     make(map[string]uint64),
 		pendingTtys:     []*AttachCommand{},
+		pendingNum:      0,
+		startedChan:     make(chan bool),
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
 		TtySockName:     ttySockName,
@@ -224,6 +228,7 @@ func (ctx *VmContext) ClosePendingTtys() {
 		tty.Streams.Close(255)
 	}
 	ctx.pendingTtys = []*AttachCommand{}
+	close(ctx.startedChan)
 }
 
 func (ctx *VmContext) Close() {
