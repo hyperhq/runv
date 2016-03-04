@@ -57,6 +57,7 @@ type pseudoTtys struct {
 	channel     chan *ttyMessage
 	ttys        map[uint64]*ttyAttachments
 	ttySessions map[string]uint64
+	pendingTtys []*AttachCommand
 	lock        *sync.Mutex
 }
 
@@ -80,6 +81,7 @@ func newPts() *pseudoTtys {
 		channel:     make(chan *ttyMessage, 256),
 		ttys:        make(map[uint64]*ttyAttachments),
 		ttySessions: make(map[string]uint64),
+		pendingTtys: []*AttachCommand{},
 		lock:        &sync.Mutex{},
 	}
 }
@@ -348,6 +350,13 @@ func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, session uint64,
 	}
 
 	return
+}
+
+func (pts *pseudoTtys) closePendingTtys() {
+	for _, tty := range pts.pendingTtys {
+		tty.Streams.Close(255)
+	}
+	pts.pendingTtys = []*AttachCommand{}
 }
 
 type StreamTansformer interface {

@@ -59,8 +59,8 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		glog.Info("initial vm spec: ", string(res))
 	}
 
-	pendings := ctx.pendingTtys
-	ctx.pendingTtys = []*AttachCommand{}
+	pendings := ctx.ptys.pendingTtys
+	ctx.ptys.pendingTtys = []*AttachCommand{}
 	for _, acmd := range pendings {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
@@ -68,7 +68,7 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 			ctx.attachTty2Container(idx, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
 
@@ -100,15 +100,15 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 
 	ctx.lock.Unlock()
 
-	pendings := ctx.pendingTtys
-	ctx.pendingTtys = []*AttachCommand{}
+	pendings := ctx.ptys.pendingTtys
+	ctx.ptys.pendingTtys = []*AttachCommand{}
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.attachTty2Container(idx, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
 
@@ -282,7 +282,7 @@ func (ctx *VmContext) killCmd(cmd *KillCommand) {
 func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
-		ctx.pendingTtys = append(ctx.pendingTtys, cmd)
+		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
 		return
 	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {

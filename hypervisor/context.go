@@ -40,8 +40,7 @@ type VmContext struct {
 
 	InterfaceCount int
 
-	ptys        *pseudoTtys
-	pendingTtys []*AttachCommand
+	ptys *pseudoTtys
 
 	// Specification
 	userSpec *pod.UserPod
@@ -100,7 +99,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		DCtx:            dc,
 		vm:              vmChannel,
 		ptys:            newPts(),
-		pendingTtys:     []*AttachCommand{},
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
 		TtySockName:     ttySockName,
@@ -138,7 +136,7 @@ func (ctx *VmContext) unsetTimeout() {
 func (ctx *VmContext) reset() {
 	ctx.lock.Lock()
 
-	ctx.ClosePendingTtys()
+	ctx.ptys.closePendingTtys()
 
 	ctx.pciAddr = PciAddrFrom
 	ctx.scsiId = 0
@@ -182,17 +180,10 @@ func (ctx *VmContext) Lookup(container string) int {
 	return -1
 }
 
-func (ctx *VmContext) ClosePendingTtys() {
-	for _, tty := range ctx.pendingTtys {
-		tty.Streams.Close(255)
-	}
-	ctx.pendingTtys = []*AttachCommand{}
-}
-
 func (ctx *VmContext) Close() {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
-	ctx.ClosePendingTtys()
+	ctx.ptys.closePendingTtys()
 	ctx.unsetTimeout()
 	ctx.DCtx.Close()
 	close(ctx.vm)
