@@ -10,14 +10,6 @@ import (
 	"time"
 )
 
-type VmOnDiskInfo struct {
-	QmpSockName     string
-	HyperSockName   string
-	TtySockName     string
-	ConsoleSockName string
-	ShareDir        string
-}
-
 type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
 	ScsiId   int    //next available scsi id for scsi hotplug
