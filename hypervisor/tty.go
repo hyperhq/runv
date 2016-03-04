@@ -53,9 +53,10 @@ type ttyAttachments struct {
 }
 
 type pseudoTtys struct {
-	channel chan *ttyMessage
-	ttys    map[uint64]*ttyAttachments
-	lock    *sync.Mutex
+	attachId uint64 //next available attachId for attached tty
+	channel  chan *ttyMessage
+	ttys     map[uint64]*ttyAttachments
+	lock     *sync.Mutex
 }
 
 type ttyMessage struct {
@@ -74,9 +75,10 @@ func (tm *ttyMessage) toBuffer() []byte {
 
 func newPts() *pseudoTtys {
 	return &pseudoTtys{
-		channel: make(chan *ttyMessage, 256),
-		ttys:    make(map[uint64]*ttyAttachments),
-		lock:    &sync.Mutex{},
+		attachId: 1,
+		channel:  make(chan *ttyMessage, 256),
+		ttys:     make(map[uint64]*ttyAttachments),
+		lock:     &sync.Mutex{},
 	}
 }
 

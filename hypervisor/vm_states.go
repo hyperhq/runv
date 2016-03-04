@@ -87,12 +87,12 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Tty = ctx.attachId
-	ctx.attachId++
+	vmContainer.Tty = ctx.ptys.attachId
+	ctx.ptys.attachId++
 	ctx.ptys.ttys[vmContainer.Tty] = newAttachments(idx, true)
 	if !cmd.container.Tty {
-		vmContainer.Stderr = ctx.attachId
-		ctx.attachId++
+		vmContainer.Stderr = ctx.ptys.attachId
+		ctx.ptys.attachId++
 		ctx.ptys.ttys[vmContainer.Stderr] = newAttachments(idx, true)
 	}
 

@@ -35,9 +35,8 @@ type VmContext struct {
 	ConsoleSockName string
 	ShareDir        string
 
-	pciAddr  int    //next available pci addr for pci hotplug
-	scsiId   int    //next available scsi id for scsi hotplug
-	attachId uint64 //next available attachId for attached tty
+	pciAddr int //next available pci addr for pci hotplug
+	scsiId  int //next available scsi id for scsi hotplug
 
 	InterfaceCount int
 
@@ -97,7 +96,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		Paused:          false,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
-		attachId:        1,
 		Hub:             hub,
 		client:          client,
 		DCtx:            dc,
@@ -174,8 +172,8 @@ func (ctx *VmContext) nextPciAddr() int {
 
 func (ctx *VmContext) nextAttachId() uint64 {
 	ctx.lock.Lock()
-	id := ctx.attachId
-	ctx.attachId++
+	id := ctx.ptys.attachId
+	ctx.ptys.attachId++
 	ctx.lock.Unlock()
 	return id
 }
@@ -293,12 +291,12 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 
 		containers[i].Sysctl = container.Sysctl
-		containers[i].Tty = ctx.attachId
-		ctx.attachId++
+		containers[i].Tty = ctx.ptys.attachId
+		ctx.ptys.attachId++
 		ctx.ptys.ttys[containers[i].Tty] = newAttachments(i, true)
 		if !spec.Tty {
-			containers[i].Stderr = ctx.attachId
-			ctx.attachId++
+			containers[i].Stderr = ctx.ptys.attachId
+			ctx.ptys.attachId++
 			ctx.ptys.ttys[containers[i].Stderr] = newAttachments(i, true)
 		}
 	}
