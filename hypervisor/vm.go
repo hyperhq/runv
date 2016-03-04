@@ -435,14 +435,18 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	return nil
 }
 
+// TODO: deprecated api, it will be removed after the hyper.git updated
 func (vm *Vm) AddCpu(totalCpu int) error {
-	if vm.Cpu >= totalCpu {
+	return vm.SetCpus(totalCpu)
+}
+
+func (vm *Vm) SetCpus(cpus int) error {
+	if vm.Cpu >= cpus {
 		return nil
 	}
 
-	addCpuCmd := &AddCpuCommand{
-		CpusBefore: vm.Cpu,
-		CpusAfter:  totalCpu,
+	setCpusCmd := &SetCpusCommand{
+		cpus: cpus,
 	}
 
 	Status, err := vm.GetResponseChan()
@@ -451,7 +455,7 @@ func (vm *Vm) AddCpu(totalCpu int) error {
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	vm.Hub <- addCpuCmd
+	vm.Hub <- setCpusCmd
 
 	for {
 		Response, ok := <-Status
@@ -460,7 +464,7 @@ func (vm *Vm) AddCpu(totalCpu int) error {
 		}
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == addCpuCmd {
+		if Response.Reply == setCpusCmd {
 			if Response.Cause != "" {
 				return fmt.Errorf("add cpu failed: %s", Response.Cause)
 			}
@@ -468,7 +472,7 @@ func (vm *Vm) AddCpu(totalCpu int) error {
 			break
 		}
 	}
-	vm.Cpu = totalCpu
+	vm.Cpu = cpus
 
 	return nil
 }

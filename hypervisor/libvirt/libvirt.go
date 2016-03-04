@@ -879,12 +879,11 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 	ctx.Hub <- callback
 }
 
-func (lc *LibvirtContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
-	// TODO: add allcpus at ones
-	glog.V(3).Infof("add cpu %d", id)
-	err := lc.domain.SetVcpusFlags(uint(id+1), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
+func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
+	glog.V(3).Infof("setcpus %d", cpus)
+	err := lc.domain.SetVcpusFlags(uint(cpus), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
 	if err != nil {
-		glog.Error("add cpu failed, ", err.Error())
+		glog.Error("setcpus failed, ", err.Error())
 		ctx.Hub <- &hypervisor.DeviceFailed{
 			Session: callback,
 		}

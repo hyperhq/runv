@@ -80,14 +80,12 @@ type KillCommand struct {
 	Signal    syscall.Signal `json:"signal"`
 }
 
-type AddCpuCommand struct {
-	CpusBefore int
-	CpusAfter  int
+type SetCpusCommand struct {
+	cpus int
 }
 
-type AddCpuCommandAck struct {
-	cmd *AddCpuCommand
-	cur int
+type SetCpusCommandAck struct {
+	cmd *SetCpusCommand
 }
 
 type AddMemCommand struct {
@@ -270,8 +268,8 @@ func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *KillCommand) Event() int           { return COMMAND_KILL }
-func (qe *AddCpuCommand) Event() int         { return COMMAND_ADDCPU }
-func (qe *AddCpuCommandAck) Event() int      { return COMMAND_ADDCPU_ACK }
+func (qe *SetCpusCommand) Event() int        { return COMMAND_SETCPUS }
+func (qe *SetCpusCommandAck) Event() int     { return COMMAND_SETCPUS_ACK }
 func (qe *AddMemCommand) Event() int         { return COMMAND_ADDMEM }
 func (qe *AddMemCommandAck) Event() int      { return COMMAND_ADDMEM_ACK }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
