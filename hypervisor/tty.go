@@ -259,6 +259,14 @@ func (tty *TtyIO) Close(code uint8) string {
 	return tty.ClientTag
 }
 
+func (pts *pseudoTtys) nextAttachId() uint64 {
+	pts.lock.Lock()
+	id := pts.attachId
+	pts.attachId++
+	pts.lock.Unlock()
+	return id
+}
+
 func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 	if ta, ok := ctx.ptys.ttys[session]; ok {
 		ctx.ptys.lock.Lock()

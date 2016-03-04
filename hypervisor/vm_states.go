@@ -246,7 +246,7 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 }
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
-	cmd.Sequence = ctx.nextAttachId()
+	cmd.Sequence = ctx.ptys.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{

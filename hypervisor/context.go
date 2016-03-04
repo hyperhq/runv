@@ -170,14 +170,6 @@ func (ctx *VmContext) nextPciAddr() int {
 	return addr
 }
 
-func (ctx *VmContext) nextAttachId() uint64 {
-	ctx.lock.Lock()
-	id := ctx.ptys.attachId
-	ctx.ptys.attachId++
-	ctx.lock.Unlock()
-	return id
-}
-
 func (ctx *VmContext) clientReg(tag string, session uint64) {
 	ctx.lock.Lock()
 	ctx.ttySessions[tag] = session
