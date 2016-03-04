@@ -65,7 +65,10 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			if acmd.Streams.Stdin != nil {
+				ctx.pendingNum++
+			}
+			ctx.attachTty2Container(idx, acmd, ctx.startedChan)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
@@ -105,7 +108,10 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			if acmd.Streams.Stdin != nil {
+				cmd.pendingNum++
+			}
+			ctx.attachTty2Container(idx, acmd, cmd.startedChan)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
@@ -130,6 +136,7 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_NEWCONTAINER,
 		Message: jsonCmd,
+		Event:   cmd,
 	}
 	glog.Infof("sent INIT_NEWCONTAINER")
 }
@@ -255,7 +262,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO)
+	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO, cmd.StartedChan)
 	ctx.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
@@ -296,15 +303,15 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		}
 		return
 	}
-	ctx.attachTty2Container(idx, cmd)
+	ctx.attachTty2Container(idx, cmd, nil)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
 	}
 }
 
-func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
+func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand, started chan bool) {
 	session := ctx.vmSpec.Containers[idx].Tty
-	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
+	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams, started)
 	ctx.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
@@ -321,7 +328,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				liner:     &linerTransformer{},
 			}
 		}
-		ctx.ptys.ptyConnect(ctx, idx, session, stderrIO)
+		ctx.ptys.ptyConnect(ctx, idx, session, stderrIO, nil)
 	}
 }
 
@@ -561,6 +568,27 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			}
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP(ev)
+		case COMMAND_ACK:
+			ack := ev.(*CommandAck)
+			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
+			if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get ack for new container")
+				if cmd, ok := ack.reply.Event.(*NewContainerCommand); ok {
+					for i := 0; i < cmd.pendingNum; i++ {
+						cmd.startedChan <- true
+					}
+				}
+			}
+		case ERROR_CMD_FAIL:
+			ack := ev.(*CommandError)
+			if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get ack for new container")
+				if cmd, ok := ack.reply.Event.(*NewContainerCommand); ok {
+					for i := 0; i < cmd.pendingNum; i++ {
+						cmd.startedChan <- false
+					}
+				}
+			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
 		}
@@ -611,9 +639,14 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 						pinfo = buf
 					}
 				}
-				ctx.reportSuccess("Start POD success", pinfo)
+
+				for i := 0; i < ctx.pendingNum; i++ {
+					ctx.startedChan <- true
+				}
+
 				ctx.Become(stateRunning, "RUNNING")
 				glog.Info("pod start success ", string(ack.msg))
+				ctx.reportSuccess("Start POD success", pinfo)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
@@ -622,6 +655,9 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 				ctx.shutdownVM(true, reason)
 				ctx.Become(stateTerminating, "TERMINATING")
 				glog.Error(reason)
+				for i := 0; i < ctx.pendingNum; i++ {
+					ctx.startedChan <- false
+				}
 			}
 		case EVENT_VM_TIMEOUT:
 			reason := "Start POD timeout"
@@ -688,6 +724,14 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == INIT_WRITEFILE {
 				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, false)
 				glog.Infof("Get ack for write data: %s", string(ack.msg))
+			} else if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get ack for new container")
+				if cmd, ok := ack.reply.Event.(*NewContainerCommand); ok {
+					for i := 0; i < cmd.pendingNum; i++ {
+						cmd.startedChan <- true
+					}
+				}
+
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
@@ -702,6 +746,13 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == INIT_WRITEFILE {
 				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
+			} else if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get error for new container")
+				if cmd, ok := ack.reply.Event.(*NewContainerCommand); ok {
+					for i := 0; i < cmd.pendingNum; i++ {
+						cmd.startedChan <- false
+					}
+				}
 			}
 
 		case COMMAND_GET_POD_IP:

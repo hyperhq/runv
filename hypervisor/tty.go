@@ -170,7 +170,7 @@ func waitPts(ctx *VmContext) {
 				if len(res.message) == 1 {
 					code = uint8(res.message[0])
 				}
-				glog.V(1).Infof("session %d, exit code", res.session, code)
+				glog.V(1).Infof("session %d, exit code %d", res.session, code)
 				ctx.ptys.Close(ctx, res.session, code)
 			} else {
 				for _, tty := range ta.attachments {
@@ -284,7 +284,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 	}
 }
 
-func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, session uint64, tty *TtyIO) {
+func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, session uint64, tty *TtyIO, started chan bool) {
 
 	pts.lock.Lock()
 	if ta, ok := pts.ttys[session]; ok {
@@ -299,6 +299,16 @@ func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, session uint64,
 			buf := make([]byte, 32)
 			defer pts.Detach(ctx, session, tty)
 			defer func() { recover() }()
+
+			if started != nil {
+				success, ok := <-started
+				if !success || !ok {
+					return
+				}
+			}
+
+			glog.V(3).Info("pty start to receive stdin")
+
 			for {
 				nr, err := tty.Stdin.Read(buf)
 				if err != nil {
