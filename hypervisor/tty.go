@@ -47,7 +47,6 @@ func (tty *TtyIO) WaitForFinish() error {
 }
 
 type ttyAttachments struct {
-	container   int
 	persistent  bool
 	closed      bool
 	attachments []*TtyIO
@@ -194,7 +193,6 @@ func waitPts(ctx *VmContext) {
 
 func newAttachments(idx int, persist bool) *ttyAttachments {
 	return &ttyAttachments{
-		container:   idx,
 		persistent:  persist,
 		attachments: []*TtyIO{},
 	}
@@ -202,7 +200,6 @@ func newAttachments(idx int, persist bool) *ttyAttachments {
 
 func newAttachmentsWithTty(idx int, persist bool, tty *TtyIO) *ttyAttachments {
 	return &ttyAttachments{
-		container:   idx,
 		persistent:  persist,
 		attachments: []*TtyIO{tty},
 	}
