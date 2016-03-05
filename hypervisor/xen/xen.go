@@ -334,7 +334,7 @@ func diskRoutine(add bool, xc *XenContext, ctx *hypervisor.VmContext,
 	}
 }
 
-func (xc *XenContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+func (xc *XenContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
 	ctx.Hub <- &hypervisor.DeviceFailed{
 		Session: callback,
 	}

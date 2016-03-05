@@ -39,7 +39,7 @@ func (f Factory) GetVm(cpu, mem int) (*hypervisor.Vm, error) {
 	if vm.Cpu < cpu {
 		needOnline = true
 		glog.Info("HotAddCpu for cached Vm")
-		err = vm.AddCpu(cpu)
+		err = vm.SetCpus(cpu)
 		glog.Info("HotAddCpu result %v", err)
 	}
 	if vm.Mem < mem {

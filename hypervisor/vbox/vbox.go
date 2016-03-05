@@ -383,7 +383,7 @@ func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	}()
 }
 
-func (vc *VBoxContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
+func (vc *VBoxContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
 	ctx.Hub <- &hypervisor.DeviceFailed{
 		Session: callback,
 	}

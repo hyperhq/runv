@@ -25,6 +25,7 @@ type QemuContext struct {
 	waitQmp     chan int
 	wdt         chan string
 	qmpSockName string
+	cpus        int
 	process     *os.Process
 }
 
@@ -217,17 +218,36 @@ func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	newNetworkDelSession(ctx, qc, n.DeviceName, callback)
 }
 
-func (qc *QemuContext) AddCpu(ctx *hypervisor.VmContext, id int, callback hypervisor.VmEvent) {
-	commands := make([]*QmpCommand, 1)
-	commands[0] = &QmpCommand{
-		Execute: "cpu-add",
-		Arguments: map[string]interface{}{
-			"id": id,
-		},
+func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
+	respond := defaultRespond(ctx, callback)
+	currcpus := qc.cpus
+
+	if cpus < currcpus {
+		respond(fmt.Errorf("can't reduce cpus number from %d to %d", currcpus, cpus))
+		return
+	} else if cpus == currcpus {
+		respond(nil)
+		return
 	}
+
+	commands := make([]*QmpCommand, cpus-currcpus)
+	for id := currcpus; id < cpus; id++ {
+		commands[id-currcpus] = &QmpCommand{
+			Execute: "cpu-add",
+			Arguments: map[string]interface{}{
+				"id": id,
+			},
+		}
+	}
+
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond:  defaultRespond(ctx, callback),
+		respond: func(err error) {
+			if err == nil {
+				qc.cpus = cpus
+			}
+			respond(err)
+		},
 	}
 }
 
@@ -269,6 +289,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 		}
 	}
 	boot := ctx.Boot
+	qc.cpus = boot.CPU
 
 	var machineClass, memParams, cpuParams string
 	if ctx.Boot.HotAddCpuMem {

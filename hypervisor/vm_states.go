@@ -206,24 +206,16 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 	}
 }
 
-func (ctx *VmContext) addCpuOrReport(cmd *AddCpuCommand, cpu int) {
-	if cpu < cmd.CpusAfter {
-		ctx.DCtx.AddCpu(ctx, cpu, &AddCpuCommandAck{cmd: cmd, cur: cpu})
-	} else {
-		ctx.client <- &types.VmResponse{
-			VmId:  ctx.Id,
-			Code:  types.E_ADDCPU,
-			Reply: cmd,
-		}
+func (ctx *VmContext) setCpusCmd(cmd *SetCpusCommand) {
+	ctx.DCtx.SetCpus(ctx, cmd.cpus, &SetCpusCommandAck{cmd: cmd})
+}
+
+func (ctx *VmContext) setCpusCmdAck(cmd *SetCpusCommandAck) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_ADDCPU,
+		Reply: cmd.cmd,
 	}
-}
-
-func (ctx *VmContext) addCpuCmd(cmd *AddCpuCommand) {
-	ctx.addCpuOrReport(cmd, cmd.CpusBefore)
-}
-
-func (ctx *VmContext) addCpuCmdAck(cmd *AddCpuCommandAck) {
-	ctx.addCpuOrReport(cmd.cmd, cmd.cur+1)
 }
 
 func (ctx *VmContext) addMemCmd(cmd *AddMemCommand) {
@@ -475,7 +467,7 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
 		COMMAND_KILL,
-		COMMAND_ADDCPU,
+		COMMAND_SETCPUS,
 		COMMAND_ADDMEM,
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
@@ -536,10 +528,10 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
-		case COMMAND_ADDCPU:
-			ctx.addCpuCmd(ev.(*AddCpuCommand))
-		case COMMAND_ADDCPU_ACK:
-			ctx.addCpuCmdAck(ev.(*AddCpuCommandAck))
+		case COMMAND_SETCPUS:
+			ctx.setCpusCmd(ev.(*SetCpusCommand))
+		case COMMAND_SETCPUS_ACK:
+			ctx.setCpusCmdAck(ev.(*SetCpusCommandAck))
 		case COMMAND_ADDMEM:
 			ctx.addMemCmd(ev.(*AddMemCommand))
 		case COMMAND_ADDMEM_ACK:
