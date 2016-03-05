@@ -189,7 +189,7 @@ func waitPts(ctx *VmContext) {
 	}
 }
 
-func newAttachmentsWithTty(idx int, persist bool, tty *TtyIO) *ttyAttachments {
+func newAttachmentsWithTty(persist bool, tty *TtyIO) *ttyAttachments {
 	return &ttyAttachments{
 		persistent:  persist,
 		attachments: []*TtyIO{tty},
@@ -297,13 +297,13 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 	}
 }
 
-func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, persist bool, session uint64, tty *TtyIO) {
+func (pts *pseudoTtys) ptyConnect(ctx *VmContext, persist bool, session uint64, tty *TtyIO) {
 
 	pts.lock.Lock()
 	if ta, ok := pts.ttys[session]; ok {
 		ta.attach(tty)
 	} else {
-		pts.ttys[session] = newAttachmentsWithTty(container, persist, tty)
+		pts.ttys[session] = newAttachmentsWithTty(persist, tty)
 	}
 	pts.lock.Unlock()
 

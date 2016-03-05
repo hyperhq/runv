@@ -245,7 +245,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), false, cmd.Sequence, cmd.TtyIO)
+	ctx.ptys.ptyConnect(ctx, false, cmd.Sequence, cmd.TtyIO)
 	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
@@ -294,7 +294,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 	session := ctx.vmSpec.Containers[idx].Tty
-	ctx.ptys.ptyConnect(ctx, idx, true, session, cmd.Streams)
+	ctx.ptys.ptyConnect(ctx, true, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
@@ -310,7 +310,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Callback:  nil,
 			}
 		}
-		ctx.ptys.ptyConnect(ctx, idx, true, session, stderrIO)
+		ctx.ptys.ptyConnect(ctx, true, session, stderrIO)
 	}
 }
 
