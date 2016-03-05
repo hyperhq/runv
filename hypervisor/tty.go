@@ -173,14 +173,14 @@ func waitPts(ctx *VmContext) {
 					code = uint8(res.message[0])
 				}
 				glog.V(1).Infof("session %d, exit code", res.session, code)
-				ctx.ptys.Close(ctx, res.session, code)
+				ctx.ptys.Close(res.session, code)
 			} else {
 				for _, tty := range ta.attachments {
 					if tty.Stdout != nil {
 						_, err := tty.Stdout.Write(res.message)
 						if err != nil {
 							glog.V(1).Infof("fail to write session %d, close pty attachment", res.session)
-							ctx.ptys.Detach(ctx, res.session, tty)
+							ctx.ptys.Detach(res.session, tty)
 						}
 					}
 				}
@@ -273,31 +273,31 @@ func (pts *pseudoTtys) clientDereg(tag string) {
 	pts.lock.Unlock()
 }
 
-func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
-	if ta, ok := ctx.ptys.ttys[session]; ok {
-		ctx.ptys.lock.Lock()
+func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
+	if ta, ok := pts.ttys[session]; ok {
+		pts.lock.Lock()
 		ta.detach(tty)
-		ctx.ptys.lock.Unlock()
+		pts.lock.Unlock()
 		if !ta.persistent && ta.empty() {
-			ctx.ptys.Close(ctx, session, 0)
+			pts.Close(session, 0)
 		}
-		ctx.ptys.clientDereg(tty.Close(0))
+		pts.clientDereg(tty.Close(0))
 	}
 }
 
-func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
+func (pts *pseudoTtys) Close(session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
 		tags := ta.close(code)
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
 		for _, t := range tags {
-			ctx.ptys.clientDereg(t)
+			pts.clientDereg(t)
 		}
 	}
 }
 
-func (pts *pseudoTtys) ptyConnect(ctx *VmContext, persist bool, session uint64, tty *TtyIO) {
+func (pts *pseudoTtys) ptyConnect(persist bool, session uint64, tty *TtyIO) {
 
 	pts.lock.Lock()
 	if ta, ok := pts.ttys[session]; ok {
@@ -310,7 +310,7 @@ func (pts *pseudoTtys) ptyConnect(ctx *VmContext, persist bool, session uint64, 
 	if tty.Stdin != nil {
 		go func() {
 			buf := make([]byte, 32)
-			defer pts.Detach(ctx, session, tty)
+			defer pts.Detach(session, tty)
 			defer func() { recover() }()
 			for {
 				nr, err := tty.Stdin.Read(buf)
