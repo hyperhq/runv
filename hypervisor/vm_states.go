@@ -89,11 +89,9 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	vmContainer.Sysctl = cmd.container.Sysctl
 	vmContainer.Tty = ctx.ptys.attachId
 	ctx.ptys.attachId++
-	ctx.ptys.ttys[vmContainer.Tty] = newAttachments(idx, true)
 	if !cmd.container.Tty {
 		vmContainer.Stderr = ctx.ptys.attachId
 		ctx.ptys.attachId++
-		ctx.ptys.ttys[vmContainer.Stderr] = newAttachments(idx, true)
 	}
 
 	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
@@ -247,7 +245,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO)
+	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), false, cmd.Sequence, cmd.TtyIO)
 	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
@@ -296,7 +294,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 	session := ctx.vmSpec.Containers[idx].Tty
-	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
+	ctx.ptys.ptyConnect(ctx, idx, true, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
@@ -312,7 +310,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Callback:  nil,
 			}
 		}
-		ctx.ptys.ptyConnect(ctx, idx, session, stderrIO)
+		ctx.ptys.ptyConnect(ctx, idx, true, session, stderrIO)
 	}
 }
 
