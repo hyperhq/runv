@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -24,8 +23,6 @@ type TtyIO struct {
 	ClientTag string
 	Callback  chan *types.VmResponse
 	ExitCode  uint8
-
-	liner StreamTansformer
 }
 
 func (tty *TtyIO) WaitForFinish() error {
@@ -179,17 +176,12 @@ func waitPts(ctx *VmContext) {
 				ctx.ptys.Close(ctx, res.session, code)
 			} else {
 				for _, tty := range ta.attachments {
-					if tty.Stdout != nil && tty.liner == nil {
-						_, err = tty.Stdout.Write(res.message)
-					} else if tty.Stdout != nil {
-						m := tty.liner.Transform(res.message)
-						if len(m) > 0 {
-							_, err = tty.Stdout.Write(m)
+					if tty.Stdout != nil {
+						_, err := tty.Stdout.Write(res.message)
+						if err != nil {
+							glog.V(1).Infof("fail to write session %d, close pty attachment", res.session)
+							ctx.ptys.Detach(ctx, res.session, tty)
 						}
-					}
-					if err != nil {
-						glog.V(1).Infof("fail to write session %d, close pty attachment", res.session)
-						ctx.ptys.Detach(ctx, res.session, tty)
 					}
 				}
 			}
@@ -357,56 +349,6 @@ func (pts *pseudoTtys) closePendingTtys() {
 		tty.Streams.Close(255)
 	}
 	pts.pendingTtys = []*AttachCommand{}
-}
-
-type StreamTansformer interface {
-	Transform(input []byte) []byte
-}
-
-type linerTransformer struct {
-	cr bool
-}
-
-func (lt *linerTransformer) Transform(input []byte) []byte {
-
-	output := []byte{}
-
-	for len(input) > 0 {
-		// process remain \n of \r\n
-		if lt.cr {
-			lt.cr = false
-			if input[0] == '\n' {
-				input = input[1:]
-				continue
-			}
-		}
-
-		// find \r\n or \r
-		pos := strings.IndexByte(string(input), '\r')
-		if pos > 0 {
-			output = append(output, input[:pos]...)
-			output = append(output, '\r', '\n')
-			input = input[pos+1:]
-			lt.cr = true
-			continue
-		}
-
-		// find \n
-		pos = strings.IndexByte(string(input), '\n')
-		if pos > 0 {
-			output = append(output, input[:pos]...)
-			output = append(output, '\r', '\n')
-			input = input[pos+1:]
-			//do not set lt.cr here
-			continue
-		}
-
-		//no \n or \r
-		output = append(output, input...)
-		break
-	}
-
-	return output
 }
 
 func TtyLiner(conn io.Reader, output chan string) {
