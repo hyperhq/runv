@@ -10,14 +10,6 @@ import (
 	"time"
 )
 
-type VmOnDiskInfo struct {
-	QmpSockName     string
-	HyperSockName   string
-	TtySockName     string
-	ConsoleSockName string
-	ShareDir        string
-}
-
 type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
 	ScsiId   int    //next available scsi id for scsi hotplug
@@ -43,15 +35,12 @@ type VmContext struct {
 	ConsoleSockName string
 	ShareDir        string
 
-	pciAddr  int    //next available pci addr for pci hotplug
-	scsiId   int    //next available scsi id for scsi hotplug
-	attachId uint64 //next available attachId for attached tty
+	pciAddr int //next available pci addr for pci hotplug
+	scsiId  int //next available scsi id for scsi hotplug
 
 	InterfaceCount int
 
-	ptys        *pseudoTtys
-	ttySessions map[string]uint64
-	pendingTtys []*AttachCommand
+	ptys *pseudoTtys
 
 	// Specification
 	userSpec *pod.UserPod
@@ -105,14 +94,11 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		Paused:          false,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
-		attachId:        1,
 		Hub:             hub,
 		client:          client,
 		DCtx:            dc,
 		vm:              vmChannel,
 		ptys:            newPts(),
-		ttySessions:     make(map[string]uint64),
-		pendingTtys:     []*AttachCommand{},
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
 		TtySockName:     ttySockName,
@@ -150,7 +136,7 @@ func (ctx *VmContext) unsetTimeout() {
 func (ctx *VmContext) reset() {
 	ctx.lock.Lock()
 
-	ctx.ClosePendingTtys()
+	ctx.ptys.closePendingTtys()
 
 	ctx.pciAddr = PciAddrFrom
 	ctx.scsiId = 0
@@ -180,31 +166,6 @@ func (ctx *VmContext) nextPciAddr() int {
 	return addr
 }
 
-func (ctx *VmContext) nextAttachId() uint64 {
-	ctx.lock.Lock()
-	id := ctx.attachId
-	ctx.attachId++
-	ctx.lock.Unlock()
-	return id
-}
-
-func (ctx *VmContext) clientReg(tag string, session uint64) {
-	ctx.lock.Lock()
-	ctx.ttySessions[tag] = session
-	ctx.lock.Unlock()
-}
-
-func (ctx *VmContext) clientDereg(tag string) {
-	if tag == "" {
-		return
-	}
-	ctx.lock.Lock()
-	if _, ok := ctx.ttySessions[tag]; ok {
-		delete(ctx.ttySessions, tag)
-	}
-	ctx.lock.Unlock()
-}
-
 func (ctx *VmContext) Lookup(container string) int {
 	if container == "" || ctx.vmSpec == nil {
 		return -1
@@ -219,17 +180,10 @@ func (ctx *VmContext) Lookup(container string) int {
 	return -1
 }
 
-func (ctx *VmContext) ClosePendingTtys() {
-	for _, tty := range ctx.pendingTtys {
-		tty.Streams.Close(255)
-	}
-	ctx.pendingTtys = []*AttachCommand{}
-}
-
 func (ctx *VmContext) Close() {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
-	ctx.ClosePendingTtys()
+	ctx.ptys.closePendingTtys()
 	ctx.unsetTimeout()
 	ctx.DCtx.Close()
 	close(ctx.vm)
@@ -301,12 +255,12 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 
 		containers[i].Sysctl = container.Sysctl
-		containers[i].Tty = ctx.attachId
-		ctx.attachId++
+		containers[i].Tty = ctx.ptys.attachId
+		ctx.ptys.attachId++
 		ctx.ptys.ttys[containers[i].Tty] = newAttachments(i, true)
 		if !spec.Tty {
-			containers[i].Stderr = ctx.attachId
-			ctx.attachId++
+			containers[i].Stderr = ctx.ptys.attachId
+			ctx.ptys.attachId++
 			ctx.ptys.ttys[containers[i].Stderr] = newAttachments(i, true)
 		}
 	}

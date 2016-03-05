@@ -59,8 +59,8 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		glog.Info("initial vm spec: ", string(res))
 	}
 
-	pendings := ctx.pendingTtys
-	ctx.pendingTtys = []*AttachCommand{}
+	pendings := ctx.ptys.pendingTtys
+	ctx.ptys.pendingTtys = []*AttachCommand{}
 	for _, acmd := range pendings {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
@@ -68,7 +68,7 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 			ctx.attachTty2Container(idx, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
 
@@ -87,12 +87,12 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Tty = ctx.attachId
-	ctx.attachId++
+	vmContainer.Tty = ctx.ptys.attachId
+	ctx.ptys.attachId++
 	ctx.ptys.ttys[vmContainer.Tty] = newAttachments(idx, true)
 	if !cmd.container.Tty {
-		vmContainer.Stderr = ctx.attachId
-		ctx.attachId++
+		vmContainer.Stderr = ctx.ptys.attachId
+		ctx.ptys.attachId++
 		ctx.ptys.ttys[vmContainer.Stderr] = newAttachments(idx, true)
 	}
 
@@ -100,15 +100,15 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 
 	ctx.lock.Unlock()
 
-	pendings := ctx.pendingTtys
-	ctx.pendingTtys = []*AttachCommand{}
+	pendings := ctx.ptys.pendingTtys
+	ctx.ptys.pendingTtys = []*AttachCommand{}
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.attachTty2Container(idx, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.pendingTtys = append(ctx.pendingTtys, acmd)
+			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
 
@@ -153,7 +153,7 @@ func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
 }
 
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
-	if session, ok := ctx.ttySessions[tag]; ok {
+	if session, ok := ctx.ptys.ttySessions[tag]; ok {
 		cmd := map[string]interface{}{
 			"seq":    session,
 			"row":    size.Row,
@@ -238,7 +238,7 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 }
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
-	cmd.Sequence = ctx.nextAttachId()
+	cmd.Sequence = ctx.ptys.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{
@@ -248,7 +248,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		return
 	}
 	ctx.ptys.ptyConnect(ctx, ctx.Lookup(cmd.Container), cmd.Sequence, cmd.TtyIO)
-	ctx.clientReg(cmd.ClientTag, cmd.Sequence)
+	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
@@ -274,7 +274,7 @@ func (ctx *VmContext) killCmd(cmd *KillCommand) {
 func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
-		ctx.pendingTtys = append(ctx.pendingTtys, cmd)
+		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
 		return
 	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {
@@ -297,7 +297,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 	session := ctx.vmSpec.Containers[idx].Tty
 	ctx.ptys.ptyConnect(ctx, idx, session, cmd.Streams)
-	ctx.clientReg(cmd.Streams.ClientTag, session)
+	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session

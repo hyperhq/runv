@@ -47,16 +47,18 @@ func (tty *TtyIO) WaitForFinish() error {
 }
 
 type ttyAttachments struct {
-	container   int
 	persistent  bool
 	closed      bool
 	attachments []*TtyIO
 }
 
 type pseudoTtys struct {
-	channel chan *ttyMessage
-	ttys    map[uint64]*ttyAttachments
-	lock    *sync.Mutex
+	attachId    uint64 //next available attachId for attached tty
+	channel     chan *ttyMessage
+	ttys        map[uint64]*ttyAttachments
+	ttySessions map[string]uint64
+	pendingTtys []*AttachCommand
+	lock        *sync.Mutex
 }
 
 type ttyMessage struct {
@@ -75,9 +77,12 @@ func (tm *ttyMessage) toBuffer() []byte {
 
 func newPts() *pseudoTtys {
 	return &pseudoTtys{
-		channel: make(chan *ttyMessage, 256),
-		ttys:    make(map[uint64]*ttyAttachments),
-		lock:    &sync.Mutex{},
+		attachId:    1,
+		channel:     make(chan *ttyMessage, 256),
+		ttys:        make(map[uint64]*ttyAttachments),
+		ttySessions: make(map[string]uint64),
+		pendingTtys: []*AttachCommand{},
+		lock:        &sync.Mutex{},
 	}
 }
 
@@ -194,7 +199,6 @@ func waitPts(ctx *VmContext) {
 
 func newAttachments(idx int, persist bool) *ttyAttachments {
 	return &ttyAttachments{
-		container:   idx,
 		persistent:  persist,
 		attachments: []*TtyIO{},
 	}
@@ -202,7 +206,6 @@ func newAttachments(idx int, persist bool) *ttyAttachments {
 
 func newAttachmentsWithTty(idx int, persist bool, tty *TtyIO) *ttyAttachments {
 	return &ttyAttachments{
-		container:   idx,
 		persistent:  persist,
 		attachments: []*TtyIO{tty},
 	}
@@ -260,6 +263,31 @@ func (tty *TtyIO) Close(code uint8) string {
 	return tty.ClientTag
 }
 
+func (pts *pseudoTtys) nextAttachId() uint64 {
+	pts.lock.Lock()
+	id := pts.attachId
+	pts.attachId++
+	pts.lock.Unlock()
+	return id
+}
+
+func (pts *pseudoTtys) clientReg(tag string, session uint64) {
+	pts.lock.Lock()
+	pts.ttySessions[tag] = session
+	pts.lock.Unlock()
+}
+
+func (pts *pseudoTtys) clientDereg(tag string) {
+	if tag == "" {
+		return
+	}
+	pts.lock.Lock()
+	if _, ok := pts.ttySessions[tag]; ok {
+		delete(pts.ttySessions, tag)
+	}
+	pts.lock.Unlock()
+}
+
 func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 	if ta, ok := ctx.ptys.ttys[session]; ok {
 		ctx.ptys.lock.Lock()
@@ -268,7 +296,7 @@ func (pts *pseudoTtys) Detach(ctx *VmContext, session uint64, tty *TtyIO) {
 		if !ta.persistent && ta.empty() {
 			ctx.ptys.Close(ctx, session, 0)
 		}
-		ctx.clientDereg(tty.Close(0))
+		ctx.ptys.clientDereg(tty.Close(0))
 	}
 }
 
@@ -279,7 +307,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
 		for _, t := range tags {
-			ctx.clientDereg(t)
+			ctx.ptys.clientDereg(t)
 		}
 	}
 }
@@ -322,6 +350,13 @@ func (pts *pseudoTtys) ptyConnect(ctx *VmContext, container int, session uint64,
 	}
 
 	return
+}
+
+func (pts *pseudoTtys) closePendingTtys() {
+	for _, tty := range pts.pendingTtys {
+		tty.Streams.Close(255)
+	}
+	pts.pendingTtys = []*AttachCommand{}
 }
 
 type StreamTansformer interface {
