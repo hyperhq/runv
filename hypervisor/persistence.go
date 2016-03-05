@@ -183,13 +183,6 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 
 	ctx.loadHwStatus(pinfo)
 
-	for idx, container := range ctx.vmSpec.Containers {
-		ctx.ptys.ttys[container.Tty] = newAttachments(idx, true)
-		if container.Stderr > 0 {
-			ctx.ptys.ttys[container.Stderr] = newAttachments(idx, true)
-		}
-	}
-
 	for _, vol := range pinfo.VolumeList {
 		binfo := vol.blockInfo()
 		if len(vol.Containers) != len(vol.MontPoints) {

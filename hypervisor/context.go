@@ -257,11 +257,9 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		containers[i].Sysctl = container.Sysctl
 		containers[i].Tty = ctx.ptys.attachId
 		ctx.ptys.attachId++
-		ctx.ptys.ttys[containers[i].Tty] = newAttachments(i, true)
 		if !spec.Tty {
 			containers[i].Stderr = ctx.ptys.attachId
 			ctx.ptys.attachId++
-			ctx.ptys.ttys[containers[i].Stderr] = newAttachments(i, true)
 		}
 	}
 
