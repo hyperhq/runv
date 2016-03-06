@@ -87,7 +87,8 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Tty = ctx.ptys.attachId
+	vmContainer.Tty = cmd.container.Tty
+	vmContainer.Stdio = ctx.ptys.attachId
 	ctx.ptys.attachId++
 	if !cmd.container.Tty {
 		vmContainer.Stderr = ctx.ptys.attachId
@@ -275,7 +276,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
 		return
-	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Tty == 0 {
+	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Stdio == 0 {
 		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
 		ctx.reportBadRequest(cause)
 		cmd.Streams.Callback <- &types.VmResponse{
@@ -293,7 +294,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 }
 
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
-	session := ctx.vmSpec.Containers[idx].Tty
+	session := ctx.vmSpec.Containers[idx].Stdio
 	ctx.ptys.ptyConnect(true, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
