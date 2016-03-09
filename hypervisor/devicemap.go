@@ -116,7 +116,7 @@ func (ctx *VmContext) initContainerInfo(index int, target *VmContainer, spec *po
 
 	*target = VmContainer{
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
-		Volumes: vols, Fsmap: fsmap, Tty: 0, Stderr: 0,
+		Volumes: vols, Fsmap: fsmap, Tty: spec.Tty, Stdio: 0, Stderr: 0,
 		Workdir: spec.Workdir, Entrypoint: spec.Entrypoint, Cmd: spec.Command, Envs: envs,
 		RestartPolicy: restart,
 	}
