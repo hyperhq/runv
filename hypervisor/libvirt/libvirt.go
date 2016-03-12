@@ -771,10 +771,17 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 
 		monitors := blockInfo.Options["monitors"]
 		for _, m := range strings.Split(monitors, ";") {
-			hostport := strings.Split(m, ":")
+			host := m
+			port := "6789"
+
+			if hostport := strings.Split(m, ":"); len(hostport) == 2 {
+				host = hostport[0]
+				port = hostport[1]
+			}
+
 			d.Source.Monitors = append(d.Source.Monitors, monitor{
-				Name: hostport[0],
-				Port: hostport[1],
+				Name: host,
+				Port: port,
 			})
 		}
 
