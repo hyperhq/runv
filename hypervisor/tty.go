@@ -46,6 +46,7 @@ func (tty *TtyIO) WaitForFinish() error {
 type ttyAttachments struct {
 	persistent  bool
 	closed      bool
+	tty         bool
 	attachments []*TtyIO
 }
 
@@ -189,9 +190,10 @@ func waitPts(ctx *VmContext) {
 	}
 }
 
-func newAttachmentsWithTty(persist bool, tty *TtyIO) *ttyAttachments {
+func newAttachmentsWithTty(persist, isTty bool, tty *TtyIO) *ttyAttachments {
 	return &ttyAttachments{
 		persistent:  persist,
+		tty:         isTty,
 		attachments: []*TtyIO{tty},
 	}
 }
@@ -228,6 +230,10 @@ func (ta *ttyAttachments) empty() bool {
 	return len(ta.attachments) == 0
 }
 
+func (ta *ttyAttachments) isTty() bool {
+	return ta.tty
+}
+
 func (tty *TtyIO) Close(code uint8) string {
 
 	glog.V(1).Info("Close tty ", tty.ClientTag)
@@ -254,6 +260,13 @@ func (pts *pseudoTtys) nextAttachId() uint64 {
 	pts.attachId++
 	pts.lock.Unlock()
 	return id
+}
+
+func (pts *pseudoTtys) isTty(session uint64) bool {
+	if ta, ok := pts.ttys[session]; ok {
+		return ta.isTty()
+	}
+	return false
 }
 
 func (pts *pseudoTtys) clientReg(tag string, session uint64) {
@@ -297,13 +310,13 @@ func (pts *pseudoTtys) Close(session uint64, code uint8) {
 	}
 }
 
-func (pts *pseudoTtys) ptyConnect(persist bool, session uint64, tty *TtyIO) {
+func (pts *pseudoTtys) ptyConnect(persist, isTty bool, session uint64, tty *TtyIO) {
 
 	pts.lock.Lock()
 	if ta, ok := pts.ttys[session]; ok {
 		ta.attach(tty)
 	} else {
-		pts.ttys[session] = newAttachmentsWithTty(persist, tty)
+		pts.ttys[session] = newAttachmentsWithTty(persist, isTty, tty)
 	}
 	pts.lock.Unlock()
 
