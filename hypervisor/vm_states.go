@@ -87,7 +87,6 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Tty = cmd.container.Tty
 	vmContainer.Stdio = ctx.ptys.attachId
 	ctx.ptys.attachId++
 	if !cmd.container.Tty {
@@ -153,6 +152,9 @@ func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
 
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	if session, ok := ctx.ptys.ttySessions[tag]; ok {
+		if !ctx.ptys.isTty(session) {
+			ctx.reportBadRequest(fmt.Sprintf("the session is not a tty, doesn't support resize."))
+		}
 		cmd := map[string]interface{}{
 			"seq":    session,
 			"row":    size.Row,
@@ -246,7 +248,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(false, cmd.Sequence, cmd.TtyIO)
+	ctx.ptys.ptyConnect(false, true, cmd.Sequence, cmd.TtyIO)
 	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
@@ -295,7 +297,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 	session := ctx.vmSpec.Containers[idx].Stdio
-	ctx.ptys.ptyConnect(true, session, cmd.Streams)
+	ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
@@ -311,7 +313,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Callback:  nil,
 			}
 		}
-		ctx.ptys.ptyConnect(true, session, stderrIO)
+		ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, stderrIO)
 	}
 }
 
@@ -585,9 +587,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
-			if ctx.userSpec.Tty {
-				ctx.setWindowSize(cmd.ClientTag, cmd.Size)
-			}
+			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[starting] got init ack to %d", ack.reply)
@@ -652,9 +652,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
-			if ctx.userSpec.Tty {
-				ctx.setWindowSize(cmd.ClientTag, cmd.Size)
-			}
+			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
 		case COMMAND_WRITEFILE:
 			ctx.writeFile(ev.(*WriteFileCommand))
 		case COMMAND_READFILE:

@@ -156,14 +156,14 @@ func ProcessPodBytes(body []byte) (*UserPod, error) {
 	}
 
 	var (
-		v   UserContainer
 		vol UserVolume
 		num = 0
 	)
-	for _, v = range userPod.Containers {
+	for i, v := range userPod.Containers {
 		if v.Image == "" {
 			return nil, fmt.Errorf("Please specific your image for your container, it can not be null!\n")
 		}
+		userPod.Containers[i].Tty = v.Tty || userPod.Tty
 		num++
 	}
 	if num == 0 {
