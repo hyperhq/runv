@@ -45,6 +45,7 @@ func (tty *TtyIO) WaitForFinish() error {
 
 type ttyAttachments struct {
 	persistent  bool
+	started     bool
 	closed      bool
 	tty         bool
 	attachments []*TtyIO
@@ -318,7 +319,25 @@ func (pts *pseudoTtys) ptyConnect(persist, isTty bool, session uint64, tty *TtyI
 	} else {
 		pts.ttys[session] = newAttachmentsWithTty(persist, isTty, tty)
 	}
+	pts.connectStdin(session, tty)
 	pts.lock.Unlock()
+}
+
+func (pts *pseudoTtys) startStdin(session uint64) {
+	pts.lock.Lock()
+	if ta, ok := pts.ttys[session]; ok && !ta.started {
+		ta.started = true
+		for _, tty := range ta.attachments {
+			pts.connectStdin(session, tty)
+		}
+	}
+	pts.lock.Unlock()
+}
+
+func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
+	if ta, ok := pts.ttys[session]; !ok || !ta.started {
+		return
+	}
 
 	if tty.Stdin != nil {
 		go func() {

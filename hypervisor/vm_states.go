@@ -553,6 +553,16 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			}
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP(ev)
+		case COMMAND_ACK:
+			ack := ev.(*CommandAck)
+			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
+			if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get ack for new container")
+
+				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
+				idx := len(ctx.vmSpec.Containers) - 1
+				ctx.ptys.startStdin(ctx.vmSpec.Containers[idx].Stdio)
+			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
 		}
@@ -600,6 +610,9 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 					if err == nil {
 						pinfo = buf
 					}
+				}
+				for _, c := range ctx.vmSpec.Containers {
+					ctx.ptys.startStdin(c.Stdio)
 				}
 				ctx.reportSuccess("Start POD success", pinfo)
 				ctx.Become(stateRunning, "RUNNING")
@@ -668,6 +681,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 
 			if ack.reply.Code == INIT_EXECCMD {
+				cmd := ack.reply.Event.(*ExecCommand)
+				ctx.ptys.startStdin(cmd.Sequence)
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
 			} else if ack.reply.Code == INIT_READFILE {
@@ -676,6 +691,11 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == INIT_WRITEFILE {
 				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, false)
 				glog.Infof("Get ack for write data: %s", string(ack.msg))
+			} else if ack.reply.Code == INIT_NEWCONTAINER {
+				glog.Infof("Get ack for new container")
+				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
+				idx := len(ctx.vmSpec.Containers) - 1
+				ctx.ptys.startStdin(ctx.vmSpec.Containers[idx].Stdio)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
