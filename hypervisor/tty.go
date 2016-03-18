@@ -192,11 +192,16 @@ func waitPts(ctx *VmContext) {
 }
 
 func newAttachmentsWithTty(persist, isTty bool, tty *TtyIO) *ttyAttachments {
-	return &ttyAttachments{
-		persistent:  persist,
-		tty:         isTty,
-		attachments: []*TtyIO{tty},
+	ta := &ttyAttachments{
+		persistent: persist,
+		tty:        isTty,
 	}
+
+	if tty != nil {
+		ta.attach(tty)
+	}
+
+	return ta
 }
 
 func (ta *ttyAttachments) attach(tty *TtyIO) {
@@ -312,7 +317,6 @@ func (pts *pseudoTtys) Close(session uint64, code uint8) {
 }
 
 func (pts *pseudoTtys) ptyConnect(persist, isTty bool, session uint64, tty *TtyIO) {
-
 	pts.lock.Lock()
 	if ta, ok := pts.ttys[session]; ok {
 		ta.attach(tty)
@@ -323,13 +327,20 @@ func (pts *pseudoTtys) ptyConnect(persist, isTty bool, session uint64, tty *TtyI
 	pts.lock.Unlock()
 }
 
-func (pts *pseudoTtys) startStdin(session uint64) {
+func (pts *pseudoTtys) startStdin(session uint64, isTty bool) {
 	pts.lock.Lock()
-	if ta, ok := pts.ttys[session]; ok && !ta.started {
-		ta.started = true
-		for _, tty := range ta.attachments {
-			pts.connectStdin(session, tty)
+	ta, ok := pts.ttys[session]
+	if ok {
+		if !ta.started {
+			ta.started = true
+			for _, tty := range ta.attachments {
+				pts.connectStdin(session, tty)
+			}
 		}
+	} else {
+		ta = newAttachmentsWithTty(true, isTty, nil)
+		ta.started = true
+		pts.ttys[session] = ta
 	}
 	pts.lock.Unlock()
 }

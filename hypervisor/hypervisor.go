@@ -100,6 +100,10 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 
 	context.Become(stateRunning, "RUNNING")
 
+	for _, c := range context.vmSpec.Containers {
+		context.ptys.startStdin(c.Stdio, c.Tty)
+	}
+
 	context.loop()
 }
 
