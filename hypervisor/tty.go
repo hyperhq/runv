@@ -334,6 +334,24 @@ func (pts *pseudoTtys) startStdin(session uint64) {
 	pts.lock.Unlock()
 }
 
+// we close the stdin of the container when the last attached
+// stdin closed. we should move this decision to hyper and use
+// the same policy as docker(stdinOnce)
+func (pts *pseudoTtys) isLastStdin(session uint64) bool {
+	var count int
+
+	pts.lock.Lock()
+	if ta, ok := pts.ttys[session]; ok {
+		for _, tty := range ta.attachments {
+			if tty.Stdin != nil {
+				count++
+			}
+		}
+	}
+	pts.lock.Unlock()
+	return count == 1
+}
+
 func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 	if ta, ok := pts.ttys[session]; !ok || !ta.started {
 		return
@@ -342,15 +360,26 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 	if tty.Stdin != nil {
 		go func() {
 			buf := make([]byte, 32)
-			defer pts.Detach(session, tty)
 			defer func() { recover() }()
 			for {
 				nr, err := tty.Stdin.Read(buf)
 				if err != nil {
 					glog.Info("a stdin closed, ", err.Error())
+					if err == io.EOF && !pts.isTty(session) && pts.isLastStdin(session) {
+						// send eof to hyperstart
+						glog.V(1).Infof("session %d send eof to hyperstart", session)
+						pts.channel <- &ttyMessage{
+							session: session,
+							message: make([]byte, 0),
+						}
+						// don't detach, we need the last output of the container
+					} else {
+						pts.Detach(session, tty)
+					}
 					return
 				} else if nr == 1 && buf[0] == ExitChar {
 					glog.Info("got stdin detach char, exit term")
+					pts.Detach(session, tty)
 					return
 				}
 
