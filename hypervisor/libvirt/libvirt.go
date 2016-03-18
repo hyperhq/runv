@@ -442,7 +442,7 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 	}
 	glog.V(3).Infof("domainXML: %v", domainXml)
 
-	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_AUTODESTROY)
+	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
