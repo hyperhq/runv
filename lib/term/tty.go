@@ -24,7 +24,6 @@ func TtySplice(conn net.Conn) (int, error) {
 		receiveStdout <- err
 	}()
 
-	sendStdin := make(chan error, 1)
 	go func() {
 		written, err := io.Copy(conn, os.Stdin)
 		fmt.Printf("copy from stdin to remote %v, err %v\n", written, err)
@@ -36,16 +35,9 @@ func TtySplice(conn net.Conn) (int, error) {
 				fmt.Printf("Couldn't send EOF: %s\n", err.Error())
 			}
 		}
-		// Discard errors due to pipe interruption
-		sendStdin <- nil
 	}()
 
 	if err := <-receiveStdout; err != nil {
-		return -1, err
-	}
-	sendStdin <- nil
-
-	if err := <-sendStdin; err != nil {
 		return -1, err
 	}
 

@@ -18,10 +18,6 @@ type DecodedMessage struct {
 	Event   VmEvent
 }
 
-type FinishCmd struct {
-	Seq uint64 `json:"seq"`
-}
-
 func waitConsoleOutput(ctx *VmContext) {
 
 	conn, err := utils.UnixSocketConnect(ctx.ConsoleSockName)
