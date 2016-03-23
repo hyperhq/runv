@@ -241,6 +241,13 @@ type Interrupted struct {
 	Reason string
 }
 
+type GenericOperation struct {
+	OpName string
+	State  []string
+	OpFunc func(ctx *VmContext, result chan<- error)
+	Result chan<- error
+}
+
 func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
@@ -280,6 +287,7 @@ func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
 func (qe *CommandAck) Event() int            { return COMMAND_ACK }
+func (qe *GenericOperation) Event() int      { return GENERIC_OPERATION }
 func (qe *InitFailedEvent) Event() int       { return ERROR_INIT_FAIL }
 func (qe *DeviceFailed) Event() int          { return ERROR_QMP_FAIL }
 func (qe *Interrupted) Event() int           { return ERROR_INTERRUPTED }

@@ -381,6 +381,19 @@ func (ctx *VmContext) poweroffVM(err bool, msg string) {
 	ctx.timedKill(10)
 }
 
+func (ctx *VmContext) handleGenericOperation(goe *GenericOperation) {
+	for _, allowd := range goe.State {
+		if ctx.current == allowd {
+			glog.V(3).Infof("handle GenericOperation(%s) on state(%s)", goe.OpName, ctx.current)
+			goe.OpFunc(ctx, goe.Result)
+			return
+		}
+	}
+
+	glog.V(3).Infof("GenericOperation(%s) is unsupported on state(%s)", goe.OpName, ctx.current)
+	goe.Result <- fmt.Errorf("GenericOperation(%s) is unsupported on state(%s)", goe.OpName, ctx.current)
+}
+
 // state machine
 func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 	processed := true
@@ -398,6 +411,8 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 	case COMMAND_SHUTDOWN:
 		glog.Info("got shutdown command, shutting down")
 		ctx.exitVM(false, "", hasPod, ev.(*ShutdownCommand).Wait)
+	case GENERIC_OPERATION:
+		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
 		processed = false
 	}
@@ -813,6 +828,8 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		ctx.poweroffVM(true, "vm terminating timeout")
 	case ERROR_INTERRUPTED:
 		glog.V(1).Info("Connection interrupted while terminating")
+	case GENERIC_OPERATION:
+		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
 		unexpectedEventHandler(ctx, ev, "terminating")
 	}
@@ -893,6 +910,8 @@ func stateDestroying(ctx *VmContext, ev VmEvent) {
 		case EVENT_VM_TIMEOUT:
 			glog.Info("Device removing timeout")
 			ctx.Close()
+		case GENERIC_OPERATION:
+			ctx.handleGenericOperation(ev.(*GenericOperation))
 		default:
 			unexpectedEventHandler(ctx, ev, "vm cleaning up")
 		}

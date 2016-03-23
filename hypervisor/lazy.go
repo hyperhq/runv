@@ -68,6 +68,8 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 			glog.Warning("Fail to prepare devices, quit")
 			ctx.Become(nil, StateNone)
 		}
+	case GENERIC_OPERATION:
+		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
 		unexpectedEventHandler(ctx, ev, "pod initiating")
 	}

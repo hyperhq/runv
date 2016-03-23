@@ -661,6 +661,18 @@ func (vm *Vm) Pause(pause bool) error {
 	return nil
 }
 
+func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
+	result := make(chan error, 1)
+	goe := &GenericOperation{
+		OpName: name,
+		State:  states,
+		OpFunc: op,
+		Result: result,
+	}
+	vm.Hub <- goe
+	return result
+}
+
 func errorResponse(cause string) *types.VmResponse {
 	return &types.VmResponse{
 		Code:  -1,
