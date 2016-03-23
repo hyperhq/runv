@@ -39,7 +39,7 @@ func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, bo
 		}
 		return
 	}
-	context.Become(statePreparing, "PREPARING")
+	context.Become(statePreparing, StatePreparing)
 
 	context.loop()
 }
@@ -51,7 +51,7 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 	case COMMAND_SHUTDOWN, COMMAND_RELEASE:
 		glog.Info("got shutdown or release command, not started yet")
 		ctx.reportVmShutdown()
-		ctx.Become(nil, "NONE")
+		ctx.Become(nil, StateNone)
 	case COMMAND_EXEC:
 		ctx.execCmd(ev.(*ExecCommand))
 	case COMMAND_WINDOWSIZE:
@@ -63,10 +63,10 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 			ctx.startSocks()
 			ctx.DCtx.(LazyDriverContext).LazyLaunch(ctx)
 			ctx.setTimeout(60)
-			ctx.Become(stateStarting, "STARTING")
+			ctx.Become(stateStarting, StateStarting)
 		} else {
 			glog.Warning("Fail to prepare devices, quit")
-			ctx.Become(nil, "None")
+			ctx.Become(nil, StateNone)
 		}
 	default:
 		unexpectedEventHandler(ctx, ev, "pod initiating")

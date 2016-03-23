@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+// states
+const (
+	StateInit        = "INIT"
+	StatePreparing   = "PREPARING"
+	StateStarting    = "STARTING"
+	StateRunning     = "RUNNING"
+	StatePodStopping = "STOPPING"
+	StateCleaning    = "CLEANING"
+	StateTerminating = "TERMINATING"
+	StateDestroying  = "DESTROYING"
+	StateNone        = "NONE"
+)
+
 func (ctx *VmContext) timedKill(seconds int) {
 	ctx.timer = time.AfterFunc(time.Duration(seconds)*time.Second, func() {
 		if ctx != nil && ctx.handler != nil {
@@ -343,10 +356,10 @@ func (ctx *VmContext) exitVM(err bool, msg string, hasPod bool, wait bool) {
 	ctx.wait = wait
 	if hasPod {
 		ctx.shutdownVM(err, msg)
-		ctx.Become(stateTerminating, "TERMINATING")
+		ctx.Become(stateTerminating, StateTerminating)
 	} else {
 		ctx.poweroffVM(err, msg)
-		ctx.Become(stateDestroying, "DESTROYING")
+		ctx.Become(stateDestroying, StateDestroying)
 	}
 }
 
@@ -376,7 +389,7 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 		glog.Info("Got VM shutdown event, go to cleaning up")
 		ctx.unsetTimeout()
 		if closed := ctx.onVmExit(hasPod); !closed {
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		}
 	case ERROR_INTERRUPTED:
 		glog.Info("Connection interrupted, quit...")
@@ -503,7 +516,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 		//processed by common
 	} else if processed := initFailureHandler(ctx, ev); processed {
 		ctx.shutdownVM(true, "Fail during init environment")
-		ctx.Become(stateDestroying, "DESTROYING")
+		ctx.Become(stateDestroying, StateDestroying)
 	} else {
 		switch ev.Event() {
 		case EVENT_VM_START_FAILED:
@@ -516,7 +529,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 		case COMMAND_RELEASE:
 			glog.Info("no pod on vm, got release, quit.")
 			ctx.shutdownVM(false, "")
-			ctx.Become(stateDestroying, "DESTRYING")
+			ctx.Become(stateDestroying, StateDestroying)
 			ctx.reportVmShutdown()
 		case COMMAND_PAUSEVM:
 			ctx.pauseVm(ev.(*PauseCommand))
@@ -549,7 +562,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			glog.Info("got spec, prepare devices")
 			if ok := ctx.prepareDevice(ev.(*RunPodCommand)); ok {
 				ctx.setTimeout(60)
-				ctx.Become(stateStarting, "STARTING")
+				ctx.Become(stateStarting, StateStarting)
 			}
 		case COMMAND_GET_POD_IP:
 			ctx.reportPodIP(ev)
@@ -580,13 +593,13 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 		}
 	} else if processed := initFailureHandler(ctx, ev); processed {
 		ctx.shutdownVM(true, "Fail during init pod running environment")
-		ctx.Become(stateTerminating, "TERMINATING")
+		ctx.Become(stateTerminating, StateTerminating)
 	} else {
 		switch ev.Event() {
 		case EVENT_VM_START_FAILED:
 			glog.Info("VM did not start up properly, go to cleaning up")
 			if closed := ctx.onVmExit(true); !closed {
-				ctx.Become(stateDestroying, "DESTROYING")
+				ctx.Become(stateDestroying, StateDestroying)
 			}
 		case EVENT_INIT_CONNECTED:
 			glog.Info("begin to wait vm commands")
@@ -616,7 +629,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 					ctx.ptys.startStdin(c.Stdio, c.Tty)
 				}
 				ctx.reportSuccess("Start POD success", pinfo)
-				ctx.Become(stateRunning, "RUNNING")
+				ctx.Become(stateRunning, StateRunning)
 				glog.Info("pod start success ", string(ack.msg))
 			}
 		case ERROR_CMD_FAIL:
@@ -624,13 +637,13 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			if ack.reply.Code == INIT_STARTPOD {
 				reason := "Start POD failed"
 				ctx.shutdownVM(true, reason)
-				ctx.Become(stateTerminating, "TERMINATING")
+				ctx.Become(stateTerminating, StateTerminating)
 				glog.Error(reason)
 			}
 		case EVENT_VM_TIMEOUT:
 			reason := "Start POD timeout"
 			ctx.shutdownVM(true, reason)
-			ctx.Become(stateTerminating, "TERMINATING")
+			ctx.Become(stateTerminating, StateTerminating)
 			glog.Error(reason)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
@@ -642,15 +655,15 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 	if processed := commonStateHandler(ctx, ev, true); processed {
 	} else if processed := initFailureHandler(ctx, ev); processed {
 		ctx.shutdownVM(true, "Fail during reconnect to a running pod")
-		ctx.Become(stateTerminating, "TERMINATING")
+		ctx.Become(stateTerminating, StateTerminating)
 	} else {
 		switch ev.Event() {
 		case COMMAND_STOP_POD:
 			ctx.stopPod()
-			ctx.Become(statePodStopping, "STOPPING")
+			ctx.Become(statePodStopping, StatePodStopping)
 		case COMMAND_RELEASE:
 			glog.Info("pod is running, got release command, let VM fly")
-			ctx.Become(nil, "NONE")
+			ctx.Become(nil, StateNone)
 			ctx.reportSuccess("", nil)
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
@@ -732,32 +745,32 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			glog.Info("pod stopping, got release, quit.")
 			ctx.unsetTimeout()
 			ctx.shutdownVM(false, "got release, quit")
-			ctx.Become(stateTerminating, "TERMINATING")
+			ctx.Become(stateTerminating, StateTerminating)
 			ctx.reportVmShutdown()
 		case EVENT_POD_FINISH:
 			glog.Info("POD stopped")
 			ctx.detachDevice()
-			ctx.Become(stateCleaning, "CLEANING")
+			ctx.Become(stateCleaning, StateCleaning)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply.Code)
 			if ack.reply.Code == INIT_STOPPOD {
 				glog.Info("POD stopped ", string(ack.msg))
 				ctx.detachDevice()
-				ctx.Become(stateCleaning, "CLEANING")
+				ctx.Become(stateCleaning, StateCleaning)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
 			if ack.reply.Code == INIT_STOPPOD {
 				ctx.unsetTimeout()
 				ctx.shutdownVM(true, "Stop pod failed as init report")
-				ctx.Become(stateTerminating, "TERMINATING")
+				ctx.Become(stateTerminating, StateTerminating)
 				glog.Error("Stop pod failed as init report")
 			}
 		case EVENT_VM_TIMEOUT:
 			reason := "stopping POD timeout"
 			ctx.shutdownVM(true, reason)
-			ctx.Become(stateTerminating, "TERMINATING")
+			ctx.Become(stateTerminating, StateTerminating)
 			glog.Error(reason)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod stopping")
@@ -771,13 +784,13 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		glog.Info("Got VM shutdown event while terminating, go to cleaning up")
 		ctx.unsetTimeout()
 		if closed := ctx.onVmExit(true); !closed {
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		}
 	case EVENT_VM_KILL:
 		glog.Info("Got VM force killed message, go to cleaning up")
 		ctx.unsetTimeout()
 		if closed := ctx.onVmExit(true); !closed {
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		}
 	case COMMAND_RELEASE:
 		glog.Info("vm terminating, got release")
@@ -811,13 +824,13 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 		if !success {
 			glog.Warning("fail to unplug devices for stop")
 			ctx.poweroffVM(true, "fail to unplug devices")
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		} else if ctx.deviceReady() {
 			//            ctx.reset()
 			//            ctx.unsetTimeout()
 			//            ctx.reportPodStopped()
 			//            glog.V(1).Info("device ready, could run pod.")
-			//            ctx.Become(stateInit, "INIT")
+			//            ctx.Become(stateInit, StateInit)
 			ctx.vm <- &DecodedMessage{
 				Code:    INIT_READY,
 				Message: []byte{},
@@ -826,17 +839,17 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 		}
 	} else if processed := initFailureHandler(ctx, ev); processed {
 		ctx.poweroffVM(true, "fail to unplug devices")
-		ctx.Become(stateDestroying, "DESTROYING")
+		ctx.Become(stateDestroying, StateDestroying)
 	} else {
 		switch ev.Event() {
 		case COMMAND_RELEASE:
 			glog.Info("vm cleaning to idle, got release, quit")
 			ctx.reportVmShutdown()
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		case EVENT_VM_TIMEOUT:
 			glog.Warning("VM did not exit in time, try to stop it")
 			ctx.poweroffVM(true, "pod stopp/unplug timeout")
-			ctx.Become(stateDestroying, "DESTROYING")
+			ctx.Become(stateDestroying, StateDestroying)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[cleaning] Got reply to %d: '%s'", ack.reply.Code, string(ack.msg))
@@ -845,7 +858,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 				ctx.unsetTimeout()
 				ctx.reportPodStopped()
 				glog.Info("init has been acknowledged, could run pod.")
-				ctx.Become(stateInit, "INIT")
+				ctx.Become(stateInit, StateInit)
 			}
 		default:
 			unexpectedEventHandler(ctx, ev, "cleaning")
