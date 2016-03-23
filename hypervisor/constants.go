@@ -92,13 +92,6 @@ const (
 	INIT_ONLINECPUMEM
 )
 
-const (
-	PREPARING_CONTAINER = iota
-	PREPARING_VOLUME
-	PREPARING_BLOCK
-	PREPARING_BIND_DIR
-)
-
 func EventString(ev int) string {
 	switch ev {
 	case EVENT_VM_START_FAILED:
