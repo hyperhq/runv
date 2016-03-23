@@ -445,36 +445,15 @@ func (vm *Vm) SetCpus(cpus int) error {
 		return nil
 	}
 
-	setCpusCmd := &SetCpusCommand{
-		cpus: cpus,
+	res := vm.SendGenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
+		ctx.DCtx.SetCpus(ctx, cpus, result)
+	}, StateInit)
+
+	err := <-res
+	if err == nil {
+		vm.Cpu = cpus
 	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- setCpusCmd
-
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return fmt.Errorf("add cpu failed: get response failed")
-		}
-
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == setCpusCmd {
-			if Response.Cause != "" {
-				return fmt.Errorf("add cpu failed: %s", Response.Cause)
-			}
-
-			break
-		}
-	}
-	vm.Cpu = cpus
-
-	return nil
+	return err
 }
 
 func (vm *Vm) AddMem(totalMem int) error {

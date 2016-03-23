@@ -334,10 +334,8 @@ func diskRoutine(add bool, xc *XenContext, ctx *hypervisor.VmContext,
 	}
 }
 
-func (xc *XenContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
-	}
+func (xc *XenContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
+	result <- fmt.Errorf("SetCpus is unsupported on xen driver")
 }
 
 func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
