@@ -107,6 +107,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		InterfaceCount:  InterfaceCount,
 		timer:           nil,
 		handler:         stateInit,
+		current:         StateInit,
 		userSpec:        nil,
 		vmSpec:          nil,
 		devices:         newDeviceMap(),

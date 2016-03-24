@@ -80,23 +80,6 @@ type KillCommand struct {
 	Signal    syscall.Signal `json:"signal"`
 }
 
-type SetCpusCommand struct {
-	cpus int
-}
-
-type SetCpusCommandAck struct {
-	cmd *SetCpusCommand
-}
-
-type AddMemCommand struct {
-	MemBefore int
-	MemAfter  int
-}
-
-type AddMemCommandAck struct {
-	cmd *AddMemCommand
-}
-
 type OnlineCpuMemCommand struct{}
 
 type WriteFileCommand struct {
@@ -241,6 +224,13 @@ type Interrupted struct {
 	Reason string
 }
 
+type GenericOperation struct {
+	OpName string
+	State  []string
+	OpFunc func(ctx *VmContext, result chan<- error)
+	Result chan<- error
+}
+
 func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
@@ -268,10 +258,6 @@ func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *KillCommand) Event() int           { return COMMAND_KILL }
-func (qe *SetCpusCommand) Event() int        { return COMMAND_SETCPUS }
-func (qe *SetCpusCommandAck) Event() int     { return COMMAND_SETCPUS_ACK }
-func (qe *AddMemCommand) Event() int         { return COMMAND_ADDMEM }
-func (qe *AddMemCommandAck) Event() int      { return COMMAND_ADDMEM_ACK }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
 func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
@@ -280,6 +266,7 @@ func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
 func (qe *CommandAck) Event() int            { return COMMAND_ACK }
+func (qe *GenericOperation) Event() int      { return GENERIC_OPERATION }
 func (qe *InitFailedEvent) Event() int       { return ERROR_INIT_FAIL }
 func (qe *DeviceFailed) Event() int          { return ERROR_QMP_FAIL }
 func (qe *Interrupted) Event() int           { return ERROR_INTERRUPTED }

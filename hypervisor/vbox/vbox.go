@@ -383,16 +383,12 @@ func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	}()
 }
 
-func (vc *VBoxContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
-	}
+func (vc *VBoxContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
+	result <- fmt.Errorf("SetCpus is unsupported on virtualbox driver")
 }
 
-func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
-	}
+func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
+	result <- fmt.Errorf("AddMem is unsupported on virtualbox driver")
 }
 
 // Prepare the conditions for the vm startup

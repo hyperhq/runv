@@ -879,32 +879,16 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 	ctx.Hub <- callback
 }
 
-func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, callback hypervisor.VmEvent) {
+func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
 	glog.V(3).Infof("setcpus %d", cpus)
 	err := lc.domain.SetVcpusFlags(uint(cpus), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
-	if err != nil {
-		glog.Error("setcpus failed, ", err.Error())
-		ctx.Hub <- &hypervisor.DeviceFailed{
-			Session: callback,
-		}
-		return
-	}
-
-	ctx.Hub <- callback
+	result <- err
 }
 
-func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
 	memdevXml := fmt.Sprintf("<memory model='dimm'><target><size unit='MiB'>%d</size><node>0</node></target></memory>", size)
 	glog.V(3).Infof("memdevXml: %s", memdevXml)
 
 	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
-	if err != nil {
-		glog.Error("attach memory failed, ", err.Error())
-		ctx.Hub <- &hypervisor.DeviceFailed{
-			Session: callback,
-		}
-		return
-	}
-
-	ctx.Hub <- callback
+	result <- err
 }
