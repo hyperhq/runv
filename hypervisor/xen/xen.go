@@ -338,10 +338,8 @@ func (xc *XenContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<-
 	result <- fmt.Errorf("SetCpus is unsupported on xen driver")
 }
 
-func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
-	ctx.Hub <- &hypervisor.DeviceFailed{
-		Session: callback,
-	}
+func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
+	result <- fmt.Errorf("AddMem is unsupported on xen driver")
 }
 
 func XlStartDomain(ctx LibxlCtxPtr, id string, boot *hypervisor.BootConfig, hyperSock, ttySock, consoleSock string, extra []string) (int, unsafe.Pointer, error) {

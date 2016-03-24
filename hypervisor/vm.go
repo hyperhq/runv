@@ -461,37 +461,16 @@ func (vm *Vm) AddMem(totalMem int) error {
 		return nil
 	}
 
-	addMemCmd := &AddMemCommand{
-		MemBefore: vm.Mem,
-		MemAfter:  totalMem,
+	size := totalMem - vm.Mem
+	res := vm.SendGenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
+		ctx.DCtx.AddMem(ctx, 1, size, result)
+	}, StateInit)
+
+	err := <-res
+	if err == nil {
+		vm.Mem = totalMem
 	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- addMemCmd
-
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return fmt.Errorf("add memory failed: get response failed")
-		}
-
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == addMemCmd {
-			if Response.Cause != "" {
-				return fmt.Errorf("add memory failed: %s", Response.Cause)
-			}
-
-			break
-		}
-	}
-	vm.Mem = totalMem
-
-	return nil
+	return err
 }
 
 func (vm *Vm) OnlineCpuMem() error {

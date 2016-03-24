@@ -250,7 +250,7 @@ func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<
 	}
 }
 
-func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callback hypervisor.VmEvent) {
+func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
 	commands := make([]*QmpCommand, 2)
 	commands[0] = &QmpCommand{
 		Execute: "object-add",
@@ -270,7 +270,7 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, callbac
 	}
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond:  defaultRespond(ctx, callback),
+		respond:  func(err error) { result <- err },
 	}
 }
 

@@ -220,18 +220,6 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 	}
 }
 
-func (ctx *VmContext) addMemCmd(cmd *AddMemCommand) {
-	ctx.DCtx.AddMem(ctx, 1, cmd.MemAfter-cmd.MemBefore, &AddMemCommandAck{cmd: cmd})
-}
-
-func (ctx *VmContext) addMemCmdAck(cmd *AddMemCommandAck) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_ADDMEM,
-		Reply: cmd.cmd,
-	}
-}
-
 func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_ONLINECPUMEM,
@@ -483,7 +471,6 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
 		COMMAND_KILL,
-		COMMAND_ADDMEM,
 		COMMAND_WRITEFILE,
 		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
@@ -543,10 +530,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
-		case COMMAND_ADDMEM:
-			ctx.addMemCmd(ev.(*AddMemCommand))
-		case COMMAND_ADDMEM_ACK:
-			ctx.addMemCmdAck(ev.(*AddMemCommandAck))
 		case COMMAND_ONLINECPUMEM:
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 		case COMMAND_WRITEFILE:

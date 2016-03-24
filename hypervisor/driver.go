@@ -60,7 +60,7 @@ type DriverContext interface {
 	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent)
 
 	SetCpus(ctx *VmContext, cpus int, result chan<- error)
-	AddMem(ctx *VmContext, slot, size int, callback VmEvent)
+	AddMem(ctx *VmContext, slot, size int, result chan<- error)
 
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
@@ -126,7 +126,7 @@ func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNi
 func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent) {}
 
 func (ec *EmptyContext) SetCpus(ctx *VmContext, cpus int, result chan<- error) {}
-func (ec *EmptyContext) AddMem(ctx *VmContext, slot, size int, callback VmEvent) {
+func (ec *EmptyContext) AddMem(ctx *VmContext, slot, size int, result chan<- error) {
 }
 
 func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
