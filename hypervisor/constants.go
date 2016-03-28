@@ -11,8 +11,8 @@ const (
 	ExitChar        = 4
 
 	// cpu/mem hotplug constants
-	DefaultMaxCpus = 8 // CONFIG_NR_CPUS hyperstart.git/build/kernel_config
-	DefaultMaxMem  = "32G"
+	DefaultMaxCpus = 8     // CONFIG_NR_CPUS hyperstart.git/build/kernel_config
+	DefaultMaxMem  = 32768 // size in MiB
 )
 
 var InterfaceCount int = 1
