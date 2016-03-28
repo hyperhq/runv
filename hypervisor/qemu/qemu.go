@@ -293,8 +293,8 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	var machineClass, memParams, cpuParams string
 	if ctx.Boot.HotAddCpuMem {
 		machineClass = "pc-i440fx-2.1"
-		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%s", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
-		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)          // TODO set it to the cpus of the system
+		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)           // TODO set it to the cpus of the system
 	} else {
 		machineClass = "pc-i440fx-2.0"
 		memParams = strconv.Itoa(ctx.Boot.Memory)
