@@ -281,7 +281,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	if ctx.Boot.HotAddCpuMem {
 		dom.OS.Type.Machine = "pc-i440fx-2.1"
 		dom.VCpu.Content = hypervisor.DefaultMaxCpus
-		dom.MaxMem = &maxmem{Unit: "GiB", Slots: "1", Content: 16}
+		dom.MaxMem = &maxmem{Unit: "MiB", Slots: "1", Content: hypervisor.DefaultMaxMem}
 
 		cells := make([]cell, 1)
 		cells[0].Id = "0"
