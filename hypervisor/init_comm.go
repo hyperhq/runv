@@ -130,6 +130,14 @@ func waitInitReady(ctx *VmContext) {
 		return
 	}
 
+	if ctx.Boot.BootFromTemplate {
+		glog.Info("boot from template")
+		ctx.Paused = true
+		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
+		go waitCmdToInit(ctx, conn.(*net.UnixConn))
+		return
+	}
+
 	glog.Info("Wating for init messages...")
 
 	msg, err := ReadVmMessage(conn.(*net.UnixConn))
