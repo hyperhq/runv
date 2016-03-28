@@ -274,6 +274,23 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result 
 	}
 }
 
+func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
+	commands := make([]*QmpCommand, 1)
+
+	commands[0] = &QmpCommand{
+		Execute: "migrate",
+		Arguments: map[string]interface{}{
+			"uri": fmt.Sprintf("exec:cat>%s", path),
+		},
+	}
+
+	// TODO: use query-migrate to query until completed
+	qc.qmp <- &QmpSession{
+		commands: commands,
+		respond:  func(err error) { result <- err },
+	}
+}
+
 func (qc *QemuDriver) SupportLazyMode() bool {
 	return false
 }

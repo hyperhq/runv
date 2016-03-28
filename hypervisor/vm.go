@@ -621,6 +621,19 @@ func (vm *Vm) Pause(pause bool) error {
 	return nil
 }
 
+func (vm *Vm) Save(path string) error {
+	res := vm.SendGenericOperation("Save", func(ctx *VmContext, result chan<- error) {
+		if ctx.Paused {
+			ctx.DCtx.Save(ctx, path, result)
+		} else {
+			result <- fmt.Errorf("the vm should paused on non-live Save()")
+		}
+	}, StateInit, StateRunning)
+
+	err := <-res
+	return err
+}
+
 func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
 	result := make(chan error, 1)
 	goe := &GenericOperation{

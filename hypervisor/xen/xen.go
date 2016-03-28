@@ -342,6 +342,10 @@ func (xc *XenContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result c
 	result <- fmt.Errorf("AddMem is unsupported on xen driver")
 }
 
+func (xc *XenContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
+	result <- fmt.Errorf("Save is unsupported on xen driver")
+}
+
 func XlStartDomain(ctx LibxlCtxPtr, id string, boot *hypervisor.BootConfig, hyperSock, ttySock, consoleSock string, extra []string) (int, unsafe.Pointer, error) {
 
 	config := &DomainConfig{

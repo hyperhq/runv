@@ -62,6 +62,8 @@ type DriverContext interface {
 	SetCpus(ctx *VmContext, cpus int, result chan<- error)
 	AddMem(ctx *VmContext, slot, size int, result chan<- error)
 
+	Save(ctx *VmContext, path string, result chan<- error)
+
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
 
@@ -128,6 +130,8 @@ func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback 
 func (ec *EmptyContext) SetCpus(ctx *VmContext, cpus int, result chan<- error) {}
 func (ec *EmptyContext) AddMem(ctx *VmContext, slot, size int, result chan<- error) {
 }
+
+func (ec *EmptyContext) Save(ctx *VmContext, path string, result chan<- error) {}
 
 func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 
