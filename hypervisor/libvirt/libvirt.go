@@ -203,8 +203,7 @@ type console struct {
 }
 
 type memballoon struct {
-	Model   string   `xml:"model,attr"`
-	Address *address `xml:"address"`
+	Model string `xml:"model,attr"`
 }
 
 type device struct {
@@ -401,16 +400,8 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 			Port: "0",
 		},
 	}
-
 	dom.Devices.Memballoon = memballoon{
-		Model: "virtio",
-		Address: &address{
-			Type:     "pci",
-			Domain:   "0x0000",
-			Bus:      "0x00",
-			Slot:     "0x05",
-			Function: "0x00",
-		},
+		Model: "none",
 	}
 
 	if boot.Bios != "" && boot.Cbfs != "" {
@@ -890,5 +881,14 @@ func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, resu
 	glog.V(3).Infof("memdevXml: %s", memdevXml)
 
 	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
+	result <- err
+}
+
+func (lc *LibvirtContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
+	glog.V(3).Infof("save domain to: %s", path)
+
+	// lc.domain.Save(path) will have libvirt header and will destroy the vm
+	// TODO: use virsh qemu-monitor-event to query until completed
+	err := exec.Command("virsh", "-c", LibvirtdAddress, "qemu-monitor-command", ctx.Id, "--hmp", fmt.Sprintf("migrate exec:cat>%s", path)).Run()
 	result <- err
 }

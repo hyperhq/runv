@@ -391,6 +391,10 @@ func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result 
 	result <- fmt.Errorf("AddMem is unsupported on virtualbox driver")
 }
 
+func (vc *VBoxContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
+	result <- fmt.Errorf("Save is unsupported on virtualbox driver")
+}
+
 // Prepare the conditions for the vm startup
 // * Create VM machine
 // * Create serial port
