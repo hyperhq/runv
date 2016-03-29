@@ -203,8 +203,7 @@ type console struct {
 }
 
 type memballoon struct {
-	Model   string   `xml:"model,attr"`
-	Address *address `xml:"address"`
+	Model string `xml:"model,attr"`
 }
 
 type device struct {
@@ -401,16 +400,8 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 			Port: "0",
 		},
 	}
-
 	dom.Devices.Memballoon = memballoon{
-		Model: "virtio",
-		Address: &address{
-			Type:     "pci",
-			Domain:   "0x0000",
-			Bus:      "0x00",
-			Slot:     "0x05",
-			Function: "0x00",
-		},
+		Model: "none",
 	}
 
 	if boot.Bios != "" && boot.Cbfs != "" {
