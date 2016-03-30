@@ -72,10 +72,11 @@ type UserVolumeOption struct {
 }
 
 type UserVolume struct {
-	Name   string           `json:"name"`
-	Source string           `json:"source"`
-	Driver string           `json:"driver"`
-	Option UserVolumeOption `json:"option,omitempty"`
+	Name         string           `json:"name"`
+	Source       string           `json:"source"`
+	Driver       string           `json:"driver"`
+	DockerVolume bool             `json:"-"`
+	Option       UserVolumeOption `json:"option,omitempty"`
 }
 
 type UserInterface struct {
@@ -137,7 +138,6 @@ func ProcessPodFile(jsonFile string) (*UserPod, error) {
 }
 
 func ProcessPodBytes(body []byte) (*UserPod, error) {
-
 	var userPod UserPod
 	if err := json.Unmarshal(body, &userPod); err != nil {
 		return nil, err
@@ -173,6 +173,10 @@ func ProcessPodBytes(body []byte) (*UserPod, error) {
 		if vol.Name == "" {
 			return nil, fmt.Errorf("Hyper ERROR: please specific your volume name, it can not be null!\n")
 		}
+	}
+
+	if userPod.Labels == nil {
+		userPod.Labels = make(map[string]string)
 	}
 
 	return &userPod, nil

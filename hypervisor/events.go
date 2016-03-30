@@ -142,6 +142,7 @@ type ContainerInfo struct {
 	Entrypoint []string
 	Cmd        []string
 	Envs       map[string]string
+	Initialize bool // need to initialize container environment in start
 }
 
 type ContainerUnmounted struct {

@@ -53,17 +53,19 @@ type LogStatus struct {
 
 // Vm DataStructure
 type VmVolumeDescriptor struct {
-	Device   string `json:"device"`
-	Addr     string `json:"addr,omitempty"`
-	Mount    string `json:"mount"`
-	Fstype   string `json:"fstype,omitempty"`
-	ReadOnly bool   `json:"readOnly"`
+	Device       string `json:"device"`
+	Addr         string `json:"addr,omitempty"`
+	Mount        string `json:"mount"`
+	Fstype       string `json:"fstype,omitempty"`
+	ReadOnly     bool   `json:"readOnly"`
+	DockerVolume bool   `json:"dockerVolume"`
 }
 
 type VmFsmapDescriptor struct {
-	Source   string `json:"source"`
-	Path     string `json:"path"`
-	ReadOnly bool   `json:"readOnly"`
+	Source       string `json:"source"`
+	Path         string `json:"path"`
+	ReadOnly     bool   `json:"readOnly"`
+	DockerVolume bool   `json:"dockerVolume"`
 }
 
 type VmEnvironmentVar struct {
@@ -88,6 +90,7 @@ type VmContainer struct {
 	Cmd           []string             `json:"cmd"`
 	Envs          []VmEnvironmentVar   `json:"envs,omitempty"`
 	RestartPolicy string               `json:"restartPolicy"`
+	Initialize    bool                 `json:"initialize"`
 }
 
 type VmNetworkInf struct {
