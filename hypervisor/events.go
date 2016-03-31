@@ -132,9 +132,10 @@ type ContainerCreatedEvent struct {
 }
 
 type ContainerInfo struct {
-	Id     string
-	Rootfs string
-	Image  string // if fstype is `dir`, this should be a path relative to share_dir
+	Id      string
+	MountId string
+	Rootfs  string
+	Image   string // if fstype is `dir`, this should be a path relative to share_dir
 	// which described the mounted aufs or overlayfs dir.
 	Fstype     string
 	Workdir    string
