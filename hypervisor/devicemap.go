@@ -33,9 +33,10 @@ type imageInfo struct {
 }
 
 type volumeInfo struct {
-	info     *BlockDescriptor
-	pos      volumePosition
-	readOnly map[int]bool
+	info         *BlockDescriptor
+	pos          volumePosition
+	readOnly     map[int]bool
+	dockerVolume bool
 }
 
 type volumePosition map[int]string //containerIdx -> mpoint
@@ -118,7 +119,7 @@ func (ctx *VmContext) initContainerInfo(index int, target *VmContainer, spec *po
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
 		Volumes: vols, Fsmap: fsmap, Tty: spec.Tty, Stdio: 0, Stderr: 0,
 		Workdir: spec.Workdir, Entrypoint: spec.Entrypoint, Cmd: spec.Command, Envs: envs,
-		RestartPolicy: restart,
+		Sysctl: spec.Sysctl, RestartPolicy: restart,
 	}
 }
 
@@ -156,6 +157,8 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 		container.Envs = append(container.Envs, VmEnvironmentVar{Env: e, Value: v})
 	}
 
+	container.Initialize = info.Initialize
+
 	if info.Fstype == "dir" {
 		container.Image = info.Image
 		container.Fstype = ""
@@ -173,52 +176,60 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 	//classify volumes, and generate device info and progress info
 	for _, vol := range spec.Volumes {
-		if vol.Source == "" || vol.Driver == "" {
-			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info:     &BlockDescriptor{Name: vol.Name, Filename: "", Format: "", Fstype: "", DeviceName: ""},
-				pos:      make(map[int]string),
-				readOnly: make(map[int]bool),
-			}
+		info := &volumeInfo{
+			pos:          make(map[int]string),
+			readOnly:     make(map[int]bool),
+			dockerVolume: vol.DockerVolume,
+		}
 
-		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
-			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &BlockDescriptor{
-					Name: vol.Name, Filename: vol.Source, Format: vol.Driver, Fstype: "ext4", DeviceName: ""},
-				pos:      make(map[int]string),
-				readOnly: make(map[int]bool),
+		if vol.Source == "" || vol.Driver == "" {
+			info.info = &BlockDescriptor{
+				Name:       vol.Name,
+				Filename:   "",
+				Format:     "",
+				Fstype:     "",
+				DeviceName: "",
 			}
+			ctx.devices.volumeMap[vol.Name] = info
+		} else if vol.Driver == "raw" || vol.Driver == "qcow2" || vol.Driver == "vdi" {
+			info.info = &BlockDescriptor{
+				Name:       vol.Name,
+				Filename:   vol.Source,
+				Format:     vol.Driver,
+				Fstype:     "ext4",
+				DeviceName: "",
+			}
+			ctx.devices.volumeMap[vol.Name] = info
 			ctx.progress.adding.blockdevs[vol.Name] = true
 		} else if vol.Driver == "vfs" {
-			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &BlockDescriptor{
-					Name: vol.Name, Filename: vol.Source, Format: vol.Driver, Fstype: "dir", DeviceName: ""},
-				pos:      make(map[int]string),
-				readOnly: make(map[int]bool),
+			info.info = &BlockDescriptor{
+				Name:       vol.Name,
+				Filename:   vol.Source,
+				Format:     vol.Driver,
+				Fstype:     "dir",
+				DeviceName: "",
 			}
+			ctx.devices.volumeMap[vol.Name] = info
 		} else if vol.Driver == "rbd" {
-			ctx.devices.volumeMap[vol.Name] = &volumeInfo{
-				info: &BlockDescriptor{
-					Name:       vol.Name,
-					Filename:   vol.Source,
-					Format:     vol.Driver,
-					Fstype:     "ext4",
-					DeviceName: "",
-					Options: map[string]string{
-						"user":     vol.Option.User,
-						"keyring":  vol.Option.Keyring,
-						"monitors": strings.Join(vol.Option.Monitors, ";"),
-					},
+			info.info = &BlockDescriptor{
+				Name:       vol.Name,
+				Filename:   vol.Source,
+				Format:     vol.Driver,
+				Fstype:     "ext4",
+				DeviceName: "",
+				Options: map[string]string{
+					"user":     vol.Option.User,
+					"keyring":  vol.Option.Keyring,
+					"monitors": strings.Join(vol.Option.Monitors, ";"),
 				},
-				pos:      make(map[int]string),
-				readOnly: make(map[int]bool),
 			}
+			ctx.devices.volumeMap[vol.Name] = info
 			ctx.progress.adding.blockdevs[vol.Name] = true
 		}
 	}
 }
 
 func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
-
 	vol, ok := ctx.devices.volumeMap[info.Name]
 	if !ok {
 		return
@@ -235,9 +246,10 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 		for i, mount := range vol.pos {
 			glog.V(1).Infof("insert volume %s to %s on %d", info.Name, mount, i)
 			ctx.vmSpec.Containers[i].Fsmap = append(ctx.vmSpec.Containers[i].Fsmap, VmFsmapDescriptor{
-				Source:   info.Filepath,
-				Path:     mount,
-				ReadOnly: vol.readOnly[i],
+				Source:       info.Filepath,
+				Path:         mount,
+				ReadOnly:     vol.readOnly[i],
+				DockerVolume: vol.dockerVolume,
 			})
 		}
 	}
@@ -308,11 +320,12 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 		for c, vol := range volume.pos {
 			ctx.vmSpec.Containers[c].Volumes = append(ctx.vmSpec.Containers[c].Volumes,
 				VmVolumeDescriptor{
-					Device:   info.DeviceName,
-					Addr:     info.ScsiAddr,
-					Mount:    vol,
-					Fstype:   volume.info.Fstype,
-					ReadOnly: volume.readOnly[c],
+					Device:       info.DeviceName,
+					Addr:         info.ScsiAddr,
+					Mount:        vol,
+					Fstype:       volume.info.Fstype,
+					ReadOnly:     volume.readOnly[c],
+					DockerVolume: volume.dockerVolume,
 				})
 		}
 	}

@@ -255,7 +255,6 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		ctx.initContainerInfo(i, &containers[i], &container)
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 
-		containers[i].Sysctl = container.Sysctl
 		containers[i].Stdio = ctx.ptys.attachId
 		ctx.ptys.attachId++
 		if !container.Tty {
