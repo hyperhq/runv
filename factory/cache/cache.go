@@ -10,10 +10,11 @@ import (
 )
 
 type cacheFactory struct {
-	b      base.Factory
-	cache  chan *hypervisor.Vm
-	closed chan<- int
-	wg     sync.WaitGroup
+	b         base.Factory
+	cache     chan *hypervisor.Vm
+	closed    chan<- int
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 func New(cacheSize int, b base.Factory) base.Factory {
@@ -66,12 +67,14 @@ func (c *cacheFactory) GetBaseVm() (*hypervisor.Vm, error) {
 }
 
 func (c *cacheFactory) CloseFactory() {
-	glog.V(2).Infof("CloseFactory() close cache factory")
-	for len(c.closed) < cap(c.closed) { // send sufficient closed signal
-		c.closed <- 0
-	}
-	glog.V(2).Infof("CloseFactory() sent close signal")
-	c.wg.Wait()
-	close(c.cache)
-	c.b.CloseFactory()
+	c.closeOnce.Do(func() {
+		glog.V(2).Infof("CloseFactory() close cache factory")
+		for len(c.closed) < cap(c.closed) { // send sufficient closed signal
+			c.closed <- 0
+		}
+		glog.V(2).Infof("CloseFactory() sent close signal")
+		c.wg.Wait()
+		close(c.cache)
+		c.b.CloseFactory()
+	})
 }
