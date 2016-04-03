@@ -700,6 +700,15 @@ func scsiId2Addr(id int) (int, int, error) {
 func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
 	name := blockInfo.Name
 	id := blockInfo.ScsiId
+
+	if lc.domain == nil {
+		glog.Error("Cannot find domain")
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
 	secretUUID, err := lc.diskSecretUUID(blockInfo)
 	if err != nil {
 		glog.Error("generate disk-get-secret failed, ", err.Error())
@@ -738,6 +747,14 @@ func (lc *LibvirtContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, 
 }
 
 func (lc *LibvirtContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.BlockDescriptor, callback hypervisor.VmEvent) {
+	if lc.domain == nil {
+		glog.Error("Cannot find domain")
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
 	secretUUID, err := lc.diskSecretUUID(blockInfo)
 	if err != nil {
 		glog.Error("generate disk-get-secret failed, ", err.Error())
@@ -823,6 +840,14 @@ func nicXml(bridge, device, mac string, addr int) (string, error) {
 }
 
 func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+	if lc.domain == nil {
+		glog.Error("Cannot find domain")
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
 	nicXml, err := nicXml(host.Bridge, host.Device, host.Mac, guest.Busaddr)
 	if err != nil {
 		glog.Error("generate attach-nic-xml failed, ", err.Error())
@@ -850,6 +875,14 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 }
 
 func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent) {
+	if lc.domain == nil {
+		glog.Error("Cannot find domain")
+		ctx.Hub <- &hypervisor.DeviceFailed{
+			Session: nil,
+		}
+		return
+	}
+
 	nicXml, err := nicXml(n.Bridge, n.HostDevice, n.MacAddr, n.PCIAddr)
 	if err != nil {
 		glog.Error("generate detach-nic-xml failed, ", err.Error())
@@ -872,6 +905,11 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 
 func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
 	glog.V(3).Infof("setcpus %d", cpus)
+	if lc.domain == nil {
+		result <- fmt.Errorf("Cannot find domain")
+		return
+	}
+
 	err := lc.domain.SetVcpusFlags(uint(cpus), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
 	result <- err
 }
@@ -879,6 +917,10 @@ func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result ch
 func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
 	memdevXml := fmt.Sprintf("<memory model='dimm'><target><size unit='MiB'>%d</size><node>0</node></target></memory>", size)
 	glog.V(3).Infof("memdevXml: %s", memdevXml)
+	if lc.domain == nil {
+		result <- fmt.Errorf("Cannot find domain")
+		return
+	}
 
 	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
 	result <- err
