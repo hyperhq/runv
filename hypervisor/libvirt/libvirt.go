@@ -286,8 +286,8 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		cells := make([]cell, 1)
 		cells[0].Id = "0"
 		cells[0].Cpus = fmt.Sprintf("0-%d", hypervisor.DefaultMaxCpus-1)
-		cells[0].Memory = strconv.Itoa(ctx.Boot.Memory)
-		cells[0].Unit = "MiB"
+		cells[0].Memory = strconv.Itoa(ctx.Boot.Memory * 1024) // older libvirt always considers unit='KiB'
+		cells[0].Unit = "KiB"
 
 		dom.CPU.Numa = &numa{Cell: cells}
 	}
