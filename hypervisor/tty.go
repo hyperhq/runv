@@ -373,11 +373,12 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 		go func() {
 			buf := make([]byte, 32)
 			keys, _ := term.ToBytes(DetachKeys)
+			isTty := pts.isTty(session)
 
 			defer func() { recover() }()
 			for {
 				nr, err := tty.Stdin.Read(buf)
-				if nr == 1 {
+				if nr == 1 && isTty {
 					for i, key := range keys {
 						if nr != 1 || buf[0] != key {
 							break
@@ -392,7 +393,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 				}
 				if err != nil {
 					glog.Info("a stdin closed, ", err.Error())
-					if err == io.EOF && !pts.isTty(session) && pts.isLastStdin(session) {
+					if err == io.EOF && !isTty && pts.isLastStdin(session) {
 						// send eof to hyperstart
 						glog.V(1).Infof("session %d send eof to hyperstart", session)
 						pts.channel <- &ttyMessage{
