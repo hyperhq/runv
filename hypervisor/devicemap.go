@@ -128,17 +128,14 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 	container.Id = info.Id
 	container.Rootfs = info.Rootfs
 
-	cmd := container.Entrypoint
-	if len(container.Entrypoint) == 0 && len(info.Entrypoint) > 0 {
-		cmd = info.Entrypoint
+	container.Cmd = info.Cmd
+	container.Envs = make([]VmEnvironmentVar, len(info.Envs))
+	i := 0
+	for e, v := range info.Envs {
+		container.Envs[i].Env = e
+		container.Envs[i].Value = v
+		i++
 	}
-	if len(container.Cmd) > 0 {
-		cmd = append(cmd, container.Cmd...)
-	} else if len(info.Cmd) > 0 {
-		cmd = append(cmd, info.Cmd...)
-	}
-	container.Cmd = cmd
-	container.Entrypoint = []string{}
 
 	if container.Workdir == "" {
 		if info.Workdir != "" {
@@ -146,15 +143,6 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 		} else {
 			container.Workdir = "/"
 		}
-	}
-
-	for _, e := range container.Envs {
-		if _, ok := info.Envs[e.Env]; ok {
-			delete(info.Envs, e.Env)
-		}
-	}
-	for e, v := range info.Envs {
-		container.Envs = append(container.Envs, VmEnvironmentVar{Env: e, Value: v})
 	}
 
 	container.Initialize = info.Initialize
