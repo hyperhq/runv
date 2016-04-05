@@ -8,7 +8,7 @@ const (
 	ShareDirTag     = "share_dir"
 	DefaultKernel   = "/var/lib/hyper/kernel"
 	DefaultInitrd   = "/var/lib/hyper/hyper-initrd.img"
-	ExitChar        = 4
+	DetachKeys      = "ctrl-p,ctrl-q"
 
 	// cpu/mem hotplug constants
 	DefaultMaxCpus = 8     // CONFIG_NR_CPUS hyperstart.git/build/kernel_config
