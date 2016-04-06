@@ -107,6 +107,7 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 		ctx.ptys.attachId++
 	}
 
+	ctx.userSpec.Containers = append(ctx.userSpec.Containers, *cmd.container)
 	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
 
 	ctx.lock.Unlock()
