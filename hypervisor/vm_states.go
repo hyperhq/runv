@@ -230,6 +230,9 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Process.Stdio = ctx.ptys.nextAttachId()
+	if !cmd.Process.Terminal {
+		cmd.Process.Stderr = ctx.ptys.nextAttachId()
+	}
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{
@@ -238,8 +241,17 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(false, true, cmd.Process.Stdio, cmd.TtyIO)
+	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.TtyIO)
 	ctx.ptys.clientReg(cmd.ClientTag, cmd.Process.Stdio)
+	if !cmd.Process.Terminal {
+		stderrIO := &TtyIO{
+			Stdin:     nil,
+			Stdout:    cmd.TtyIO.Stdout,
+			ClientTag: cmd.TtyIO.ClientTag,
+			Callback:  nil,
+		}
+		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
+	}
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
