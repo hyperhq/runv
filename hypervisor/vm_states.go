@@ -78,7 +78,7 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
@@ -117,7 +117,7 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
@@ -279,20 +279,20 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		}
 		return
 	}
-	ctx.attachTty2Container(idx, cmd)
+	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
 	}
 }
 
-func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
-	session := ctx.vmSpec.Containers[idx].Process.Stdio
-	ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, cmd.Streams)
+func (ctx *VmContext) attachTty2Container(process *VmProcess, cmd *AttachCommand) {
+	session := process.Stdio
+	ctx.ptys.ptyConnect(true, process.Terminal, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session
-	session = ctx.vmSpec.Containers[idx].Process.Stderr
+	session = process.Stderr
 	if session > 0 {
 		stderrIO := cmd.Stderr
 		if stderrIO == nil {
@@ -303,7 +303,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Callback:  nil,
 			}
 		}
-		ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, stderrIO)
+		ctx.ptys.ptyConnect(true, process.Terminal, session, stderrIO)
 	}
 }
 
