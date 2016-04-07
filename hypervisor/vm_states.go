@@ -229,17 +229,17 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 }
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
-	cmd.Sequence = ctx.ptys.nextAttachId()
+	cmd.Process.Stdio = ctx.ptys.nextAttachId()
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
-			Cause: fmt.Sprintf("command %s parse failed", cmd.Command), Data: cmd.Sequence,
+			Cause: fmt.Sprintf("command %s parse failed", cmd.Process.Args), Data: cmd.Process.Stdio,
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(false, true, cmd.Sequence, cmd.TtyIO)
-	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
+	ctx.ptys.ptyConnect(false, true, cmd.Process.Stdio, cmd.TtyIO)
+	ctx.ptys.clientReg(cmd.ClientTag, cmd.Process.Stdio)
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
@@ -678,7 +678,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 
 			if ack.reply.Code == INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.startStdin(cmd.Sequence, true)
+				ctx.ptys.startStdin(cmd.Process.Stdio, true)
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
 			} else if ack.reply.Code == INIT_READFILE {
@@ -698,9 +698,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ack := ev.(*CommandError)
 			if ack.reply.Code == INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.Close(cmd.Sequence, 255)
+				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
-				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
+				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Process.Args[0], cmd.Process.Stdio)
 			} else if ack.reply.Code == INIT_READFILE {
 				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))

@@ -501,9 +501,13 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 	}
 
 	execCmd := &ExecCommand{
-		Command:   command,
-		Container: container,
 		TtyIO:     tty,
+		Container: container,
+		Process: VmProcess{
+			Terminal: true,
+			Args:     command,
+			Workdir:  "/",
+		},
 	}
 
 	Status, err := vm.GetResponseChan()

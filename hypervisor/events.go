@@ -70,9 +70,8 @@ type NewContainerCommand struct {
 
 type ExecCommand struct {
 	*TtyIO    `json:"-"`
-	Sequence  uint64   `json:"seq"`
-	Container string   `json:"container,omitempty"`
-	Command   []string `json:"cmd"`
+	Container string    `json:"container,omitempty"`
+	Process   VmProcess `json:"process"`
 }
 
 type KillCommand struct {
