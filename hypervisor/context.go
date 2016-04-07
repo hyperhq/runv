@@ -255,10 +255,10 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		ctx.initContainerInfo(i, &containers[i], &container)
 		ctx.setContainerInfo(i, &containers[i], cInfo[i])
 
-		containers[i].Stdio = ctx.ptys.attachId
+		containers[i].Process.Stdio = ctx.ptys.attachId
 		ctx.ptys.attachId++
 		if !container.Tty {
-			containers[i].Stderr = ctx.ptys.attachId
+			containers[i].Process.Stderr = ctx.ptys.attachId
 			ctx.ptys.attachId++
 		}
 	}

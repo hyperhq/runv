@@ -100,10 +100,10 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Stdio = ctx.ptys.attachId
+	vmContainer.Process.Stdio = ctx.ptys.attachId
 	ctx.ptys.attachId++
 	if !cmd.container.Tty {
-		vmContainer.Stderr = ctx.ptys.attachId
+		vmContainer.Process.Stderr = ctx.ptys.attachId
 		ctx.ptys.attachId++
 	}
 
@@ -268,7 +268,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
 		return
-	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Stdio == 0 {
+	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
 		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
 		ctx.reportBadRequest(cause)
 		cmd.Streams.Callback <- &types.VmResponse{
@@ -286,13 +286,13 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 }
 
 func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
-	session := ctx.vmSpec.Containers[idx].Stdio
+	session := ctx.vmSpec.Containers[idx].Process.Stdio
 	ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session
-	session = ctx.vmSpec.Containers[idx].Stderr
+	session = ctx.vmSpec.Containers[idx].Process.Stderr
 	if session > 0 {
 		stderrIO := cmd.Stderr
 		if stderrIO == nil {
@@ -557,7 +557,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Stdio, c.Tty)
+				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
@@ -608,7 +608,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 					}
 				}
 				for _, c := range ctx.vmSpec.Containers {
-					ctx.ptys.startStdin(c.Stdio, c.Tty)
+					ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 				}
 				ctx.reportSuccess("Start POD success", pinfo)
 				ctx.Become(stateRunning, StateRunning)
@@ -692,7 +692,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Stdio, c.Tty)
+				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)

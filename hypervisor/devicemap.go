@@ -115,10 +115,10 @@ func (ctx *VmContext) initContainerInfo(index int, target *VmContainer, spec *po
 		restart = spec.RestartPolicy
 	}
 
+	p := VmProcess{Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
 	*target = VmContainer{
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
-		Volumes: vols, Fsmap: fsmap, Tty: spec.Tty, Stdio: 0, Stderr: 0,
-		Workdir: spec.Workdir, Entrypoint: spec.Entrypoint, Cmd: spec.Command, Envs: envs,
+		Volumes: vols, Fsmap: fsmap, Process: p, Entrypoint: spec.Entrypoint,
 		Sysctl: spec.Sysctl, RestartPolicy: restart,
 	}
 }
@@ -128,20 +128,20 @@ func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *
 	container.Id = info.Id
 	container.Rootfs = info.Rootfs
 
-	container.Cmd = info.Cmd
-	container.Envs = make([]VmEnvironmentVar, len(info.Envs))
+	container.Process.Args = info.Cmd
+	container.Process.Envs = make([]VmEnvironmentVar, len(info.Envs))
 	i := 0
 	for e, v := range info.Envs {
-		container.Envs[i].Env = e
-		container.Envs[i].Value = v
+		container.Process.Envs[i].Env = e
+		container.Process.Envs[i].Value = v
 		i++
 	}
 
-	if container.Workdir == "" {
+	if container.Process.Workdir == "" {
 		if info.Workdir != "" {
-			container.Workdir = info.Workdir
+			container.Process.Workdir = info.Workdir
 		} else {
-			container.Workdir = "/"
+			container.Process.Workdir = "/"
 		}
 	}
 
