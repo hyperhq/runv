@@ -545,7 +545,7 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			context.Lock()
 			context.ttyList[tag] = tty
 			context.Unlock()
-			err = context.vm.Exec(tty, info.Id, string(msg.Message[:]))
+			err = context.vm.Exec(info.Id, string(msg.Message[:]), true, tty)
 			if err != nil {
 				fmt.Printf("read runv client data failed: %v\n", err)
 			}

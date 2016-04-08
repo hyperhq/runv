@@ -489,7 +489,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
-func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
+func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 	var command []string
 
 	if cmd == "" {
@@ -504,7 +504,7 @@ func (vm *Vm) Exec(tty *TtyIO, container, cmd string) error {
 		TtyIO:     tty,
 		Container: container,
 		Process: VmProcess{
-			Terminal: true,
+			Terminal: terminal,
 			Args:     command,
 			Workdir:  "/",
 		},
