@@ -705,6 +705,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
+			} else if ack.reply.Code == INIT_KILLCONTAINER {
+				glog.Infof("Get ack for kill container")
+				ctx.reportKill(ack.reply.Event, true)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
@@ -719,6 +722,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == INIT_WRITEFILE {
 				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
+			} else if ack.reply.Code == INIT_KILLCONTAINER {
+				glog.Infof("Get ack for kill container")
+				ctx.reportKill(ack.reply.Event, false)
 			}
 
 		case COMMAND_GET_POD_IP:

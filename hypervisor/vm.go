@@ -426,7 +426,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 		if Response.Reply == killCmd {
-			if Response.Cause != "" {
+			if Response.Code != types.E_OK {
 				return fmt.Errorf("kill container %v failed: %s", container, Response.Cause)
 			}
 

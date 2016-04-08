@@ -131,6 +131,20 @@ func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
 	ctx.client <- response
 }
 
+func (ctx *VmContext) reportKill(ev VmEvent, ok bool) {
+	code := types.E_OK
+	if !ok {
+		code = types.E_FAILED
+	}
+	response := &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  code,
+		Reply: ev,
+		Cause: "",
+	}
+	ctx.client <- response
+}
+
 func (ctx *VmContext) reportPodIP(ev VmEvent) {
 	ips := []string{}
 	for _, i := range ctx.vmSpec.Interfaces {
