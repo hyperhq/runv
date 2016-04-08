@@ -73,6 +73,22 @@ type VmEnvironmentVar struct {
 	Value string `json:"value"`
 }
 
+type VmProcess struct {
+	// Terminal creates an interactive terminal for the process.
+	Terminal bool `json:"terminal"`
+	// Sequeue number for stdin and stdout
+	Stdio uint64 `json:"stdio,omitempty"`
+	// sequeue number for stderr if it is not shared with stdout
+	Stderr uint64 `json:"stderr,omitempty"`
+	// Args specifies the binary and arguments for the application to execute.
+	Args []string `json:"args"`
+	// Envs populates the process environment for the process.
+	Envs []VmEnvironmentVar `json:"envs,omitempty"`
+	// Workdir is the current working directory for the process and must be
+	// relative to the container's root.
+	Workdir string `json:"workdir"`
+}
+
 type VmContainer struct {
 	Id            string               `json:"id"`
 	Rootfs        string               `json:"rootfs"`
@@ -82,13 +98,8 @@ type VmContainer struct {
 	Volumes       []VmVolumeDescriptor `json:"volumes,omitempty"`
 	Fsmap         []VmFsmapDescriptor  `json:"fsmap,omitempty"`
 	Sysctl        map[string]string    `json:"sysctl,omitempty"`
-	Tty           bool                 `json:"tty"`
-	Stdio         uint64               `json:"stdio,omitempty"`
-	Stderr        uint64               `json:"stderr,omitempty"`
-	Workdir       string               `json:"workdir"`
+	Process       VmProcess            `json:"process"`
 	Entrypoint    []string             `json:"-"`
-	Cmd           []string             `json:"cmd"`
-	Envs          []VmEnvironmentVar   `json:"envs,omitempty"`
 	RestartPolicy string               `json:"restartPolicy"`
 	Initialize    bool                 `json:"initialize"`
 }

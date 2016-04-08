@@ -78,7 +78,7 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
@@ -100,10 +100,10 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
 
 	vmContainer.Sysctl = cmd.container.Sysctl
-	vmContainer.Stdio = ctx.ptys.attachId
+	vmContainer.Process.Stdio = ctx.ptys.attachId
 	ctx.ptys.attachId++
 	if !cmd.container.Tty {
-		vmContainer.Stderr = ctx.ptys.attachId
+		vmContainer.Process.Stderr = ctx.ptys.attachId
 		ctx.ptys.attachId++
 	}
 
@@ -117,7 +117,7 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
 			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
-			ctx.attachTty2Container(idx, acmd)
+			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
 			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
@@ -229,17 +229,29 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 }
 
 func (ctx *VmContext) execCmd(cmd *ExecCommand) {
-	cmd.Sequence = ctx.ptys.nextAttachId()
+	cmd.Process.Stdio = ctx.ptys.nextAttachId()
+	if !cmd.Process.Terminal {
+		cmd.Process.Stderr = ctx.ptys.nextAttachId()
+	}
 	pkg, err := json.Marshal(*cmd)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
-			Cause: fmt.Sprintf("command %s parse failed", cmd.Command), Data: cmd.Sequence,
+			Cause: fmt.Sprintf("command %s parse failed", cmd.Process.Args), Data: cmd.Process.Stdio,
 		}
 		return
 	}
-	ctx.ptys.ptyConnect(false, true, cmd.Sequence, cmd.TtyIO)
-	ctx.ptys.clientReg(cmd.ClientTag, cmd.Sequence)
+	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.TtyIO)
+	ctx.ptys.clientReg(cmd.ClientTag, cmd.Process.Stdio)
+	if !cmd.Process.Terminal {
+		stderrIO := &TtyIO{
+			Stdin:     nil,
+			Stdout:    cmd.TtyIO.Stdout,
+			ClientTag: cmd.TtyIO.ClientTag,
+			Callback:  nil,
+		}
+		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
+	}
 	ctx.vm <- &DecodedMessage{
 		Code:    INIT_EXECCMD,
 		Message: pkg,
@@ -268,7 +280,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
 		return
-	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Stdio == 0 {
+	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
 		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
 		ctx.reportBadRequest(cause)
 		cmd.Streams.Callback <- &types.VmResponse{
@@ -279,20 +291,20 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 		}
 		return
 	}
-	ctx.attachTty2Container(idx, cmd)
+	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
 	}
 }
 
-func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
-	session := ctx.vmSpec.Containers[idx].Stdio
-	ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, cmd.Streams)
+func (ctx *VmContext) attachTty2Container(process *VmProcess, cmd *AttachCommand) {
+	session := process.Stdio
+	ctx.ptys.ptyConnect(true, process.Terminal, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session
-	session = ctx.vmSpec.Containers[idx].Stderr
+	session = process.Stderr
 	if session > 0 {
 		stderrIO := cmd.Stderr
 		if stderrIO == nil {
@@ -303,7 +315,7 @@ func (ctx *VmContext) attachTty2Container(idx int, cmd *AttachCommand) {
 				Callback:  nil,
 			}
 		}
-		ctx.ptys.ptyConnect(true, ctx.userSpec.Containers[idx].Tty, session, stderrIO)
+		ctx.ptys.ptyConnect(true, process.Terminal, session, stderrIO)
 	}
 }
 
@@ -557,7 +569,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Stdio, c.Tty)
+				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
@@ -608,7 +620,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 					}
 				}
 				for _, c := range ctx.vmSpec.Containers {
-					ctx.ptys.startStdin(c.Stdio, c.Tty)
+					ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 				}
 				ctx.reportSuccess("Start POD success", pinfo)
 				ctx.Become(stateRunning, StateRunning)
@@ -678,7 +690,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 
 			if ack.reply.Code == INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.startStdin(cmd.Sequence, true)
+				ctx.ptys.startStdin(cmd.Process.Stdio, true)
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
 			} else if ack.reply.Code == INIT_READFILE {
@@ -692,15 +704,15 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Stdio, c.Tty)
+				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
 			if ack.reply.Code == INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.Close(cmd.Sequence, 255)
+				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
-				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Command[0], cmd.Sequence)
+				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Process.Args[0], cmd.Process.Stdio)
 			} else if ack.reply.Code == INIT_READFILE {
 				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))

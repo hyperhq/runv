@@ -76,8 +76,8 @@ func TestParseSpec(t *testing.T) {
 		t.Error("Default restartPolicy is ", ctx.vmSpec.Containers[0].RestartPolicy)
 	}
 
-	if ctx.vmSpec.Containers[0].Envs[1].Env != "JAVA_HOME" {
-		t.Error("second environment should not be ", ctx.vmSpec.Containers[0].Envs[1].Env)
+	if ctx.vmSpec.Containers[0].Process.Envs[1].Env != "JAVA_HOME" {
+		t.Error("second environment should not be ", ctx.vmSpec.Containers[0].Process.Envs[1].Env)
 	}
 
 	res, err := json.MarshalIndent(*ctx.vmSpec, "    ", "    ")
