@@ -99,7 +99,7 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 		Status   = make(chan *types.VmResponse, 128)
 	)
 
-	go VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
+	VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
 
 	go vm.handlePodEvent(mypod)
 
