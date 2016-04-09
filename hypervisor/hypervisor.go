@@ -104,7 +104,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 		context.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 	}
 
-	context.loop()
+	go context.loop()
 }
 
 func InitNetwork(bIface, bIP string, disableIptables bool) error {
