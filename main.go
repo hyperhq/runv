@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/codegangsta/cli"
-	"github.com/opencontainers/specs"
 )
 
 const (
@@ -59,7 +58,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "root",
-			Value: specs.LinuxStateDirectory,
+			Value: "/run/runv",
 			Usage: "root directory for storage of container state (this should be located in tmpfs)",
 		},
 		cli.StringFlag{

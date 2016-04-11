@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencontainers/specs"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func ConvertOCF2UserContainer(s *specs.LinuxSpec, r *specs.LinuxRuntimeSpec) *UserContainer {
+func ConvertOCF2UserContainer(s *specs.Spec) *UserContainer {
 	container := &UserContainer{
-		Command:       s.Spec.Process.Args,
-		Workdir:       s.Spec.Process.Cwd,
-		Tty:           s.Spec.Process.Terminal,
-		Image:         s.Spec.Root.Path,
-		Sysctl:        r.Linux.Sysctl,
+		Command:       s.Process.Args,
+		Workdir:       s.Process.Cwd,
+		Tty:           s.Process.Terminal,
+		Image:         s.Root.Path,
+		Sysctl:        s.Linux.Sysctl,
 		RestartPolicy: "never",
 	}
 
-	for _, value := range s.Spec.Process.Env {
+	for _, value := range s.Process.Env {
 		fmt.Printf("env: %s\n", value)
 		values := strings.Split(value, "=")
 		tmp := UserEnvironmentVar{
@@ -30,14 +30,18 @@ func ConvertOCF2UserContainer(s *specs.LinuxSpec, r *specs.LinuxRuntimeSpec) *Us
 	return container
 }
 
-func ConvertOCF2PureUserPod(s *specs.LinuxSpec, r *specs.LinuxRuntimeSpec) *UserPod {
+func ConvertOCF2PureUserPod(s *specs.Spec) *UserPod {
+	mem := 0
+	if s.Linux.Resources != nil && s.Linux.Resources.Memory != nil && s.Linux.Resources.Memory.Limit != nil {
+		mem = int(*s.Linux.Resources.Memory.Limit >> 20)
+	}
 	return &UserPod{
-		Name: s.Spec.Hostname,
+		Name: s.Hostname,
 		Resource: UserResource{
-			Memory: int(r.Linux.Resources.Memory.Limit >> 20),
+			Memory: mem,
 			Vcpu:   0,
 		},
-		Tty:           s.Spec.Process.Terminal,
+		Tty:           s.Process.Terminal,
 		Type:          "OCF",
 		RestartPolicy: "never",
 	}
