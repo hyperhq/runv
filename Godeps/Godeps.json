@@ -36,9 +36,9 @@
 			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
 		},
 		{
-			"ImportPath": "github.com/opencontainers/specs",
-			"Comment": "v0.1.1-66-ge71b6dd",
-			"Rev": "e71b6dd44123ccc70ec90ffbee13831dc453c21d"
+			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
+			"Comment": "v0.4.0-44-gc337cd2",
+			"Rev": "c337cd2c0a425ac9a7e17a624ac3be23a02fe53f"
 		}
 	]
 }

@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"github.com/codegangsta/cli"
-	"github.com/opencontainers/specs"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var specCommand = cli.Command{
@@ -49,10 +49,7 @@ var specCommand = cli.Command{
 				},
 			},
 			Hostname: "shell",
-		}
-
-		rspec := specs.LinuxRuntimeSpec{
-			Linux: specs.LinuxRuntime{
+			Linux: specs.Linux{
 				Resources: &specs.Resources{},
 			},
 		}
@@ -69,12 +66,7 @@ var specCommand = cli.Command{
 		}
 
 		cName := context.String("config-file")
-		rName := context.String("runtime-file")
 		if err := checkNoFile(cName); err != nil {
-			fmt.Printf("%s", err.Error())
-			return
-		}
-		if err := checkNoFile(rName); err != nil {
 			fmt.Printf("%s", err.Error())
 			return
 		}
@@ -84,15 +76,6 @@ var specCommand = cli.Command{
 			return
 		}
 		if err := ioutil.WriteFile(cName, data, 0666); err != nil {
-			fmt.Printf("%s", err.Error())
-			return
-		}
-		rdata, err := json.MarshalIndent(&rspec, "", "\t")
-		if err != nil {
-			fmt.Printf("%s", err.Error())
-			return
-		}
-		if err := ioutil.WriteFile(rName, rdata, 0666); err != nil {
 			fmt.Printf("%s", err.Error())
 			return
 		}

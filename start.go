@@ -11,7 +11,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
-	"github.com/opencontainers/specs"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 type startConfig struct {
@@ -23,8 +23,7 @@ type startConfig struct {
 	Initrd     string
 	Vbox       string
 
-	specs.LinuxSpec        `json:"config"`
-	specs.LinuxRuntimeSpec `json:"runtime"`
+	specs.Spec `json:"config"`
 }
 
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
@@ -53,7 +52,6 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	}
 
 	ocffile := filepath.Join(config.BundlePath, specConfig)
-	runtimefile := filepath.Join(config.BundlePath, runtimeConfig)
 
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
 		fmt.Printf("Please make sure bundle directory contains config.json\n")
@@ -66,26 +64,7 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 		return nil, err
 	}
 
-	var runtimeData []byte = nil
-	_, err = os.Stat(runtimefile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Printf("Fail to stat %s, %s\n", runtimefile, err.Error())
-			return nil, err
-		}
-	} else {
-		runtimeData, err = ioutil.ReadFile(runtimefile)
-		if err != nil {
-			fmt.Printf("Fail to readfile %s, %s\n", runtimefile, err.Error())
-			return nil, err
-		}
-	}
-
-	if err := json.Unmarshal(ocfData, &config.LinuxSpec); err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(runtimeData, &config.LinuxRuntimeSpec); err != nil {
+	if err := json.Unmarshal(ocfData, &config.Spec); err != nil {
 		return nil, err
 	}
 
@@ -137,7 +116,7 @@ var startCommand = cli.Command{
 		}
 
 		var sharedContainer string
-		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
+		for _, ns := range config.Spec.Linux.Namespaces {
 			if ns.Path != "" {
 				if strings.Contains(ns.Path, "/") {
 					fmt.Printf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
@@ -165,7 +144,7 @@ var startCommand = cli.Command{
 		// only set the default Kernel/Initrd/Vbox when it is the first container(sharedContainer == "")
 		if config.Kernel == "" && sharedContainer == "" && config.Driver != "vbox" {
 			config.Kernel = firstExistingFile([]string{
-				filepath.Join(config.BundlePath, config.LinuxSpec.Spec.Root.Path, "boot/vmlinuz"),
+				filepath.Join(config.BundlePath, config.Spec.Root.Path, "boot/vmlinuz"),
 				filepath.Join(config.BundlePath, "boot/vmlinuz"),
 				filepath.Join(config.BundlePath, "vmlinuz"),
 				"/var/lib/hyper/kernel",
@@ -173,7 +152,7 @@ var startCommand = cli.Command{
 		}
 		if config.Initrd == "" && sharedContainer == "" && config.Driver != "vbox" {
 			config.Initrd = firstExistingFile([]string{
-				filepath.Join(config.BundlePath, config.LinuxSpec.Spec.Root.Path, "boot/initrd.img"),
+				filepath.Join(config.BundlePath, config.Spec.Root.Path, "boot/initrd.img"),
 				filepath.Join(config.BundlePath, "boot/initrd.img"),
 				filepath.Join(config.BundlePath, "initrd.img"),
 				"/var/lib/hyper/hyper-initrd.img",
@@ -263,7 +242,7 @@ type initContainerCmd struct {
 // * mount namespace can't be shared, each container has its own mount namespace
 //
 // Implementation detail:
-// * Shared namespaces is configured in LinuxRuntimeSpec.Linux.Namespaces, the namespace Path should be existing container name.
+// * Shared namespaces is configured in Spec.Linux.Namespaces, the namespace Path should be existing container name.
 // * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
 

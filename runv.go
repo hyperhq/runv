@@ -20,7 +20,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 
-	"github.com/opencontainers/specs"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const (
@@ -76,7 +76,7 @@ func execHook(hook specs.Hook, state *specs.State) error {
 	return cmd.Run()
 }
 
-func execPrestartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
+func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Prestart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -87,7 +87,7 @@ func execPrestartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	return nil
 }
 
-func execPoststartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
+func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -98,7 +98,7 @@ func execPoststartHooks(rt *specs.RuntimeSpec, state *specs.State) error {
 	return nil
 }
 
-func execPoststopHooks(rt *specs.RuntimeSpec, state *specs.State) error {
+func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststop {
 		err := execHook(hook, state)
 		if err != nil {
@@ -132,11 +132,18 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 		return nil, err
 	}
 
+	envs := make(map[string]string)
+	for _, env := range c.Envs {
+		envs[env.Env] = env.Value
+	}
+
 	containerInfo := &hypervisor.ContainerInfo{
 		Id:     containerId,
 		Rootfs: "rootfs",
 		Image:  containerId,
 		Fstype: "dir",
+		Cmd:    c.Command,
+		Envs:   envs,
 	}
 
 	return containerInfo, nil
@@ -228,7 +235,7 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 			return fmt.Errorf("The vbox is not match")
 		}
 		// check shared namespace
-		for _, ns := range config.LinuxRuntimeSpec.Linux.Namespaces {
+		for _, ns := range config.Spec.Linux.Namespaces {
 			if ns.Path == "" {
 				continue
 			}
@@ -253,7 +260,7 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 	context.podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	context.vmId = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	context.userPod = pod.ConvertOCF2PureUserPod(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	context.userPod = pod.ConvertOCF2PureUserPod(&config.Spec)
 	context.podStatus = hypervisor.NewPod(context.podId, context.userPod)
 	context.vm, err = startVm(config, context.userPod, context.vmId)
 	if err != nil {
@@ -371,7 +378,7 @@ func startVContainer(context *nsContext, root, container string) {
 
 	// save the state
 	state := &specs.State{
-		Version:    config.LinuxSpec.Spec.Version,
+		Version:    config.Spec.Version,
 		ID:         container,
 		Pid:        -1,
 		BundlePath: config.BundlePath,
@@ -388,7 +395,7 @@ func startVContainer(context *nsContext, root, container string) {
 		return
 	}
 
-	userContainer := pod.ConvertOCF2UserContainer(&config.LinuxSpec, &config.LinuxRuntimeSpec)
+	userContainer := pod.ConvertOCF2UserContainer(&config.Spec)
 	info, err := prepareInfo(config, userContainer, context.vmId)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
@@ -420,7 +427,7 @@ func startVContainer(context *nsContext, root, container string) {
 		return
 	}
 
-	err = execPrestartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
+	err = execPrestartHooks(&config.Spec, state)
 	if err != nil {
 		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -430,7 +437,7 @@ func startVContainer(context *nsContext, root, container string) {
 	context.vm.NewContainer(userContainer, info)
 	ListenAndHandleRunvRequests(context, info, sock)
 
-	err = execPoststartHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
+	err = execPoststartHooks(&config.Spec, state)
 	if err != nil {
 		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
 	}
@@ -440,7 +447,7 @@ func startVContainer(context *nsContext, root, container string) {
 		fmt.Printf("get exit code failed %s\n", err.Error())
 	}
 
-	err = execPoststopHooks(&config.LinuxRuntimeSpec.RuntimeSpec, state)
+	err = execPoststopHooks(&config.Spec, state)
 	if err != nil {
 		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
 		return
