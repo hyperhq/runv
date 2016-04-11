@@ -132,11 +132,18 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 		return nil, err
 	}
 
+	envs := make(map[string]string)
+	for _, env := range c.Envs {
+		envs[env.Env] = env.Value
+	}
+
 	containerInfo := &hypervisor.ContainerInfo{
 		Id:     containerId,
 		Rootfs: "rootfs",
 		Image:  containerId,
 		Fstype: "dir",
+		Cmd:    c.Command,
+		Envs:   envs,
 	}
 
 	return containerInfo, nil
