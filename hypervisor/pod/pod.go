@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"reflect"
 	"regexp"
@@ -289,6 +290,12 @@ func (pod *UserPod) Validate() error {
 
 		if _, ok := volume_drivers[v.Driver]; !ok {
 			return fmt.Errorf("in volume %d, volume does not support driver %s.", idx, v.Driver)
+		}
+	}
+
+	for _, dns := range pod.Dns {
+		if ip := net.ParseIP(dns); ip == nil {
+			return fmt.Errorf("incorrect dns %s.", dns)
 		}
 	}
 
