@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
-
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -91,7 +91,7 @@ func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststart {
 		err := execHook(hook, state)
 		if err != nil {
-			fmt.Printf("exec Poststart hook %s failed %s", hook.Path, err.Error())
+			glog.V(1).Infof("exec Poststart hook %s failed %s", hook.Path, err.Error())
 		}
 	}
 
@@ -102,7 +102,7 @@ func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
 	for _, hook := range rt.Hooks.Poststop {
 		err := execHook(hook, state)
 		if err != nil {
-			fmt.Printf("exec Poststop hook %s failed %s", hook.Path, err.Error())
+			glog.V(1).Infof("exec Poststop hook %s failed %s", hook.Path, err.Error())
 		}
 	}
 
@@ -128,7 +128,7 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 
 	err = utils.Mount(root, rootDir)
 	if err != nil {
-		fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
+		glog.V(1).Infof("mount %s to %s failed: %s\n", root, rootDir, err.Error())
 		return nil, err
 	}
 
@@ -160,7 +160,7 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 	if _, err = os.Stat(vbox); err == nil {
 		vbox, err = filepath.Abs(vbox)
 		if err != nil {
-			fmt.Printf("Cannot get abs path for vbox: %s\n", err.Error())
+			glog.V(1).Infof("Cannot get abs path for vbox: %s\n", err.Error())
 			return nil, err
 		}
 	}
@@ -201,7 +201,7 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
 	err = vm.Launch(b)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return nil, err
 	}
 
@@ -253,7 +253,7 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 
 	driver := config.Driver
 	if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
 
@@ -264,16 +264,16 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 	context.podStatus = hypervisor.NewPod(context.podId, context.userPod)
 	context.vm, err = startVm(config, context.userPod, context.vmId)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
 
 	Response := context.vm.StartPod(context.podStatus, context.userPod, nil, nil)
 	if Response.Data == nil {
-		fmt.Printf("StartPod fail: QEMU response data is nil\n")
+		glog.V(1).Infof("StartPod fail: QEMU response data is nil\n")
 		return fmt.Errorf("StartPod fail")
 	}
-	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
 
 	context.actives[config.Name] = config
 	return nil
@@ -290,10 +290,10 @@ func cleanupRunvPod(context *nsContext, name string) {
 	Response := context.vm.StopPod(context.podStatus, "yes")
 
 	if Response.Data == nil {
-		fmt.Printf("StopPod fail: QEMU response data is nil\n")
+		glog.V(1).Infof("StopPod fail: QEMU response data is nil\n")
 		return
 	}
-	fmt.Printf("result: code %d %s\n", Response.Code, Response.Cause)
+	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
 	os.RemoveAll(filepath.Join(hypervisor.BaseDir, context.vmId))
 }
 
@@ -302,12 +302,12 @@ func createVSocket(context *nsContext, root, container string) error {
 	stateDir := filepath.Join(root, container)
 	_, err := os.Stat(stateDir)
 	if err == nil {
-		fmt.Printf("Container %s exists\n", container)
+		glog.V(1).Infof("Container %s exists\n", container)
 		return err
 	}
 	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
 	defer func() {
@@ -318,7 +318,7 @@ func createVSocket(context *nsContext, root, container string) error {
 	// create connection sock
 	sock, err := net.Listen("unix", filepath.Join(stateDir, "runv.sock"))
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
 	context.sockets[container] = sock
@@ -337,41 +337,43 @@ func cleanupVSocket(context *nsContext, root, container string) {
 func startVContainer(context *nsContext, root, container string) {
 	stateDir := filepath.Join(root, container)
 
+	defer glog.Flush()
+
 	err := createVSocket(context, root, container)
 	if err != nil {
-		fmt.Printf("create runv Socket err: %v\n", err)
+		glog.V(1).Infof("create runv Socket err: %v\n", err)
 		return
 	}
 
 	sock, ok := context.sockets[container]
 	if !ok {
-		fmt.Printf("can not find runv Socket, container %v\n", container)
+		glog.V(1).Infof("can not find runv Socket, container %v\n", container)
 		return
 	}
 
 	conn, err := sock.Accept()
 	if err != nil {
-		fmt.Printf("accept on runv Socket err: %v\n", err)
+		glog.V(1).Infof("accept on runv Socket err: %v\n", err)
 		return
 	}
 
 	// get config from sock
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil || msg.Code != RUNV_STARTCONTAINER {
-		fmt.Printf("read runv client data failed: %v\n", err)
+		glog.V(1).Infof("read runv client data failed: %v\n", err)
 		return
 	}
 	config := &startConfig{}
 	err = json.Unmarshal(msg.Message, config)
 	if err != nil || config.Root != root || config.Name != container {
-		fmt.Printf("parse runv start config failed: %v\n", err)
+		glog.V(1).Infof("parse runv start config failed: %v\n", err)
 		return
 	}
 
 	// start pure pod
 	err = startRunvPod(context, config)
 	if err != nil {
-		fmt.Printf("Start Pod failed: %s\n", err.Error())
+		glog.V(1).Infof("Start Pod failed: %s\n", err.Error())
 		return
 	}
 	defer cleanupRunvPod(context, container)
@@ -385,20 +387,20 @@ func startVContainer(context *nsContext, root, container string) {
 	}
 	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return
 	}
 	stateFile := filepath.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return
 	}
 
 	userContainer := pod.ConvertOCF2UserContainer(&config.Spec)
 	info, err := prepareInfo(config, userContainer, context.vmId)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
+		glog.V(1).Infof("%s\n", err.Error())
 		return
 	}
 
@@ -423,13 +425,13 @@ func startVContainer(context *nsContext, root, container string) {
 
 	err = context.vm.Attach(tty, info.Id, nil)
 	if err != nil {
-		fmt.Printf("StartPod fail: fail to set up tty connection.\n")
+		glog.V(1).Infof("StartPod fail: fail to set up tty connection.\n")
 		return
 	}
 
 	err = execPrestartHooks(&config.Spec, state)
 	if err != nil {
-		fmt.Printf("execute Prestart hooks failed, %s\n", err.Error())
+		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
 		return
 	}
 
@@ -439,17 +441,17 @@ func startVContainer(context *nsContext, root, container string) {
 
 	err = execPoststartHooks(&config.Spec, state)
 	if err != nil {
-		fmt.Printf("execute Poststart hooks failed %s\n", err.Error())
+		glog.V(1).Infof("execute Poststart hooks failed %s\n", err.Error())
 	}
 
 	err = tty.WaitForFinish()
 	if err != nil {
-		fmt.Printf("get exit code failed %s\n", err.Error())
+		glog.V(1).Infof("get exit code failed %s\n", err.Error())
 	}
 
 	err = execPoststopHooks(&config.Spec, state)
 	if err != nil {
-		fmt.Printf("execute Poststop hooks failed %s\n", err.Error())
+		glog.V(1).Infof("execute Poststop hooks failed %s\n", err.Error())
 		return
 	}
 }
@@ -499,7 +501,7 @@ func runvAllocAndRespondTag(conn net.Conn) (tag string, err error) {
 func runvGetTag(conn net.Conn) (tag string, err error) {
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil {
-		fmt.Printf("read runv server data failed: %v\n", err)
+		glog.V(1).Infof("read runv server data failed: %v\n", err)
 		return "", err
 	}
 
@@ -522,7 +524,7 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 
 	msg, err := hypervisor.ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil {
-		fmt.Printf("read runv client data failed: %v\n", err)
+		glog.V(1).Infof("read runv client data failed: %v\n", err)
 		return
 	}
 
@@ -532,7 +534,7 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			initCmd := &initContainerCmd{}
 			err = json.Unmarshal(msg.Message, initCmd)
 			if err != nil {
-				fmt.Printf("parse runv init container command failed: %v\n", err)
+				glog.V(1).Infof("parse runv init container command failed: %v\n", err)
 				return
 			}
 			startVContainer(context, initCmd.Root, initCmd.Name)
@@ -541,7 +543,7 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 		{
 			tag, _ := runvAllocAndRespondTag(conn)
 
-			fmt.Printf("client exec cmd request %s\n", msg.Message[:])
+			glog.V(1).Infof("client exec cmd request %s\n", msg.Message[:])
 			tty := &hypervisor.TtyIO{
 				ClientTag: tag,
 				Stdin:     conn,
@@ -554,7 +556,7 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			context.Unlock()
 			err = context.vm.Exec(info.Id, string(msg.Message[:]), true, tty)
 			if err != nil {
-				fmt.Printf("read runv client data failed: %v\n", err)
+				glog.V(1).Infof("read runv client data failed: %v\n", err)
 			}
 		}
 	case RUNV_EXITSTATUS:
@@ -564,11 +566,11 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			tagCmd := &ttyTagCmd{}
 			err = json.Unmarshal(msg.Message, &tagCmd)
 			if err != nil {
-				fmt.Printf("parse exit status failed: %v\n", err)
+				glog.V(1).Infof("parse exit status failed: %v\n", err)
 				return
 			}
 
-			fmt.Printf("client get exit status: tag %v\n", tagCmd)
+			glog.V(1).Infof("client get exit status: tag %v\n", tagCmd)
 
 			context.Lock()
 			if tty, ok := context.ttyList[tagCmd.Tag]; ok {
@@ -593,7 +595,6 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 		{
 			var winSize ttyWinSize
 			json.Unmarshal(msg.Message, &winSize)
-			//fmt.Printf("client exec winsize request %v\n", winSize)
 			context.vm.Tty(winSize.Tag, winSize.Height, winSize.Width)
 		}
 	case RUNV_KILLCONTAINER:
@@ -601,13 +602,13 @@ func HandleRunvRequest(context *nsContext, info *hypervisor.ContainerInfo, conn 
 			killCmd := &killContainerCmd{}
 			err = json.Unmarshal(msg.Message, killCmd)
 			if err != nil {
-				fmt.Printf("parse runv kill container command failed: %v\n", err)
+				glog.V(1).Infof("parse runv kill container command failed: %v\n", err)
 				return
 			}
 			context.vm.KillContainer(info.Id, killCmd.Signal)
 		}
 	default:
-		fmt.Printf("unknown cient request\n")
+		glog.V(1).Infof("unknown cient request\n")
 	}
 }
 
@@ -619,7 +620,7 @@ func ListenAndHandleRunvRequests(context *nsContext, info *hypervisor.ContainerI
 		for {
 			conn, err := sock.Accept()
 			if err != nil {
-				fmt.Printf("accept on runv Socket err: %v\n", err)
+				glog.V(1).Infof("accept on runv Socket err: %v\n", err)
 				break
 			}
 

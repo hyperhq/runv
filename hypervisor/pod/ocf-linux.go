@@ -1,9 +1,9 @@
 package pod
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -18,7 +18,7 @@ func ConvertOCF2UserContainer(s *specs.Spec) *UserContainer {
 	}
 
 	for _, value := range s.Process.Env {
-		fmt.Printf("env: %s\n", value)
+		glog.V(1).Infof("env: %s\n", value)
 		values := strings.Split(value, "=")
 		tmp := UserEnvironmentVar{
 			Env:   values[0],
