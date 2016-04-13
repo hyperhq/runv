@@ -73,11 +73,10 @@ type UserVolumeOption struct {
 }
 
 type UserVolume struct {
-	Name         string           `json:"name"`
-	Source       string           `json:"source"`
-	Driver       string           `json:"driver"`
-	DockerVolume bool             `json:"-"`
-	Option       UserVolumeOption `json:"option,omitempty"`
+	Name   string           `json:"name"`
+	Source string           `json:"source"`
+	Driver string           `json:"driver"`
+	Option UserVolumeOption `json:"option,omitempty"`
 }
 
 type UserInterface struct {

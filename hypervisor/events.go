@@ -157,10 +157,11 @@ type VolumeReadyEvent struct {
 }
 
 type VolumeInfo struct {
-	Name     string //volumen name in spec
-	Filepath string //block dev absolute path, or dir path relative to share dir
-	Fstype   string //"xfs", "ext4" etc. for block dev, or "dir" for dir path
-	Format   string //"raw" (or "qcow2") for volume, no meaning for dir path
+	Name         string //volumen name in spec
+	Filepath     string //block dev absolute path, or dir path relative to share dir
+	Fstype       string //"xfs", "ext4" etc. for block dev, or "dir" for dir path
+	Format       string //"raw" (or "qcow2") for volume, no meaning for dir path
+	DockerVolume bool
 }
 
 type VolumeUnmounted struct {

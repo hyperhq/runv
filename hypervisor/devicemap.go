@@ -165,9 +165,8 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 	//classify volumes, and generate device info and progress info
 	for _, vol := range spec.Volumes {
 		info := &volumeInfo{
-			pos:          make(map[int]string),
-			readOnly:     make(map[int]bool),
-			dockerVolume: vol.DockerVolume,
+			pos:      make(map[int]string),
+			readOnly: make(map[int]bool),
 		}
 
 		if vol.Source == "" || vol.Driver == "" {
@@ -225,6 +224,7 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 
 	vol.info.Filename = info.Filepath
 	vol.info.Format = info.Format
+	vol.dockerVolume = info.DockerVolume
 
 	if info.Fstype != "dir" {
 		vol.info.Fstype = info.Fstype
@@ -237,7 +237,7 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 				Source:       info.Filepath,
 				Path:         mount,
 				ReadOnly:     vol.readOnly[i],
-				DockerVolume: vol.dockerVolume,
+				DockerVolume: info.DockerVolume,
 			})
 		}
 	}
