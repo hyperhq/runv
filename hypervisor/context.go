@@ -214,7 +214,7 @@ func (ctx *VmContext) Become(handler stateHandler, desc string) {
 
 // InitDeviceContext will init device info in context
 func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
-	cInfo []*ContainerInfo, vInfo []*VolumeInfo) {
+	cInfo []*ContainerInfo, vInfo map[string]*VolumeInfo) {
 
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
@@ -234,7 +234,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 	}
 
 	if vInfo == nil {
-		vInfo = []*VolumeInfo{}
+		vInfo = make(map[string]*VolumeInfo)
 	}
 
 	ctx.initVolumeMap(spec)

@@ -48,7 +48,7 @@ type GetPodStatsCommand struct {
 type RunPodCommand struct {
 	Spec       *pod.UserPod
 	Containers []*ContainerInfo
-	Volumes    []*VolumeInfo
+	Volumes    map[string]*VolumeInfo
 	Wg         *sync.WaitGroup
 }
 

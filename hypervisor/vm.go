@@ -201,7 +201,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 }
 
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
-	cList []*ContainerInfo, vList []*VolumeInfo) *types.VmResponse {
+	cList []*ContainerInfo, vList map[string]*VolumeInfo) *types.VmResponse {
 	mypod.Vm = vm.Id
 	var ok bool = false
 	vm.Pod = mypod
