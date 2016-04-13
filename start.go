@@ -46,21 +46,18 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	if !filepath.IsAbs(config.BundlePath) {
 		config.BundlePath, err = filepath.Abs(config.BundlePath)
 		if err != nil {
-			fmt.Printf("Cannot get abs path for bundle path: %s\n", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("Cannot get abs path for bundle path: %s\n", err.Error())
 		}
 	}
 
 	ocffile := filepath.Join(config.BundlePath, specConfig)
 
 	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
-		fmt.Printf("Please make sure bundle directory contains config.json\n")
-		return nil, err
+		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
 	}
 
 	ocfData, err := ioutil.ReadFile(ocffile)
 	if err != nil {
-		fmt.Printf("%s\n", err.Error())
 		return nil, err
 	}
 
