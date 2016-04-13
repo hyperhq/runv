@@ -15,30 +15,37 @@ var AppHelpTemplate = `NAME:
    {{.Name}} - {{.Usage}}
 
 USAGE:
-   {{.Name}} {{if .Flags}}[global options] {{end}}command{{if .Flags}} [command options]{{end}} [arguments...]
-
+   {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}} {{if .Flags}}[global options]{{end}}{{if .Commands}} command [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{end}}
+   {{if .Version}}{{if not .HideVersion}}
 VERSION:
-   {{.Version}}{{if len .Authors}}
-
-AUTHOR(S): 
-   {{range .Authors}}{{ . }}{{end}}{{end}}
-
-COMMANDS:
-   {{range .Commands}}{{join .Names ", "}}{{ "\t" }}{{.Usage}}
-   {{end}}{{if .Flags}}
+   {{.Version}}
+   {{end}}{{end}}{{if len .Authors}}
+AUTHOR(S):
+   {{range .Authors}}{{ . }}{{end}}
+   {{end}}{{if .Commands}}
+COMMANDS:{{range .Categories}}{{if .Name}}
+  {{.Name}}{{ ":" }}{{end}}{{range .Commands}}
+    {{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}{{end}}
+{{end}}{{end}}{{if .Flags}}
 GLOBAL OPTIONS:
    {{range .Flags}}{{.}}
-   {{end}}{{end}}
+   {{end}}{{end}}{{if .Copyright }}
+COPYRIGHT:
+   {{.Copyright}}
+   {{end}}
 `
 
 // The text template for the command help topic.
 // cli.go uses text/template to render templates. You can
 // render custom help text by setting this variable.
 var CommandHelpTemplate = `NAME:
-   {{.Name}} - {{.Usage}}
+   {{.HelpName}} - {{.Usage}}
 
 USAGE:
-   command {{.Name}}{{if .Flags}} [command options]{{end}} [arguments...]{{if .Description}}
+   {{.HelpName}}{{if .Flags}} [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{if .Category}}
+
+CATEGORY:
+   {{.Category}}{{end}}{{if .Description}}
 
 DESCRIPTION:
    {{.Description}}{{end}}{{if .Flags}}
@@ -52,23 +59,25 @@ OPTIONS:
 // cli.go uses text/template to render templates. You can
 // render custom help text by setting this variable.
 var SubcommandHelpTemplate = `NAME:
-   {{.Name}} - {{.Usage}}
+   {{.HelpName}} - {{.Usage}}
 
 USAGE:
-   {{.Name}} command{{if .Flags}} [command options]{{end}} [arguments...]
+   {{.HelpName}} command{{if .Flags}} [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}
 
-COMMANDS:
-   {{range .Commands}}{{join .Names ", "}}{{ "\t" }}{{.Usage}}
-   {{end}}{{if .Flags}}
+COMMANDS:{{range .Categories}}{{if .Name}}
+  {{.Name}}{{ ":" }}{{end}}{{range .Commands}}
+    {{.Name}}{{with .ShortName}}, {{.}}{{end}}{{ "\t" }}{{.Usage}}{{end}}
+{{end}}{{if .Flags}}
 OPTIONS:
    {{range .Flags}}{{.}}
    {{end}}{{end}}
 `
 
 var helpCommand = Command{
-	Name:    "help",
-	Aliases: []string{"h"},
-	Usage:   "Shows a list of commands or help for one command",
+	Name:      "help",
+	Aliases:   []string{"h"},
+	Usage:     "Shows a list of commands or help for one command",
+	ArgsUsage: "[command]",
 	Action: func(c *Context) {
 		args := c.Args()
 		if args.Present() {
@@ -80,9 +89,10 @@ var helpCommand = Command{
 }
 
 var helpSubcommand = Command{
-	Name:    "help",
-	Aliases: []string{"h"},
-	Usage:   "Shows a list of commands or help for one command",
+	Name:      "help",
+	Aliases:   []string{"h"},
+	Usage:     "Shows a list of commands or help for one command",
+	ArgsUsage: "[command]",
 	Action: func(c *Context) {
 		args := c.Args()
 		if args.Present() {
@@ -175,27 +185,35 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 	t := template.Must(template.New("help").Funcs(funcMap).Parse(templ))
 	err := t.Execute(w, data)
 	if err != nil {
-		panic(err)
+		// If the writer is closed, t.Execute will fail, and there's nothing
+		// we can do to recover. We could send this to os.Stderr if we need.
+		return
 	}
 	w.Flush()
 }
 
 func checkVersion(c *Context) bool {
-	if c.GlobalBool("version") {
-		ShowVersion(c)
-		return true
+	found := false
+	if VersionFlag.Name != "" {
+		eachName(VersionFlag.Name, func(name string) {
+			if c.GlobalBool(name) || c.Bool(name) {
+				found = true
+			}
+		})
 	}
-
-	return false
+	return found
 }
 
 func checkHelp(c *Context) bool {
-	if c.GlobalBool("h") || c.GlobalBool("help") {
-		ShowAppHelp(c)
-		return true
+	found := false
+	if HelpFlag.Name != "" {
+		eachName(HelpFlag.Name, func(name string) {
+			if c.GlobalBool(name) || c.Bool(name) {
+				found = true
+			}
+		})
 	}
-
-	return false
+	return found
 }
 
 func checkCommandHelp(c *Context, name string) bool {
