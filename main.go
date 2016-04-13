@@ -50,6 +50,23 @@ func main() {
 	app.Usage = usage
 	app.Version = version
 	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "enable debug output for logging, saved on the dir specified by log_dir via glog style",
+		},
+		cli.StringFlag{
+			Name:  "log_dir",
+			Value: "/var/log/hyper",
+			Usage: "the directory for the logging (glog style)",
+		},
+		cli.StringFlag{
+			Name:  "log",
+			Usage: "[ignored on runv] set the log file path where internal debug information is written",
+		},
+		cli.StringFlag{
+			Name:  "log-format",
+			Usage: "[ignored on runv] set the format used by logs ('text' (default), or 'json')",
+		},
 		cli.StringFlag{
 			Name:  "root",
 			Value: "/run/runv",

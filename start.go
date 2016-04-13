@@ -98,16 +98,6 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			Name:  "bundle, b",
 			Usage: "path to the root of the bundle directory",
 		},
-		cli.StringFlag{
-			Name:  "verbose, v",
-			Value: "0",
-			Usage: "logging verbosity",
-		},
-		cli.StringFlag{
-			Name:  "log_dir",
-			Value: "/var/log/hyper",
-			Usage: "the directory for the logging (glog style)",
-		},
 	},
 	Action: func(context *cli.Context) {
 		config, err := loadStartConfig(context)
@@ -199,9 +189,6 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		}
 
 		if sharedContainer != "" {
-			if context.IsSet("verbose") || context.IsSet("log_dir") {
-				fmt.Printf("The logging flags --verbose and --log_dir are only valid for starting the first container, we ignore them here")
-			}
 			initCmd := &initContainerCmd{Name: config.Name, Root: config.Root}
 			conn, err := runvRequest(config.Root, sharedContainer, RUNV_INITCONTAINER, initCmd)
 			if err != nil {
@@ -220,8 +207,9 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				"runv-ns-daemon",
 				"--root", config.Root,
 				"--id", config.Name,
-				"-v", context.String("verbose"),
-				"--log_dir", context.String("log_dir"),
+			}
+			if context.GlobalBool("debug") {
+				args = append(args, "-v", "3", "--log_dir", context.GlobalString("log_dir"))
 			}
 			_, err = utils.ExecInDaemon(path, args)
 			if err != nil {
