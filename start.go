@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +21,7 @@ type startConfig struct {
 	Initrd     string
 	Vbox       string
 
-	specs.Spec `json:"config"`
+	*specs.Spec `json:"config"`
 }
 
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
@@ -51,17 +49,8 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	}
 
 	ocffile := filepath.Join(config.BundlePath, specConfig)
-
-	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
-	}
-
-	ocfData, err := ioutil.ReadFile(ocffile)
+	config.Spec, err = loadSpec(ocffile)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(ocfData, &config.Spec); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +117,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 					os.Exit(-1)
 				}
 				sharedContainer = ns.Path
-				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, "state.json"))
+				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, stateJson))
 				if err != nil {
 					fmt.Printf("The container %s is not existing or not ready\n", sharedContainer)
 					os.Exit(-1)

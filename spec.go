@@ -81,3 +81,21 @@ var specCommand = cli.Command{
 		}
 	},
 }
+
+func loadSpec(ocffile string) (*specs.Spec, error) {
+	var spec specs.Spec
+
+	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
+		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
+	}
+
+	ocfData, err := ioutil.ReadFile(ocffile)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(ocfData, &spec); err != nil {
+		return nil, err
+	}
+	return &spec, nil
+}
