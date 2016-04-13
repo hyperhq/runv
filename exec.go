@@ -12,10 +12,19 @@ import (
 var execCommand = cli.Command{
 	Name:  "exec",
 	Usage: "exec a new program in runv container",
+	ArgsUsage: `<container-id> <container command>
+
+Where "<container-id>" is the name for the instance of the container and
+"<container command>" is the command to be executed in the container.
+
+For example, if the container is configured to run the linux ps command the
+following will output a list of processes running in the container:
+
+       # runv exec <container-id> ps`,
 	Action: func(context *cli.Context) {
 		root := context.GlobalString("root")
-		container := context.GlobalString("id")
-		config, err := loadProcessConfig(context.Args().First())
+		container := context.Args().First()
+		config, err := loadProcessConfig(context.Args().Get(1))
 		if err != nil {
 			fmt.Printf("load process config failed %v\n", err)
 			os.Exit(-1)

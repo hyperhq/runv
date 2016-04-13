@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"github.com/codegangsta/cli"
@@ -34,10 +33,10 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     # cd /mycontainer
-    # runv start start [ -b bundle ]
+    # runv start start [ -b bundle ] <container-id>
 
 If not specified, the default value for the 'bundle' is the current directory.
-'Bundle' is the directory where '` + specConfig + `' and '` + runtimeConfig + `' must be located.`
+'Bundle' is the directory where '` + specConfig + `' must be located.`
 )
 
 func main() {
@@ -51,11 +50,6 @@ func main() {
 	app.Usage = usage
 	app.Version = version
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "id",
-			Value: getDefaultID(),
-			Usage: "specify the ID to be used for the container",
-		},
 		cli.StringFlag{
 			Name:  "root",
 			Value: "/run/runv",
@@ -88,14 +82,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
-}
-
-func getDefaultID() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Base(cwd)
 }
 
 func getDefaultDriver() string {

@@ -28,7 +28,7 @@ type startConfig struct {
 
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	config := &startConfig{
-		Name:       context.GlobalString("id"),
+		Name:       context.Args().First(),
 		Root:       context.GlobalString("root"),
 		Driver:     context.GlobalString("driver"),
 		Kernel:     context.GlobalString("kernel"),
@@ -80,6 +80,19 @@ func firstExistingFile(candidates []string) string {
 var startCommand = cli.Command{
 	Name:  "start",
 	Usage: "create and run a container",
+	ArgsUsage: `<container-id>
+
+Where "<container-id>" is your name for the instance of the container that you
+are starting. The name you provide for the container instance must be unique on
+your host.`,
+	Description: `The start command creates an instance of a container for a bundle. The bundle
+is a directory with a specification file named "` + specConfig + `" and a root
+filesystem.
+
+The specification file includes an args parameter. The args parameter is used
+to specify command(s) that get run when the container is started. To change the
+command(s) that get executed on start, edit the args parameter of the spec. See
+"runv spec --help" for more explanation.`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "bundle, b",
