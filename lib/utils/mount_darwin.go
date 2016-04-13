@@ -4,7 +4,7 @@ import (
 	"syscall"
 )
 
-func Mount(src, dst string) error {
+func Mount(src, dst string, readOnly bool) error {
 	//return syscall.Symlink(src, dst)
 	return syscall.Link(src, dst)
 }
