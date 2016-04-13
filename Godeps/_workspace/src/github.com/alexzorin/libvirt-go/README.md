@@ -1,3 +1,7 @@
+# Carving out the future
+
+With the upcoming changes to cgo in Go 1.6 this package will probably break. We'll need to update it and crank through PRs together. Let's get things in :ship: shape.
+
 # libvirt-go
 
 [![Build Status](http://ci.serversaurus.com/github.com/alexzorin/libvirt-go/status.svg?branch=master)](http://ci.serversaurus.com/github.com/alexzorin/libvirt-go)

@@ -1,44 +1,49 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.5",
+	"GodepVersion": "v62",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.8.7",
-			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
+			"Comment": "v0.10.0",
+			"Rev": "4b6ea7319e214d98c938f12692336f7ca9348d6b"
 		},
 		{
 			"ImportPath": "github.com/alexzorin/libvirt-go",
-			"Comment": "v2.12.0-2-g057f70a",
-			"Rev": "057f70a36a6b5d4ea19be345c2369e27dd022e01"
+			"Comment": "v2.12.0-16-gff60ea0",
+			"Rev": "ff60ea0aad76b9c5b8d5d56a720467a96fda7e9b"
 		},
 		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-107-g942282e",
-			"Rev": "942282e931e8286aa802a30b01fa7e16befb50f3"
+			"Comment": "1.2.0-237-g71f57d3",
+			"Rev": "71f57d300dd6a780ac1856c005c4b518cfd498ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/daemon/logger",
-			"Comment": "v1.4.1-6273-gd2e7ba4",
-			"Rev": "d2e7ba42b10fda5961470adc4ba4d74011203e60"
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/timeutils",
-			"Comment": "v1.4.1-6273-gd2e7ba4",
-			"Rev": "d2e7ba42b10fda5961470adc4ba4d74011203e60"
+			"ImportPath": "github.com/docker/docker/pkg/jsonlog",
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
 		},
 		{
 			"ImportPath": "github.com/golang/glog",
-			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
+			"Rev": "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
-			"Rev": "6e7f843663477789fac7c02def0d0909e969b4e5"
+			"Rev": "29ae4ffbc9a6fe9fb2bc5029050ce6996ea1d3bc"
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
 			"Comment": "v0.4.0-44-gc337cd2",
 			"Rev": "c337cd2c0a425ac9a7e17a624ac3be23a02fe53f"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "9eef40adf05b951699605195b829612bd7b69952"
 		}
 	]
 }
