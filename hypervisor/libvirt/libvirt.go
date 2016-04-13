@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	libvirtgo "github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/utils"
+	libvirtgo "github.com/rgbkrk/libvirt-go"
 )
 
 var LibvirtdAddress = "qemu:///system"

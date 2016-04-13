@@ -1,6 +1,6 @@
 # Carving out the future
 
-With the upcoming changes to cgo in Go 1.6 this package will probably break. We'll need to update it and crank through PRs together. Let's get things in :ship: shape.
+Go 1.6 is incompatible with libvirt's implementation of Domain Events (those things that callback to your code to let you know something changed in a domain's state), so builds of this under golang 1.6 will not include Domain Events unless someone comes up with a workaround.
 
 # libvirt-go
 
@@ -35,7 +35,7 @@ Previously there was support for libvirt 0.9.8 and below, however this is no lon
 
 ## Documentation
 
-* [api documentation for the bindings](http://godoc.org/github.com/alexzorin/libvirt-go)
+* [api documentation for the bindings](http://godoc.org/github.com/rgbkrk/libvirt-go)
 * [api documentation for libvirt](http://libvirt.org/html/libvirt-libvirt.html)
 
 ## Contributing

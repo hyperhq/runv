@@ -7,10 +7,10 @@ import (
 	"syscall"
 
 	"fmt"
-	libvirtgo "github.com/alexzorin/libvirt-go"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
+	libvirtgo "github.com/rgbkrk/libvirt-go"
 	"time"
 )
 
