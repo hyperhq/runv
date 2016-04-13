@@ -126,7 +126,7 @@ func prepareInfo(config *startConfig, c *pod.UserContainer, vmId string) (*hyper
 		root = c.Image
 	}
 
-	err = utils.Mount(root, rootDir)
+	err = utils.Mount(root, rootDir, config.Spec.Root.Readonly)
 	if err != nil {
 		fmt.Printf("mount %s to %s failed: %s\n", root, rootDir, err.Error())
 		return nil, err
