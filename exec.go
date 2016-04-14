@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -12,20 +15,105 @@ import (
 var execCommand = cli.Command{
 	Name:  "exec",
 	Usage: "exec a new program in runv container",
+	ArgsUsage: `<container-id> <container command>
+
+Where "<container-id>" is the name for the instance of the container and
+"<container command>" is the command to be executed in the container.
+
+For example, if the container is configured to run the linux ps command the
+following will output a list of processes running in the container:
+
+       # runv exec <container-id> ps`,
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "console",
+			Usage: "[reject on runv] specify the pty slave path for use with the container",
+		},
+		cli.StringFlag{
+			Name:  "cwd",
+			Usage: "[TODO] current working directory in the container",
+		},
+		cli.StringSliceFlag{
+			Name:  "env, e",
+			Usage: "[TODO] set environment variables",
+		},
+		cli.BoolFlag{
+			Name:  "tty, t",
+			Usage: "[TODO] allocate a pseudo-TTY",
+		},
+		cli.StringFlag{
+			Name:  "user, u",
+			Usage: "[TODO] UID (format: <uid>[:<gid>])",
+		},
+		cli.StringFlag{
+			Name:  "process, p",
+			Usage: "path to the process.json",
+		},
+		cli.BoolFlag{
+			Name:  "detach,d",
+			Usage: "[TODO] detach from the container's process",
+		},
+		cli.StringFlag{
+			Name:  "pid-file",
+			Usage: "[TODO] specify the file to write the process id to",
+		},
+		cli.StringFlag{
+			Name:  "process-label",
+			Usage: "[ignore on runv] set the asm process label for the process commonly used with selinux",
+		},
+		cli.StringFlag{
+			Name:  "apparmor",
+			Usage: "[ignore on runv] set the apparmor profile for the process",
+		},
+		cli.BoolFlag{
+			Name:  "no-new-privs",
+			Usage: "[ignore on runv] set the no new privileges value for the process",
+		},
+		cli.StringSliceFlag{
+			Name:  "cap, c",
+			Usage: "[ignore on runv] add a capability to the bounding set for the process",
+		},
+		cli.BoolFlag{
+			Name:  "no-subreaper",
+			Usage: "[ignore on runv] disable the use of the subreaper used to reap reparented processes",
+		},
+	},
 	Action: func(context *cli.Context) {
 		root := context.GlobalString("root")
-		container := context.GlobalString("id")
-		config, err := loadProcessConfig(context.Args().First())
-		if err != nil {
-			fmt.Printf("load process config failed %v\n", err)
+		container := context.Args().First()
+
+		if context.String("console") != "" {
+			fmt.Printf("--console is unsupported on runv\n")
 			os.Exit(-1)
 		}
 		if container == "" {
-			fmt.Printf("Please specify container ID")
+			fmt.Printf("Please specify container ID\n")
 			os.Exit(-1)
 		}
 		if os.Geteuid() != 0 {
 			fmt.Printf("runv should be run as root\n")
+			os.Exit(-1)
+		}
+
+		// get bundle path from state
+		path := filepath.Join(root, container, stateJson)
+		f, err := os.Open(path)
+		if err != nil {
+			fmt.Printf("open JSON configuration file failed: %v\n", err)
+			os.Exit(-1)
+		}
+		defer f.Close()
+		var s *specs.State
+		if err := json.NewDecoder(f).Decode(&s); err != nil {
+			fmt.Printf("parse JSON configuration file failed: %v\n", err)
+			os.Exit(-1)
+		}
+		bundle := s.BundlePath
+
+		// get process
+		config, err := getProcess(context, bundle)
+		if err != nil {
+			fmt.Printf("get process config failed %v\n", err)
 			os.Exit(-1)
 		}
 		conn, err := runvRequest(root, container, RUNV_EXECCMD, config.Args)
@@ -52,4 +140,46 @@ func loadProcessConfig(path string) (*specs.Process, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
+	if path := context.String("process"); path != "" {
+		return loadProcessConfig(path)
+	}
+	// process via cli flags
+	spec, err := loadSpec(filepath.Join(bundle, specConfig))
+	if err != nil {
+		return nil, err
+	}
+	p := spec.Process
+	p.Args = context.Args()[1:]
+	// override the cwd, if passed
+	if context.String("cwd") != "" {
+		p.Cwd = context.String("cwd")
+	}
+	// append the passed env variables
+	for _, e := range context.StringSlice("env") {
+		p.Env = append(p.Env, e)
+	}
+	// set the tty
+	if context.IsSet("tty") {
+		p.Terminal = context.Bool("tty")
+	}
+	// override the user, if passed
+	if context.String("user") != "" {
+		u := strings.SplitN(context.String("user"), ":", 2)
+		if len(u) > 1 {
+			gid, err := strconv.Atoi(u[1])
+			if err != nil {
+				return nil, fmt.Errorf("parsing %s as int for gid failed: %v", u[1], err)
+			}
+			p.User.GID = uint32(gid)
+		}
+		uid, err := strconv.Atoi(u[0])
+		if err != nil {
+			return nil, fmt.Errorf("parsing %s as int for uid failed: %v", u[0], err)
+		}
+		p.User.UID = uint32(uid)
+	}
+	return &p, nil
 }

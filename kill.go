@@ -58,10 +58,19 @@ type killContainerCmd struct {
 var killCommand = cli.Command{
 	Name:  "kill",
 	Usage: "kill sends the specified signal (default: SIGTERM) to the container's init process",
+	ArgsUsage: `<container-id> <signal>
+
+Where "<container-id>" is the name for the instance of the container and
+"<signal>" is the signal to be sent to the init process.
+
+For example, if the container id is "ubuntu01" the following will send a "KILL"
+signal to the init process of the "ubuntu01" container:
+
+       # runv kill ubuntu01 KILL`,
 	Action: func(context *cli.Context) {
 		root := context.GlobalString("root")
-		container := context.GlobalString("id")
-		sigstr := context.Args().First()
+		container := context.Args().First()
+		sigstr := context.Args().Get(1)
 		if sigstr == "" {
 			sigstr = "SIGTERM"
 		}

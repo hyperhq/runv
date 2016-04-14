@@ -260,7 +260,7 @@ func startRunvPod(context *nsContext, config *startConfig) (err error) {
 	context.podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	context.vmId = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
 
-	context.userPod = pod.ConvertOCF2PureUserPod(&config.Spec)
+	context.userPod = pod.ConvertOCF2PureUserPod(config.Spec)
 	context.podStatus = hypervisor.NewPod(context.podId, context.userPod)
 	context.vm, err = startVm(config, context.userPod, context.vmId)
 	if err != nil {
@@ -390,14 +390,14 @@ func startVContainer(context *nsContext, root, container string) {
 		glog.V(1).Infof("%s\n", err.Error())
 		return
 	}
-	stateFile := filepath.Join(stateDir, "state.json")
+	stateFile := filepath.Join(stateDir, stateJson)
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
 		return
 	}
 
-	userContainer := pod.ConvertOCF2UserContainer(&config.Spec)
+	userContainer := pod.ConvertOCF2UserContainer(config.Spec)
 	info, err := prepareInfo(config, userContainer, context.vmId)
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
@@ -429,7 +429,7 @@ func startVContainer(context *nsContext, root, container string) {
 		return
 	}
 
-	err = execPrestartHooks(&config.Spec, state)
+	err = execPrestartHooks(config.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
 		return
@@ -439,7 +439,7 @@ func startVContainer(context *nsContext, root, container string) {
 	context.vm.NewContainer(userContainer, info)
 	ListenAndHandleRunvRequests(context, info, sock)
 
-	err = execPoststartHooks(&config.Spec, state)
+	err = execPoststartHooks(config.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Poststart hooks failed %s\n", err.Error())
 	}
@@ -449,7 +449,7 @@ func startVContainer(context *nsContext, root, container string) {
 		glog.V(1).Infof("get exit code failed %s\n", err.Error())
 	}
 
-	err = execPoststopHooks(&config.Spec, state)
+	err = execPoststopHooks(config.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Poststop hooks failed %s\n", err.Error())
 		return

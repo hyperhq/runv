@@ -16,14 +16,8 @@ var specCommand = cli.Command{
 	Usage: "create a new specification file",
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "config-file, c",
-			Value: "config.json",
-			Usage: "path to spec config file for writing",
-		},
-		cli.StringFlag{
-			Name:  "runtime-file, r",
-			Value: "runtime.json",
-			Usage: "path to runtime config file for writing",
+			Name:  "bundle, b",
+			Usage: "path to the root of the bundle directory",
 		},
 	},
 	Action: func(context *cli.Context) {
@@ -65,19 +59,43 @@ var specCommand = cli.Command{
 			return nil
 		}
 
-		cName := context.String("config-file")
-		if err := checkNoFile(cName); err != nil {
-			fmt.Printf("%s", err.Error())
+		bundle := context.String("bundle")
+		if bundle != "" {
+			if err := os.Chdir(bundle); err != nil {
+				fmt.Printf("Failed to chdir to bundle dir:%s\nerror:%v\n", bundle, err)
+				return
+			}
+		}
+		if err := checkNoFile(specConfig); err != nil {
+			fmt.Printf("%s\n", err.Error())
 			return
 		}
 		data, err := json.MarshalIndent(&spec, "", "\t")
 		if err != nil {
-			fmt.Printf("%s", err.Error())
+			fmt.Printf("%s\n", err.Error())
 			return
 		}
-		if err := ioutil.WriteFile(cName, data, 0666); err != nil {
-			fmt.Printf("%s", err.Error())
+		if err := ioutil.WriteFile(specConfig, data, 0666); err != nil {
+			fmt.Printf("%s\n", err.Error())
 			return
 		}
 	},
+}
+
+func loadSpec(ocffile string) (*specs.Spec, error) {
+	var spec specs.Spec
+
+	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
+		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
+	}
+
+	ocfData, err := ioutil.ReadFile(ocffile)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(ocfData, &spec); err != nil {
+		return nil, err
+	}
+	return &spec, nil
 }

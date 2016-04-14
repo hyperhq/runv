@@ -3,17 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"github.com/codegangsta/cli"
 )
 
 const (
-	version       = "0.4.0"
-	specConfig    = "config.json"
-	runtimeConfig = "runtime.json"
-	usage         = `Open Container Initiative hypervisor-based runtime
+	version    = "0.4.0"
+	specConfig = "config.json"
+	stateJson  = "state.json"
+	usage      = `Open Container Initiative hypervisor-based runtime
 
 runv is a command line client for running applications packaged according to
 the Open Container Format (OCF) and is a compliant implementation of the
@@ -34,10 +33,10 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     # cd /mycontainer
-    # runv start start [ -b bundle ]
+    # runv start start [ -b bundle ] <container-id>
 
 If not specified, the default value for the 'bundle' is the current directory.
-'Bundle' is the directory where '` + specConfig + `' and '` + runtimeConfig + `' must be located.`
+'Bundle' is the directory where '` + specConfig + `' must be located.`
 )
 
 func main() {
@@ -51,10 +50,22 @@ func main() {
 	app.Usage = usage
 	app.Version = version
 	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "enable debug output for logging, saved on the dir specified by log_dir via glog style",
+		},
 		cli.StringFlag{
-			Name:  "id",
-			Value: getDefaultID(),
-			Usage: "specify the ID to be used for the container",
+			Name:  "log_dir",
+			Value: "/var/log/hyper",
+			Usage: "the directory for the logging (glog style)",
+		},
+		cli.StringFlag{
+			Name:  "log",
+			Usage: "[ignored on runv] set the log file path where internal debug information is written",
+		},
+		cli.StringFlag{
+			Name:  "log-format",
+			Usage: "[ignored on runv] set the format used by logs ('text' (default), or 'json')",
 		},
 		cli.StringFlag{
 			Name:  "root",
@@ -88,14 +99,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
-}
-
-func getDefaultID() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Base(cwd)
 }
 
 func getDefaultDriver() string {

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,12 +21,12 @@ type startConfig struct {
 	Initrd     string
 	Vbox       string
 
-	specs.Spec `json:"config"`
+	*specs.Spec `json:"config"`
 }
 
 func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	config := &startConfig{
-		Name:       context.GlobalString("id"),
+		Name:       context.Args().First(),
 		Root:       context.GlobalString("root"),
 		Driver:     context.GlobalString("driver"),
 		Kernel:     context.GlobalString("kernel"),
@@ -51,17 +49,8 @@ func loadStartConfig(context *cli.Context) (*startConfig, error) {
 	}
 
 	ocffile := filepath.Join(config.BundlePath, specConfig)
-
-	if _, err = os.Stat(ocffile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
-	}
-
-	ocfData, err := ioutil.ReadFile(ocffile)
+	config.Spec, err = loadSpec(ocffile)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(ocfData, &config.Spec); err != nil {
 		return nil, err
 	}
 
@@ -80,20 +69,23 @@ func firstExistingFile(candidates []string) string {
 var startCommand = cli.Command{
 	Name:  "start",
 	Usage: "create and run a container",
+	ArgsUsage: `<container-id>
+
+Where "<container-id>" is your name for the instance of the container that you
+are starting. The name you provide for the container instance must be unique on
+your host.`,
+	Description: `The start command creates an instance of a container for a bundle. The bundle
+is a directory with a specification file named "` + specConfig + `" and a root
+filesystem.
+
+The specification file includes an args parameter. The args parameter is used
+to specify command(s) that get run when the container is started. To change the
+command(s) that get executed on start, edit the args parameter of the spec. See
+"runv spec --help" for more explanation.`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "bundle, b",
 			Usage: "path to the root of the bundle directory",
-		},
-		cli.StringFlag{
-			Name:  "verbose, v",
-			Value: "0",
-			Usage: "logging verbosity",
-		},
-		cli.StringFlag{
-			Name:  "log_dir",
-			Value: "/var/log/hyper",
-			Usage: "the directory for the logging (glog style)",
 		},
 	},
 	Action: func(context *cli.Context) {
@@ -125,7 +117,7 @@ var startCommand = cli.Command{
 					os.Exit(-1)
 				}
 				sharedContainer = ns.Path
-				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, "state.json"))
+				_, err = os.Stat(filepath.Join(config.Root, sharedContainer, stateJson))
 				if err != nil {
 					fmt.Printf("The container %s is not existing or not ready\n", sharedContainer)
 					os.Exit(-1)
@@ -186,9 +178,6 @@ var startCommand = cli.Command{
 		}
 
 		if sharedContainer != "" {
-			if context.IsSet("verbose") || context.IsSet("log_dir") {
-				fmt.Printf("The logging flags --verbose and --log_dir are only valid for starting the first container, we ignore them here")
-			}
 			initCmd := &initContainerCmd{Name: config.Name, Root: config.Root}
 			conn, err := runvRequest(config.Root, sharedContainer, RUNV_INITCONTAINER, initCmd)
 			if err != nil {
@@ -207,8 +196,9 @@ var startCommand = cli.Command{
 				"runv-ns-daemon",
 				"--root", config.Root,
 				"--id", config.Name,
-				"-v", context.String("verbose"),
-				"--log_dir", context.String("log_dir"),
+			}
+			if context.GlobalBool("debug") {
+				args = append(args, "-v", "3", "--log_dir", context.GlobalString("log_dir"))
 			}
 			_, err = utils.ExecInDaemon(path, args)
 			if err != nil {
