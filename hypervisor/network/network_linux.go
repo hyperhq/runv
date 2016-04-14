@@ -332,7 +332,7 @@ func configureBridge(bridgeIP, bridgeIface string) error {
 	}
 
 	if ifaceAddr == "" {
-		return fmt.Errorf("Could not find a free IP address range for interface '%s'. Please configure its address manually", bridgeIface, bridgeIface)
+		return fmt.Errorf("Could not find a free IP address range for interface '%s'. Please configure its address manually", bridgeIface)
 	}
 
 	if err := CreateBridgeIface(bridgeIface); err != nil {
@@ -1029,7 +1029,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 
 	err = NetworkLinkUp(tapIface)
 	if err != nil {
-		glog.Errorf("Link up device %s failed", tapIface)
+		glog.Errorf("Link up device %s failed", device)
 		tapFile.Close()
 		return nil, err
 	}
@@ -1133,7 +1133,7 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 
 	err = NetworkLinkUp(tapIface)
 	if err != nil {
-		glog.Errorf("Link up device %s failed", tapIface)
+		glog.Errorf("Link up device %s failed", device)
 		tapFile.Close()
 		return nil, err
 	}

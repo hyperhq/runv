@@ -225,7 +225,7 @@ type domain struct {
 	Type       string   `xml:"type,attr"`
 	Name       string   `xml:"name"`
 	Memory     memory   `xml:"memory"`
-	MaxMem     *maxmem  `xml:"maxMemory",omitempty`
+	MaxMem     *maxmem  `xml:"maxMemory,omitempty"`
 	VCpu       vcpu     `xml:"vcpu"`
 	OS         domainos `xml:"os"`
 	Features   features `xml:"features"`
@@ -546,7 +546,7 @@ func (lc *LibvirtContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.Pause
 }
 
 type diskdriver struct {
-	Type string `xml:type,attr`
+	Type string `xml:"type,attr"`
 	Name string `xml:"name,attr,omitempty"`
 }
 
@@ -587,7 +587,7 @@ type disk struct {
 	Source  disksrc     `xml:"source"`
 	Target  disktgt     `xml:"target"`
 	Address *address    `xml:"address"`
-	Auth    *cephauth   `xml: "name,auth,omitempty"`
+	Auth    *cephauth   `xml:"name,auth,omitempty"`
 }
 
 func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, error) {
@@ -700,7 +700,7 @@ func scsiId2Name(id int) string {
 
 func scsiId2Addr(id int) (int, int, error) {
 	if id > 65535 {
-		return -1, -1, fmt.Errorf("id %d too long, exceed 256*256")
+		return -1, -1, fmt.Errorf("id %d too long, exceed 256*256", id)
 	}
 
 	return id / 256, id % 256, nil

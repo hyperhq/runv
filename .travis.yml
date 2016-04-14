@@ -21,6 +21,7 @@ before_install:
 script:
   - cd ${TRAVIS_BUILD_DIR}
   - hack/verify-gofmt.sh
+  - hack/validate-vet.sh
   - ./autogen.sh
   - ./configure
   - make
