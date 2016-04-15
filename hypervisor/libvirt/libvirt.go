@@ -602,9 +602,6 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 
 	d := disk{
 		Device: "disk",
-		Driver: &diskdriver{
-			Type: format,
-		},
 		Target: disktgt{
 			Dev: devname,
 			Bus: "scsi",
@@ -648,6 +645,7 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 
 	} else {
 		d.Type = "file"
+		d.Driver = &diskdriver{Type: format}
 		d.Source = disksrc{
 			File: filename,
 		}
