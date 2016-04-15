@@ -195,7 +195,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			}
 			ctx.devices.imageMap[vol.Name] = img
 		} else {
-			v := &volumeInfo{
+			v := &volume{
 				info:     binfo,
 				pos:      make(map[int]string),
 				readOnly: make(map[int]bool),
