@@ -14,7 +14,7 @@ import (
 //  gsed -ie 's/^    \([a-z]\)\([a-zA-Z]*\)\( \{1,\}[^ ]\{1,\}.*\)$/    \U\1\E\2\3 `json:"\1\2"`/' pod.go
 
 type HandleEvent struct {
-	Handle func(*types.VmResponse, interface{}, *PodStatus, *Vm) bool
+	Handle func(*types.VmResponse, interface{}, *PodStatus, *Vm) (bool, bool)
 	Data   interface{}
 }
 

@@ -159,7 +159,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 }
 
 func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
-	mypod *PodStatus, vm *Vm) bool {
+	mypod *PodStatus, vm *Vm) (bool, bool) {
 	if Response.Code == types.E_POD_FINISHED {
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
 		mypod.Vm = ""
@@ -170,10 +170,10 @@ func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 			mypod.SetContainerStatus(types.S_POD_SUCCEEDED)
 		}
 		mypod.Vm = ""
-		return true
+		return true, true
 	}
 
-	return false
+	return false, false
 }
 
 func (vm *Vm) handlePodEvent(mypod *PodStatus) {
@@ -191,10 +191,12 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 			break
 		}
 
-		exit := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+		exit, close := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
 		if exit {
-			vm.clients.Close()
-			vm.clients = nil
+			if close {
+				vm.clients.Close()
+				vm.clients = nil
+			}
 			break
 		}
 	}
