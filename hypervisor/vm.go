@@ -671,13 +671,16 @@ func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
 }
 
 func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool, keep int) (vm *Vm, err error) {
-	var id string
-	for {
-		id = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
-		if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
-			break
+	id := vmId
+	if id == "" {
+		for {
+			id = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+			if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
+				break
+			}
 		}
 	}
+
 	vm = NewVm(id, b.CPU, b.Memory, lazy, keep)
 	if err = vm.Launch(b); err != nil {
 		return nil, err
