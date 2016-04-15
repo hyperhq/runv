@@ -562,7 +562,6 @@ type cephsecret struct {
 }
 
 type cephauth struct {
-	XMLName  xml.Name   `xml:"auth"`
 	UserName string     `xml:"username,attr"`
 	Secret   cephsecret `xml:"secret"`
 }
@@ -587,7 +586,7 @@ type disk struct {
 	Source  disksrc     `xml:"source"`
 	Target  disktgt     `xml:"target"`
 	Address *address    `xml:"address"`
-	Auth    *cephauth   `xml:"name,auth,omitempty"`
+	Auth    *cephauth   `xml:"auth,omitempty"`
 }
 
 func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, error) {
@@ -603,9 +602,6 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 
 	d := disk{
 		Device: "disk",
-		Driver: &diskdriver{
-			Type: format,
-		},
 		Target: disktgt{
 			Dev: devname,
 			Bus: "scsi",
@@ -649,6 +645,7 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 
 	} else {
 		d.Type = "file"
+		d.Driver = &diskdriver{Type: format}
 		d.Source = disksrc{
 			File: filename,
 		}
