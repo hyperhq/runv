@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -499,14 +500,29 @@ func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
 		return err
 	}
+	return vm.AddProcess(container, terminal, command, []string{}, "/", tty)
+}
+
+func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
+	envs := []VmEnvironmentVar{}
+
+	for _, v := range env {
+		if eqlIndex := strings.Index(v, "="); eqlIndex > 0 {
+			envs = append(envs, VmEnvironmentVar{
+				Env:   v[:eqlIndex],
+				Value: v[eqlIndex+1:],
+			})
+		}
+	}
 
 	execCmd := &ExecCommand{
 		TtyIO:     tty,
 		Container: container,
 		Process: VmProcess{
 			Terminal: terminal,
-			Args:     command,
-			Workdir:  "/",
+			Args:     args,
+			Envs:     envs,
+			Workdir:  workdir,
 		},
 	}
 
@@ -521,13 +537,13 @@ func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 	for {
 		Response, ok := <-Status
 		if !ok {
-			return fmt.Errorf("exec command %v failed: get response failed", command)
+			return fmt.Errorf("exec command %v failed: get response failed", args)
 		}
 
 		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
 		if Response.Reply == execCmd {
 			if Response.Cause != "" {
-				return fmt.Errorf("exec command %v failed: %s", command, Response.Cause)
+				return fmt.Errorf("exec command %v failed: %s", args, Response.Cause)
 			}
 
 			break
