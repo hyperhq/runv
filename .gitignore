@@ -52,6 +52,7 @@ _testmain.go
 # intellij idea configure
 .idea
 /runv
+/runv-containerd
 *.out
 
 # supporting linux container on non-linux platform

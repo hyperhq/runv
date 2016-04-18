@@ -12,7 +12,7 @@ LIBVIRT_BUILD_TAG=
 endif
 
 HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
-all-local: build-runv
+all-local: build-runv build-containerd
 clean-local:
 	-rm -f runv
 install-exec-local: 
@@ -20,3 +20,5 @@ install-exec-local:
 
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
+build-containerd:
+	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv-containerd ./containerd/
