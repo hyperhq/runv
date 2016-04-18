@@ -96,6 +96,7 @@ func main() {
 		execCommand,
 		killCommand,
 		listCommand,
+		stateCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
