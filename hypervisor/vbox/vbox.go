@@ -194,12 +194,11 @@ func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {
 		if err := vc.detachDisk(name, 0); err != nil {
 			glog.Warningf("failed to detach the disk of VBox(%s), %s", name, err.Error())
 		}
-		if ctx.Keep < types.VM_KEEP_AFTER_SHUTDOWN {
-			if err := m.Delete(); err != nil {
-				glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
-			}
-			os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
+		if err := m.Delete(); err != nil {
+			glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
 		}
+		os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
+
 		delete(vc.Driver.Machines, name)
 		ctx.Hub <- &hypervisor.VmExit{}
 	}()
@@ -217,19 +216,18 @@ func (vc *VBoxContext) Kill(ctx *hypervisor.VmContext) {
 		if err := vc.detachDisk(m.Name, 0); err != nil {
 			glog.Warningf("failed to detach the disk of VBox(%s), %s", name, err.Error())
 		}
-		if ctx.Keep < types.VM_KEEP_AFTER_SHUTDOWN {
-			if err := m.Delete(); err != nil {
-				glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
-			}
-			delete(vc.Driver.Machines, name)
-			args := fmt.Sprintf("ps aux | grep %s | grep -v grep | awk '{print \"kill -9 \" $2}' | sh", name)
-			cmd := exec.Command("/bin/sh", "-c", args)
-			if err := cmd.Run(); err != nil {
-				ctx.Hub <- &hypervisor.VmKilledEvent{Success: false}
-				return
-			}
-			os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
+		if err := m.Delete(); err != nil {
+			glog.Warningf("failed to delete the VBox(%s), %s", name, err.Error())
 		}
+		delete(vc.Driver.Machines, name)
+		args := fmt.Sprintf("ps aux | grep %s | grep -v grep | awk '{print \"kill -9 \" $2}' | sh", name)
+		cmd := exec.Command("/bin/sh", "-c", args)
+		if err := cmd.Run(); err != nil {
+			ctx.Hub <- &hypervisor.VmKilledEvent{Success: false}
+			return
+		}
+		os.RemoveAll(filepath.Join(hypervisor.BaseDir, "vm", name))
+
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 	}()
 }

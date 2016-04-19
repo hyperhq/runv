@@ -198,7 +198,7 @@ func startVm(config *startConfig, userPod *pod.UserPod, vmId string) (*hyperviso
 		Memory: mem,
 	}
 
-	vm := hypervisor.NewVm(vmId, cpu, mem, false, types.VM_KEEP_NONE)
+	vm := hypervisor.NewVm(vmId, cpu, mem, false)
 	err = vm.Launch(b)
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())

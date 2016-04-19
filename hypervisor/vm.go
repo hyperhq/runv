@@ -20,7 +20,6 @@ type Vm struct {
 	Cpu    int
 	Mem    int
 	Lazy   bool
-	Keep   int
 
 	Hub     chan VmEvent
 	clients *Fanout
@@ -46,9 +45,9 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 	)
 
 	if vm.Lazy {
-		go LazyVmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
+		go LazyVmLoop(vm.Id, PodEvent, Status, b)
 	} else {
-		go VmLoop(vm.Id, PodEvent, Status, b, vm.Keep)
+		go VmLoop(vm.Id, PodEvent, Status, b)
 	}
 
 	vm.Hub = PodEvent
@@ -658,7 +657,7 @@ func errorResponse(cause string) *types.VmResponse {
 	}
 }
 
-func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
+func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 	return &Vm{
 		Id:     vmId,
 		Pod:    nil,
@@ -666,11 +665,10 @@ func NewVm(vmId string, cpu, memory int, lazy bool, keep int) *Vm {
 		Status: types.S_VM_IDLE,
 		Cpu:    cpu,
 		Mem:    memory,
-		Keep:   keep,
 	}
 }
 
-func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool, keep int) (vm *Vm, err error) {
+func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (vm *Vm, err error) {
 	id := vmId
 	if id == "" {
 		for {
@@ -681,7 +679,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool, keep int) (vm *Vm
 		}
 	}
 
-	vm = NewVm(id, b.CPU, b.Memory, lazy, keep)
+	vm = NewVm(id, b.CPU, b.Memory, lazy)
 	if err = vm.Launch(b); err != nil {
 		return nil, err
 	}

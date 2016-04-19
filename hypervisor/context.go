@@ -57,12 +57,11 @@ type VmContext struct {
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
 	wait bool
-	Keep int
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)
 
-func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig, keep int) (*VmContext, error) {
+func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
 	var err error = nil
 
 	vmChannel := make(chan *DecodedMessage, 128)
@@ -114,7 +113,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		progress:        newProcessingList(),
 		lock:            &sync.Mutex{},
 		wait:            false,
-		Keep:            keep,
 	}, nil
 }
 
