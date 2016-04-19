@@ -13,6 +13,11 @@
 			"Rev": "4b6ea7319e214d98c938f12692336f7ca9348d6b"
 		},
 		{
+			"ImportPath": "github.com/cloudfoundry/gosigar",
+			"Comment": "scotty_09012012-27-g3ed7c74",
+			"Rev": "3ed7c74352dae6dc00bdc8c74045375352e3ec05"
+		},
+		{
 			"ImportPath": "github.com/codegangsta/cli",
 			"Comment": "1.2.0-237-g71f57d3",
 			"Rev": "71f57d300dd6a780ac1856c005c4b518cfd498ec"
