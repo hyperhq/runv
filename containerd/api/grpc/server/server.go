@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cloudfoundry/gosigar"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/supervisor"
@@ -86,7 +87,30 @@ func (s *apiServer) AddProcess(ctx context.Context, r *types.AddProcessRequest) 
 }
 
 func (s *apiServer) State(ctx context.Context, r *types.StateRequest) (*types.StateResponse, error) {
-	return nil, errors.New("State() not implemented yet")
+	cpu := sigar.CpuList{}
+	if err := cpu.Get(); err != nil {
+		return nil, err
+	}
+	mem := sigar.Mem{}
+	if err := mem.Get(); err != nil {
+		return nil, err
+	}
+	state := &types.StateResponse{
+		Machine: &types.Machine{
+			Cpus:   uint32(len(cpu.List)),
+			Memory: uint64(mem.Total / 1024 / 1024),
+		},
+	}
+	s.sv.RLock()
+	for _, c := range s.sv.Containers {
+		apiC := supervisorContainer2ApiContainer(c)
+		for _, p := range c.Processes {
+			addApiProcess2ApiContainer(apiC, supervisorProcess2ApiProcess(p))
+		}
+		state.Containers = append(state.Containers, apiC)
+	}
+	s.sv.RUnlock()
+	return state, nil
 }
 
 func (s *apiServer) UpdateContainer(ctx context.Context, r *types.UpdateContainerRequest) (*types.UpdateContainerResponse, error) {

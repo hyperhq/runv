@@ -17,8 +17,8 @@ type Supervisor struct {
 	Factory  factory.Factory
 	Events   SvEvents
 
-	sync.Mutex // Protects Supervisor.Containers, HyperPod.Containers, HyperPod.Processes, Container.Processes
-	Containers map[string]*Container
+	sync.RWMutex // Protects Supervisor.Containers, HyperPod.Containers, HyperPod.Processes, Container.Processes
+	Containers   map[string]*Container
 }
 
 func New(stateDir, eventLogDir string, f factory.Factory) (*Supervisor, error) {
@@ -64,8 +64,8 @@ func (sv *Supervisor) AddProcess(container, processId, stdin, stdout, stderr str
 }
 
 func (sv *Supervisor) TtyResize(container, processId string, width, height int) error {
-	sv.Lock()
-	defer sv.Unlock()
+	sv.RLock()
+	defer sv.RUnlock()
 	p := sv.getProcess(container, processId)
 	if p != nil {
 		return p.ttyResize(width, height)
@@ -74,8 +74,8 @@ func (sv *Supervisor) TtyResize(container, processId string, width, height int) 
 }
 
 func (sv *Supervisor) CloseStdin(container, processId string) error {
-	sv.Lock()
-	defer sv.Unlock()
+	sv.RLock()
+	defer sv.RUnlock()
 	p := sv.getProcess(container, processId)
 	if p != nil {
 		return p.closeStdin()
@@ -84,8 +84,8 @@ func (sv *Supervisor) CloseStdin(container, processId string) error {
 }
 
 func (sv *Supervisor) Signal(container, processId string, sig int) error {
-	sv.Lock()
-	defer sv.Unlock()
+	sv.RLock()
+	defer sv.RUnlock()
 	p := sv.getProcess(container, processId)
 	if p != nil {
 		return p.signal(sig)
