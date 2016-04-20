@@ -322,6 +322,7 @@ func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 	}
 
 	mypod.Status = types.S_POD_FAILED
+	mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
 	mypod.SetContainerStatus(types.S_POD_FAILED)
 
 	return Response
