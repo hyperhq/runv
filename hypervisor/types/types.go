@@ -34,12 +34,6 @@ const (
 	S_VM_PAUSED
 )
 
-const (
-	VM_KEEP_NONE = iota
-	VM_KEEP_AFTER_FINISH
-	VM_KEEP_AFTER_SHUTDOWN
-)
-
 type VmResponse struct {
 	VmId  string
 	Code  int

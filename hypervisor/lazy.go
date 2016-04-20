@@ -8,11 +8,11 @@ import (
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
-func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *BootConfig, keep int) {
+func LazyVmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *BootConfig) {
 
 	glog.V(1).Infof("Start VM %s in lazy mode, not started yet actually", vmId)
 
-	context, err := InitContext(vmId, hub, client, nil, boot, keep)
+	context, err := InitContext(vmId, hub, client, nil, boot)
 	if err != nil {
 		client <- &types.VmResponse{
 			VmId:  vmId,
