@@ -205,6 +205,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 				v.pos[idx] = vol.MontPoints[i]
 				v.readOnly[idx] = ctx.vmSpec.Containers[idx].roLookup(vol.MontPoints[i])
 			}
+			ctx.devices.volumeMap[vol.Name] = v
 		}
 	}
 
