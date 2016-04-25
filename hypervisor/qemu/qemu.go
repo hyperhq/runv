@@ -361,7 +361,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 		nodeConfig := fmt.Sprintf("node,nodeid=0,cpus=0-%d,memdev=hyper-template-memory", hypervisor.DefaultMaxCpus-1)
 		params = append(params, "-object", memObject, "-numa", nodeConfig)
 		if boot.BootFromTemplate {
-			params = append(params, "-incoming", fmt.Sprintf("exec:cat %s", boot.DevicesStatePath))
+			params = append(params, "-S", "-incoming", fmt.Sprintf("exec:cat %s", boot.DevicesStatePath))
 		}
 	} else if boot.HotAddCpuMem {
 		nodeConfig := fmt.Sprintf("node,nodeid=0,cpus=0-%d,mem=%d", hypervisor.DefaultMaxCpus-1, boot.Memory)

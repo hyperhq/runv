@@ -201,7 +201,7 @@ do
 		fi
 
 		if [ -e "${statepath}" ]; then
-			argv+=("-S" "-incoming" "exec:cat $statepath")
+			argv+=("-incoming" "exec:cat $statepath")
 			share=off
 		else
 			share=on
@@ -604,8 +604,12 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		return
 	}
 	glog.V(3).Infof("domainXML: %v", domainXml)
-
-	domain, err := lc.driver.domainCreateXML(domainXml)
+	var domain libvirtgo.VirDomain
+	if ctx.Boot.BootFromTemplate {
+		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_PAUSED)
+	} else {
+		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
+	}
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
