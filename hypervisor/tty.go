@@ -107,6 +107,11 @@ func readTtyMessage(conn *net.UnixConn) (*ttyMessage, error) {
 		res = append(res, buf[:nr]...)
 		read = read + nr
 
+		// if condition satisified, message length may wrong , read again
+		if nr < want && read < needRead {
+			return readTtyMessage(conn)
+		}
+
 		glog.V(1).Infof("tty: read %d/%d [length = %d]", read, needRead, length)
 
 		if length == 0 && read >= 12 {
