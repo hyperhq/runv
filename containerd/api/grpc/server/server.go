@@ -73,6 +73,11 @@ func (s *apiServer) AddProcess(ctx context.Context, r *types.AddProcessRequest) 
 	if r.Pid == "" {
 		return nil, fmt.Errorf("process id cannot be empty")
 	}
+
+	if len(r.Args) == 0 {
+		return nil, fmt.Errorf("args cannot be empty")
+	}
+
 	spec := &specs.Process{
 		Terminal: r.Terminal,
 		Args:     r.Args,

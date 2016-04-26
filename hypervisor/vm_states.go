@@ -713,7 +713,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				cmd := ack.reply.Event.(*ExecCommand)
 				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
-				glog.V(0).Infof("Exec command %s on session %d failed", cmd.Process.Args[0], cmd.Process.Stdio)
+				glog.V(0).Infof("Exec command %v on session %d failed", cmd.Process.Args, cmd.Process.Stdio)
 			} else if ack.reply.Code == INIT_READFILE {
 				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))
