@@ -74,7 +74,9 @@ func (c *Container) run(p *Process) error {
 
 	glog.V(3).Infof("prepare hypervisor info")
 	u := pod.ConvertOCF2UserContainer(c.Spec)
-	u.Image = filepath.Join(c.BundlePath, u.Image)
+	if !filepath.IsAbs(u.Image) {
+		u.Image = filepath.Join(c.BundlePath, u.Image)
+	}
 	vmRootfs := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id, hypervisor.ShareDirTag, c.Id, "rootfs")
 	os.MkdirAll(vmRootfs, 0755)
 
