@@ -10,6 +10,9 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
+
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 // Pod Data Structure
@@ -121,11 +124,6 @@ type UserPod struct {
 	RestartPolicy string
 }
 
-var (
-	validHostNamePattern  = `^[a-zA-Z0-9][a-zA-Z0-9-]+$`
-	validHostNameMartcher = regexp.MustCompile(validHostNamePattern)
-)
-
 func ProcessPodFile(jsonFile string) (*UserPod, error) {
 	if _, err := os.Stat(jsonFile); err != nil && os.IsNotExist(err) {
 		return nil, err
@@ -222,8 +220,12 @@ func (pod *UserPod) Validate() error {
 	if hostnameLen > 63 {
 		return fmt.Errorf("Hostname exceeds the maximum length 63, len: %d", hostnameLen)
 	}
-	if hostnameLen > 0 && !validHostNameMartcher.MatchString(pod.Hostname) {
-		return fmt.Errorf("Hostname should fullfil the pattern: %s, input hostname: %s", validHostNamePattern, pod.Hostname)
+	if hostnameLen > 0 {
+		for _, seg := range strings.Split(pod.Hostname, ".") {
+			if !utils.IsDNSLabel(seg) {
+				return fmt.Errorf("Hostname should fullfil the pattern: %s, input hostname: %s", utils.Dns1123LabelFmt, pod.Hostname)
+			}
+		}
 	}
 
 	hasGw := false
