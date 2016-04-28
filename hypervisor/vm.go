@@ -101,13 +101,12 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 
 	VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
 
-	go vm.handlePodEvent(mypod)
-
 	ass := <-Status
 	if ass.Code != types.E_OK {
 		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", mypod.Vm, ass.Code, ass.Cause)
 		return errors.New("load vm status failed")
 	}
+	go vm.handlePodEvent(mypod)
 
 	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
