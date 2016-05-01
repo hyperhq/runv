@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
@@ -19,6 +20,7 @@ import (
 var LibvirtdAddress = "qemu:///system"
 
 type LibvirtDriver struct {
+	sync.Mutex
 	conn    libvirtgo.VirConnection
 	domains map[string]*hypervisor.VmContext
 }
@@ -59,7 +61,7 @@ func (ld *LibvirtDriver) LoadContext(persisted map[string]interface{}) (hypervis
 		return nil, fmt.Errorf("there is no libvirt domain name")
 	}
 
-	domain, err := ld.conn.LookupDomainByName(name.(string))
+	domain, err := ld.lookupDomainByName(name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("cannot find domain whose name is %v", name)
 	}
@@ -72,6 +74,102 @@ func (ld *LibvirtDriver) LoadContext(persisted map[string]interface{}) (hypervis
 
 func (ld *LibvirtDriver) SupportLazyMode() bool {
 	return false
+}
+
+func (ld *LibvirtDriver) checkConnection() error {
+	if alive, _ := ld.conn.IsAlive(); !alive {
+		glog.V(1).Info("libvirt disconnected, reconnect")
+		conn, err := libvirtgo.NewVirConnection(LibvirtdAddress)
+		if err != nil {
+			return err
+		}
+		ld.conn.CloseConnection()
+		ld.conn = conn
+		return nil
+	}
+	return fmt.Errorf("connection is alive")
+}
+
+func (ld *LibvirtDriver) lookupDomainByName(name string) (libvirtgo.VirDomain, error) {
+	ld.Lock()
+	defer ld.Unlock()
+
+	domain, err := ld.conn.LookupDomainByName(name)
+	if err != nil {
+		if res := ld.checkConnection(); res != nil {
+			glog.Error(res)
+			return domain, err
+		}
+		domain, err = ld.conn.LookupDomainByName(name)
+	}
+
+	return domain, err
+}
+
+func (ld *LibvirtDriver) domainCreateXML(domainXml string) (libvirtgo.VirDomain, error) {
+	ld.Lock()
+	defer ld.Unlock()
+
+	domain, err := ld.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
+	if err != nil {
+		if res := ld.checkConnection(); res != nil {
+			glog.Error(res)
+			return domain, err
+		}
+
+		return ld.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
+	}
+
+	return domain, nil
+}
+
+func (ld *LibvirtDriver) lookupCephSecretByUsage(usageID string) (libvirtgo.VirSecret, error) {
+	ld.Lock()
+	defer ld.Unlock()
+
+	sec, err := ld.conn.LookupSecretByUsage(libvirtgo.VIR_SECRET_USAGE_TYPE_CEPH, usageID)
+	if err != nil {
+		if res := ld.checkConnection(); res != nil {
+			glog.Error(res)
+			return sec, err
+		}
+		return ld.conn.LookupSecretByUsage(libvirtgo.VIR_SECRET_USAGE_TYPE_CEPH, usageID)
+	}
+
+	return sec, nil
+}
+
+func (ld *LibvirtDriver) secretDefineXML(secretXML string) (libvirtgo.VirSecret, error) {
+	ld.Lock()
+	defer ld.Unlock()
+
+	sec, err := ld.conn.SecretDefineXML(secretXML, 0)
+	if err != nil {
+		if res := ld.checkConnection(); res != nil {
+			glog.Error(res)
+			return sec, err
+		}
+
+		return ld.conn.SecretDefineXML(secretXML, 0)
+	}
+
+	return sec, nil
+}
+
+func (ld *LibvirtDriver) secretSetValue(uuid, value string) error {
+	ld.Lock()
+	defer ld.Unlock()
+
+	if err := ld.conn.SecretSetValue(uuid, value); err != nil {
+		if res := ld.checkConnection(); res != nil {
+			glog.Error(res)
+			return err
+		}
+
+		return ld.conn.SecretSetValue(uuid, value)
+	}
+
+	return nil
 }
 
 type memory struct {
@@ -442,7 +540,7 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 	}
 	glog.V(3).Infof("domainXML: %v", domainXml)
 
-	domain, err := lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
+	domain, err := lc.driver.domainCreateXML(domainXml)
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
@@ -668,10 +766,10 @@ func (lc *LibvirtContext) diskSecretUUID(blockInfo *hypervisor.BlockDescriptor) 
 		}
 
 		username := blockInfo.Options["user"]
-		sec, err = lc.driver.conn.LookupSecretByUsage(libvirtgo.VIR_SECRET_USAGE_TYPE_CEPH, "client."+username)
+		sec, err = lc.driver.lookupCephSecretByUsage("client." + username)
 		if err != nil {
 			secretXML := fmt.Sprintf("<secret ephemeral='no' private='no'><usage type='ceph'><name>client.%v</name></usage></secret>", username)
-			sec, err = lc.driver.conn.SecretDefineXML(secretXML, 0)
+			sec, err = lc.driver.secretDefineXML(secretXML)
 			if err != nil {
 				return
 			}
@@ -681,7 +779,7 @@ func (lc *LibvirtContext) diskSecretUUID(blockInfo *hypervisor.BlockDescriptor) 
 				return
 			}
 
-			err = lc.driver.conn.SecretSetValue(res, blockInfo.Options["keyring"])
+			err = lc.driver.secretSetValue(res, blockInfo.Options["keyring"])
 			return
 		}
 
