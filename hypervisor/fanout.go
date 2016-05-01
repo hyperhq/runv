@@ -11,10 +11,9 @@ type Fanout struct {
 	upstream chan *types.VmResponse
 	clients  []chan *types.VmResponse
 
-	unregistered []chan *types.VmResponse
-	closeSignal  chan *types.VmResponse
-	running      bool
-	lock         *sync.Mutex
+	closeSignal chan *types.VmResponse
+	running     bool
+	lock        sync.RWMutex
 }
 
 // CreateFanout create a new fanout, and if it is non-blocked, it will start
@@ -22,13 +21,12 @@ type Fanout struct {
 // get the first client
 func CreateFanout(upstream chan *types.VmResponse, size int, block bool) *Fanout {
 	fo := &Fanout{
-		size:         size,
-		upstream:     upstream,
-		clients:      []chan *types.VmResponse{},
-		unregistered: []chan *types.VmResponse{},
-		closeSignal:  make(chan *types.VmResponse, 1),
-		running:      !block,
-		lock:         &sync.Mutex{},
+		size:        size,
+		upstream:    upstream,
+		clients:     []chan *types.VmResponse{},
+		closeSignal: make(chan *types.VmResponse, 1),
+		running:     !block,
+		lock:        sync.RWMutex{},
 	}
 
 	if !block {
@@ -62,12 +60,11 @@ func (fo *Fanout) Release(client chan *types.VmResponse) error {
 	for _, c := range fo.clients {
 		if c != client {
 			remains = append(remains, c)
-		} else {
-			fo.unregistered = append(fo.unregistered, c)
+			continue
 		}
+		close(client)
 	}
 	fo.clients = remains
-
 	return nil
 }
 
@@ -80,7 +77,6 @@ func (fo *Fanout) Close() {
 }
 
 func (fo *Fanout) start() {
-
 	go func() {
 		next := true
 		for next {
@@ -90,20 +86,17 @@ func (fo *Fanout) start() {
 				if !ok {
 					next = false
 				} else {
+					fo.lock.RLock()
 					for _, c := range fo.clients {
 						UnblockSend(c, rsp)
 					}
+					fo.lock.RUnlock()
 				}
 			case _, _ = <-fo.closeSignal:
 				next = false
 			}
 			// all cleints check and operation should protected
 			fo.lock.Lock()
-			// close all unregistered chan
-			for _, c := range fo.unregistered {
-				close(c)
-			}
-			fo.unregistered = []chan *types.VmResponse{}
 			if !next {
 				for _, c := range fo.clients {
 					close(c)
