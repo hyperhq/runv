@@ -73,7 +73,6 @@ func (vm *Vm) Kill() (int, string, error) {
 		Response, ok = <-Status
 		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN {
 			vm.ReleaseResponseChan(Status)
-			vm.clients.Close()
 			vm.clients = nil
 			stop = true
 		}
@@ -193,7 +192,6 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 
 		exit := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
 		if exit {
-			vm.clients.Close()
 			vm.clients = nil
 			break
 		}
