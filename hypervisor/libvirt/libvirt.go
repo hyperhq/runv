@@ -606,7 +606,7 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 	glog.V(3).Infof("domainXML: %v", domainXml)
 	var domain libvirtgo.VirDomain
 	if ctx.Boot.BootFromTemplate {
-		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_PAUSED)
+		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_PAUSED)
 	} else {
 		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
 	}
