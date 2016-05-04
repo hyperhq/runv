@@ -175,7 +175,7 @@ func waitPts(ctx *VmContext) {
 				if len(res.message) == 1 {
 					code = uint8(res.message[0])
 				}
-				glog.V(1).Infof("session %d, exit code", res.session, code)
+				glog.V(1).Infof("session %d, exit code %d", res.session, code)
 				ctx.ptys.Close(res.session, code)
 			} else {
 				for _, tty := range ta.attachments {

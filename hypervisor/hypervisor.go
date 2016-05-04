@@ -26,7 +26,7 @@ func (ctx *VmContext) loop() {
 			glog.V(1).Info("got nil event.")
 			continue
 		}
-		glog.V(1).Infof("main event loop got message %d(%s)", ev.Event(), EventString(ev.Event()))
+		glog.V(1).Infof("vm %s: main event loop got message %d(%s)", ctx.Id, ev.Event(), EventString(ev.Event()))
 		ctx.handler(ctx, ev)
 	}
 }

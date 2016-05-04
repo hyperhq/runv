@@ -332,13 +332,13 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	} else if boot.Bios != "" {
 		params = append(params,
 			"-bios", boot.Bios,
-			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
+			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "console=ttyS0 panic=1 no_timer_check")
 	} else if boot.Cbfs != "" {
 		params = append(params,
 			"-drive", fmt.Sprintf("if=pflash,file=%s,readonly=on", boot.Cbfs))
 	} else {
 		params = append(params,
-			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "\"console=ttyS0 panic=1 no_timer_check\"")
+			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "console=ttyS0 panic=1 no_timer_check")
 	}
 
 	return append(params,
