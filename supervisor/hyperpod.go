@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -291,6 +292,32 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	return c, nil
 }
 
+func chooseKernel(spec *specs.Spec) (kernel string) {
+	for k, env := range spec.Process.Env {
+		slices := strings.Split(env, "=")
+		if len(slices) == 2 && slices[0] == "hypervisor.kernel" {
+			kernel = slices[1]
+			// remove kernel env because this is only allow to be used by runv
+			spec.Process.Env = append(spec.Process.Env[:k], spec.Process.Env[k+1:]...)
+			break
+		}
+	}
+	return
+}
+
+func chooseInitrd(spec *specs.Spec) (initrd string) {
+	for k, env := range spec.Process.Env {
+		slices := strings.Split(env, "=")
+		if len(slices) == 2 && slices[0] == "hypervisor.initrd" {
+			initrd = slices[1]
+			// remove kernel env because this is only allow to be used by runv
+			spec.Process.Env = append(spec.Process.Env[:k], spec.Process.Env[k+1:]...)
+			break
+		}
+	}
+	return
+}
+
 func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	userPod := pod.ConvertOCF2PureUserPod(spec)
@@ -304,10 +331,37 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 	if userPod.Resource.Memory > 0 {
 		mem = userPod.Resource.Memory
 	}
-	vm, err := f.GetVm(cpu, mem)
-	if err != nil {
-		glog.V(1).Infof("%s\n", err.Error())
-		return nil, err
+
+	kernel := chooseKernel(spec)
+	initrd := chooseInitrd(spec)
+	glog.V(3).Infof("Using kernel: %s; Initrd: %s;", kernel, initrd)
+
+	var (
+		vm  *hypervisor.Vm
+		err error
+	)
+	if len(kernel) == 0 && len(initrd) == 0 {
+		vm, err = f.GetVm(cpu, mem)
+		if err != nil {
+			glog.V(1).Infof("Create VM failed with default kernel config: %s", err.Error())
+			return nil, err
+		}
+	} else if len(kernel) == 0 || len(initrd) == 0 {
+		// if user specify a kernel, they must specify an initrd at the same time
+		return nil, fmt.Errorf("You must specify an initrd if you specify a kernel, or vice-versa")
+	} else {
+		boot := &hypervisor.BootConfig{
+			CPU:    cpu,
+			Memory: mem,
+			Kernel: kernel,
+			Initrd: initrd,
+		}
+
+		vm, err = hypervisor.GetVm("", boot, true, false)
+		if err != nil {
+			glog.V(1).Infof("Create VM failed: %s", err.Error())
+			return nil, err
+		}
 	}
 
 	Response := vm.StartPod(podStatus, userPod, nil, nil)
