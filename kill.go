@@ -3,12 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/linuxsignal"
+	netcontext "golang.org/x/net/context"
 )
 
 var linuxSignalMap = map[string]syscall.Signal{
@@ -68,26 +71,31 @@ signal to the init process of the "ubuntu01" container:
 
        # runv kill ubuntu01 KILL`,
 	Action: func(context *cli.Context) {
-		root := context.GlobalString("root")
 		container := context.Args().First()
+		if container == "" {
+			fmt.Printf("container id cannot be empty")
+			os.Exit(-1)
+		}
+
 		sigstr := context.Args().Get(1)
 		if sigstr == "" {
 			sigstr = "SIGTERM"
 		}
-
 		signal, err := parseSignal(sigstr)
 		if err != nil {
-			fmt.Printf("kill container failed %v\n", err)
+			fmt.Printf("parse signal failed %v, signal string:%s\n", err, sigstr)
 			os.Exit(-1)
 		}
 
-		killCmd := &killContainerCmd{Name: container, Root: root, Signal: signal}
-		conn, err := runvRequest(root, container, RUNV_KILLCONTAINER, killCmd)
-		if err != nil {
-			fmt.Printf("kill container failed %v\n", err)
+		c := getClient(filepath.Join(context.GlobalString("root"), container, "namespace/namespaced.sock"))
+		if _, err := c.Signal(netcontext.Background(), &types.SignalRequest{
+			Id:     container,
+			Pid:    "init",
+			Signal: uint32(signal),
+		}); err != nil {
+			fmt.Printf("kill signal failed, %v", err)
 			os.Exit(-1)
 		}
-		conn.Close()
 	},
 }
 

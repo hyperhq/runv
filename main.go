@@ -2,10 +2,18 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/containerd/api/grpc/types"
+	netcontext "golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 )
 
 const (
@@ -40,7 +48,7 @@ If not specified, the default value for the 'bundle' is the current directory.
 )
 
 func main() {
-	if os.Args[0] == "runv-ns-daemon" {
+	if os.Args[0] == "runv-namespaced" {
 		runvNamespaceDaemon()
 		os.Exit(0)
 	}
@@ -111,4 +119,43 @@ func getDefaultDriver() string {
 		return "vbox"
 	}
 	return ""
+}
+
+func getClient(address string) types.APIClient {
+	// reset the logger for grpc to log to dev/null so that it does not mess with our stdio
+	grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
+	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithTimeout(5 * time.Second)}
+	dialOpts = append(dialOpts,
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		},
+		))
+	conn, err := grpc.Dial(address, dialOpts...)
+	if err != nil {
+		fmt.Printf("grpc.Dial error: %v", err)
+		os.Exit(-1)
+	}
+	return types.NewAPIClient(conn)
+}
+
+func waitForExit(c types.APIClient, timestamp uint64, container, process string) int {
+	for {
+		events, err := c.Events(netcontext.Background(), &types.EventsRequest{Timestamp: timestamp})
+		if err != nil {
+			fmt.Printf("c.Events error: %v", err)
+			// TODO try to find a way to kill the process ?
+			return -1
+		}
+		for {
+			e, err := events.Recv()
+			if err != nil {
+				time.Sleep(1 * time.Second)
+				break
+			}
+			timestamp = e.Timestamp
+			if e.Id == container && e.Type == "exit" && e.Pid == process {
+				return int(e.Status)
+			}
+		}
+	}
 }
