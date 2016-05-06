@@ -7,9 +7,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/containerd/api/grpc/types"
+	"github.com/hyperhq/runv/lib/term"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	netcontext "golang.org/x/net/context"
 )
 
 var execCommand = cli.Command{
@@ -116,11 +120,8 @@ following will output a list of processes running in the container:
 			fmt.Printf("get process config failed %v\n", err)
 			os.Exit(-1)
 		}
-		conn, err := runvRequest(root, container, RUNV_EXECCMD, config.Args)
-		if err != nil {
-			fmt.Printf("exec failed: %v", err)
-		}
-		code, err := containerTtySplice(root, container, conn, false)
+
+		code := runProcess(root, container, config)
 		os.Exit(code)
 	},
 }
@@ -182,4 +183,41 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		p.User.UID = uint32(uid)
 	}
 	return &p, nil
+}
+
+func runProcess(root, container string, config *specs.Process) int {
+	pid := os.Getpid()
+	process := fmt.Sprintf("p-%x", pid+0xabcdef) // uniq name
+
+	p := &types.AddProcessRequest{
+		Id:       container,
+		Pid:      process,
+		Args:     config.Args,
+		Cwd:      config.Cwd,
+		Terminal: config.Terminal,
+		Env:      config.Env,
+		User: &types.User{
+			Uid: config.User.UID,
+			Gid: config.User.GID,
+		},
+		Stdin:  fmt.Sprintf("/proc/%d/fd/0", pid),
+		Stdout: fmt.Sprintf("/proc/%d/fd/1", pid),
+		Stderr: fmt.Sprintf("/proc/%d/fd/2", pid),
+	}
+	c := getClient(filepath.Join(root, container, "namespace/namespaced.sock"))
+	timestamp := uint64(time.Now().Unix())
+	if _, err := c.AddProcess(netcontext.Background(), p); err != nil {
+		fmt.Printf("error %v\n", err)
+		return -1
+	}
+	if config.Terminal {
+		s, err := term.SetRawTerminal(os.Stdin.Fd())
+		if err != nil {
+			fmt.Printf("error %v\n", err)
+			return -1
+		}
+		defer term.RestoreTerminal(os.Stdin.Fd(), s)
+		monitorTtySize(c, container, process)
+	}
+	return waitForExit(c, timestamp, container, process)
 }

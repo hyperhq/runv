@@ -27,17 +27,22 @@ type Container struct {
 	ownerPod *HyperPod
 }
 
-func (c *Container) start(p *Process) {
-	e := Event{
-		ID:        c.Id,
-		Type:      EventContainerStart,
-		Timestamp: time.Now(),
-	}
-	c.ownerPod.sv.Events.notifySubscribers(e)
-
+func (c *Container) run(p *Process) {
 	go func() {
-		err := c.run(p)
+		err := c.start(p)
+		if err != nil {
+			c.ownerPod.sv.reap(c.Id, p.Id)
+			return
+		}
 		e := Event{
+			ID:        c.Id,
+			Type:      EventContainerStart,
+			Timestamp: time.Now(),
+		}
+		c.ownerPod.sv.Events.notifySubscribers(e)
+
+		err = c.wait(p)
+		e = Event{
 			ID:        c.Id,
 			Type:      EventExit,
 			Timestamp: time.Now(),
@@ -51,9 +56,20 @@ func (c *Container) start(p *Process) {
 	}()
 }
 
-func (c *Container) run(p *Process) error {
+func (c *Container) start(p *Process) error {
 	// save the state
 	glog.V(3).Infof("save state id %s, boundle %s", c.Id, c.BundlePath)
+	stateDir := filepath.Join(c.ownerPod.sv.StateDir, c.Id)
+	_, err := os.Stat(stateDir)
+	if err == nil {
+		glog.V(1).Infof("Container %s exists\n", c.Id)
+		return err
+	}
+	err = os.MkdirAll(stateDir, 0644)
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return err
+	}
 	state := &specs.State{
 		Version:    c.Spec.Version,
 		ID:         c.Id,
@@ -65,7 +81,7 @@ func (c *Container) run(p *Process) error {
 		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
-	stateFile := filepath.Join(c.ownerPod.sv.StateDir, "state.json")
+	stateFile := filepath.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
@@ -113,9 +129,18 @@ func (c *Container) run(p *Process) error {
 	}
 
 	c.ownerPod.podStatus.AddContainer(c.Id, c.ownerPod.podStatus.Id, "", []string{}, types.S_POD_CREATED)
-	c.ownerPod.vm.NewContainer(u, info)
+	return c.ownerPod.vm.NewContainer(u, info)
+}
 
-	err = execPoststartHooks(c.Spec, state)
+func (c *Container) wait(p *Process) error {
+	state := &specs.State{
+		Version:    c.Spec.Version,
+		ID:         c.Id,
+		Pid:        -1,
+		BundlePath: c.BundlePath,
+	}
+
+	err := execPoststartHooks(c.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Poststart hooks failed %s\n", err.Error())
 	}
