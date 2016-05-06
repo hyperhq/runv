@@ -54,6 +54,17 @@ func (c *Container) start(p *Process) {
 func (c *Container) run(p *Process) error {
 	// save the state
 	glog.V(3).Infof("save state id %s, boundle %s", c.Id, c.BundlePath)
+	stateDir := filepath.Join(c.ownerPod.sv.StateDir, c.Id)
+	_, err := os.Stat(stateDir)
+	if err == nil {
+		glog.V(1).Infof("Container %s exists\n", c.Id)
+		return err
+	}
+	err = os.MkdirAll(stateDir, 0644)
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return err
+	}
 	state := &specs.State{
 		Version:    c.Spec.Version,
 		ID:         c.Id,
@@ -65,7 +76,7 @@ func (c *Container) run(p *Process) error {
 		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
-	stateFile := filepath.Join(c.ownerPod.sv.StateDir, "state.json")
+	stateFile := filepath.Join(stateDir, "state.json")
 	err = ioutil.WriteFile(stateFile, stateData, 0644)
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
