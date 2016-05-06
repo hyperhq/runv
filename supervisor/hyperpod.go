@@ -59,8 +59,8 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	c.ownerPod.Processes[inerProcessId] = p
 	c.ownerPod.Containers[container] = c
 
-	glog.Infof("createContainer() calls c.start(p)")
-	c.start(p)
+	glog.Infof("createContainer() calls c.run(p)")
+	c.run(p)
 	return c, nil
 }
 
