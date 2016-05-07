@@ -43,17 +43,10 @@ func (ctx *VmContext) onVmExit(reclaim bool) bool {
 }
 
 func (ctx *VmContext) reclaimDevice() {
-	ctx.releaseVolumeDir()
-	ctx.releaseOverlayDir()
-	ctx.releaseAufsDir()
-	ctx.removeDMDevice()
 	ctx.releaseNetwork()
 }
 
 func (ctx *VmContext) detachDevice() {
-	ctx.releaseVolumeDir()
-	ctx.releaseOverlayDir()
-	ctx.releaseAufsDir()
 	ctx.removeVolumeDrive()
 	ctx.removeImageDrive()
 	ctx.removeInterface()
