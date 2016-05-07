@@ -275,7 +275,7 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	return response
 }
 
-func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
+func (vm *Vm) StopPod(mypod *PodStatus) *types.VmResponse {
 	var Response *types.VmResponse
 
 	Status, err := vm.GetResponseChan()
@@ -288,35 +288,20 @@ func (vm *Vm) StopPod(mypod *PodStatus, stopVm string) *types.VmResponse {
 		return errorResponse("The POD has already stoppod")
 	}
 
-	if stopVm == "yes" {
-		mypod.Wg.Add(1)
-		shutdownPodEvent := &ShutdownCommand{Wait: true}
-		vm.Hub <- shutdownPodEvent
-		// wait for the VM response
-		for {
-			Response = <-Status
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-			if Response.Code == types.E_VM_SHUTDOWN {
-				mypod.Vm = ""
-				break
-			}
-		}
-		// wait for goroutines exit
-		mypod.Wg.Wait()
-	} else {
-		stopPodEvent := &StopPodCommand{}
-		vm.Hub <- stopPodEvent
-		// wait for the VM response
-		for {
-			Response = <-Status
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-			if Response.Code == types.E_POD_STOPPED || Response.Code == types.E_BAD_REQUEST || Response.Code == types.E_FAILED {
-				mypod.Vm = ""
-				vm.Status = types.S_VM_IDLE
-				break
-			}
+	mypod.Wg.Add(1)
+	shutdownPodEvent := &ShutdownCommand{Wait: true}
+	vm.Hub <- shutdownPodEvent
+	// wait for the VM response
+	for {
+		Response = <-Status
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_VM_SHUTDOWN {
+			mypod.Vm = ""
+			break
 		}
 	}
+	// wait for goroutines exit
+	mypod.Wg.Wait()
 
 	mypod.Status = types.S_POD_FAILED
 	mypod.SetContainerStatus(types.S_POD_FAILED)
