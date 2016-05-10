@@ -325,10 +325,30 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 	}
 }
 
-func (ctx *VmContext) interfaceCreated(info *InterfaceCreated) {
+func (ctx *VmContext) interfaceCreated(info *InterfaceCreated, lazy bool) {
 	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
 	ctx.devices.networkMap[info.Index] = info
+	ctx.lock.Unlock()
+
+	h := &HostNicInfo{
+		Fd:      uint64(info.Fd.Fd()),
+		Device:  info.HostDevice,
+		Mac:     info.MacAddr,
+		Bridge:  info.Bridge,
+		Gateway: info.Bridge,
+	}
+	g := &GuestNicInfo{
+		Device:  info.DeviceName,
+		Ipaddr:  info.IpAddr,
+		Index:   info.Index,
+		Busaddr: info.PCIAddr,
+	}
+
+	if lazy {
+		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
+	} else {
+		ctx.DCtx.AddNic(ctx, h, g)
+	}
 }
 
 func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
