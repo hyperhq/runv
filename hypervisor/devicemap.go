@@ -249,7 +249,7 @@ func (ctx *VmContext) allocateNetworks() {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
 		if len(ctx.userSpec.Interfaces) > 0 {
-			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i])
+			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i], ctx.Hub)
 		} else {
 			go ctx.CreateInterface(i, addr, name)
 		}
@@ -325,7 +325,7 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 	}
 }
 
-func (ctx *VmContext) interfaceCreated(info *InterfaceCreated, lazy bool) {
+func (ctx *VmContext) interfaceCreated(info *InterfaceCreated, lazy bool, result chan<- VmEvent) {
 	ctx.lock.Lock()
 	ctx.devices.networkMap[info.Index] = info
 	ctx.lock.Unlock()
@@ -347,7 +347,7 @@ func (ctx *VmContext) interfaceCreated(info *InterfaceCreated, lazy bool) {
 	if lazy {
 		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
 	} else {
-		ctx.DCtx.AddNic(ctx, h, g)
+		ctx.DCtx.AddNic(ctx, h, g, result)
 	}
 }
 
@@ -493,7 +493,7 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string) (*I
 	return interfaceGot(index, pciAddr, name, inf)
 }
 
-func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, config pod.UserInterface) {
+func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, config pod.UserInterface, result chan<- VmEvent) {
 	var err error
 	var inf *network.Settings
 	var maps []pod.UserContainerPort
@@ -516,17 +516,17 @@ func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, co
 	if err != nil {
 		glog.Error("interface creating failed: ", err.Error())
 		session := &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}
-		ctx.Hub <- &DeviceFailed{Session: session}
+		result <- &DeviceFailed{Session: session}
 		return
 	}
 
 	session, err := interfaceGot(index, pciAddr, name, inf)
 	if err != nil {
-		ctx.Hub <- &DeviceFailed{Session: session}
+		result <- &DeviceFailed{Session: session}
 		return
 	}
 
-	ctx.Hub <- session
+	result <- session
 }
 
 func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string) {

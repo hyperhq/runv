@@ -943,10 +943,10 @@ func nicXml(bridge, device, mac string, addr int) (string, error) {
 	return string(data), nil
 }
 
-func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	if lc.domain == nil {
 		glog.Error("Cannot find domain")
-		ctx.Hub <- &hypervisor.DeviceFailed{
+		result <- &hypervisor.DeviceFailed{
 			Session: nil,
 		}
 		return
@@ -955,7 +955,7 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 	nicXml, err := nicXml(host.Bridge, host.Device, host.Mac, guest.Busaddr)
 	if err != nil {
 		glog.Error("generate attach-nic-xml failed, ", err.Error())
-		ctx.Hub <- &hypervisor.DeviceFailed{
+		result <- &hypervisor.DeviceFailed{
 			Session: nil,
 		}
 		return
@@ -965,13 +965,13 @@ func (lc *LibvirtContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.Hos
 	err = lc.domain.AttachDeviceFlags(nicXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
 	if err != nil {
 		glog.Error("attach nic failed, ", err.Error())
-		ctx.Hub <- &hypervisor.DeviceFailed{
+		result <- &hypervisor.DeviceFailed{
 			Session: nil,
 		}
 		return
 	}
 
-	ctx.Hub <- &hypervisor.NetDevInsertedEvent{
+	result <- &hypervisor.NetDevInsertedEvent{
 		Index:      guest.Index,
 		DeviceName: guest.Device,
 		Address:    guest.Busaddr,

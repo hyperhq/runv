@@ -107,7 +107,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 		if err != nil {
 			return err
 		}
-		ctx.interfaceCreated(nic, true)
+		ctx.interfaceCreated(nic, true, ctx.Hub)
 	}
 
 	return nil

@@ -14,21 +14,21 @@ func qmpQemuQuit(ctx *hypervisor.VmContext, qc *QemuContext) {
 	commands := []*QmpCommand{
 		{Execute: "quit", Arguments: map[string]interface{}{}},
 	}
-	qc.qmp <- &QmpSession{commands: commands, respond: defaultRespond(ctx, nil)}
+	qc.qmp <- &QmpSession{commands: commands, respond: defaultRespond(ctx.Hub, nil)}
 }
 
 func scsiId2Name(id int) string {
 	return "sd" + utils.DiskId2Name(id)
 }
 
-func defaultRespond(ctx *hypervisor.VmContext, callback hypervisor.VmEvent) func(err error) {
+func defaultRespond(result chan<- hypervisor.VmEvent, callback hypervisor.VmEvent) func(err error) {
 	return func(err error) {
 		if err == nil {
 			if callback != nil {
-				ctx.Hub <- callback
+				result <- callback
 			}
 		} else {
-			ctx.Hub <- &hypervisor.DeviceFailed{
+			result <- &hypervisor.DeviceFailed{
 				Session: callback,
 			}
 		}
@@ -54,7 +54,7 @@ func newDiskAddSession(ctx *hypervisor.VmContext, qc *QemuContext, name, sourceT
 	devName := scsiId2Name(id)
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond: defaultRespond(ctx, &hypervisor.BlockdevInsertedEvent{
+		respond: defaultRespond(ctx.Hub, &hypervisor.BlockdevInsertedEvent{
 			Name:       name,
 			SourceType: sourceType,
 			DeviceName: devName,
@@ -79,11 +79,11 @@ func newDiskDelSession(ctx *hypervisor.VmContext, qc *QemuContext, id int, callb
 	}
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond:  defaultRespond(ctx, callback),
+		respond:  defaultRespond(ctx.Hub, callback),
 	}
 }
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd uint64, device, mac string, index, addr int) {
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd uint64, device, mac string, index, addr int, result chan<- hypervisor.VmEvent) {
 	busAddr := fmt.Sprintf("0x%x", addr)
 	commands := make([]*QmpCommand, 3)
 	scm := syscall.UnixRights(int(fd))
@@ -115,7 +115,7 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd uint64,
 
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond: defaultRespond(ctx, &hypervisor.NetDevInsertedEvent{
+		respond: defaultRespond(result, &hypervisor.NetDevInsertedEvent{
 			Index:      index,
 			DeviceName: device,
 			Address:    addr,
@@ -140,6 +140,6 @@ func newNetworkDelSession(ctx *hypervisor.VmContext, qc *QemuContext, device str
 
 	qc.qmp <- &QmpSession{
 		commands: commands,
-		respond:  defaultRespond(ctx, callback),
+		respond:  defaultRespond(ctx.Hub, callback),
 	}
 }

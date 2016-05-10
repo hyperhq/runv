@@ -411,7 +411,7 @@ func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
 	case EVENT_DEV_SKIP:
 	case EVENT_INTERFACE_ADD:
 		info := ev.(*InterfaceCreated)
-		ctx.interfaceCreated(info, false)
+		ctx.interfaceCreated(info, false, ctx.Hub)
 	case EVENT_INTERFACE_INSERTED:
 		info := ev.(*NetDevInsertedEvent)
 		ctx.netdevInserted(info)
