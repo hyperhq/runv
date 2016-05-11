@@ -1,14 +1,18 @@
 package supervisor
 
 import (
+	"encoding/gob"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -20,6 +24,149 @@ type HyperPod struct {
 	podStatus *hypervisor.PodStatus
 	vm        *hypervisor.Vm
 	sv        *Supervisor
+
+	nslistener *nsListener
+}
+
+type nsListener struct {
+	enc *gob.Encoder
+	dec *gob.Decoder
+	cmd *exec.Cmd
+}
+
+func GetBridgeFromIndex(idx string) string {
+	return "docker0"
+}
+
+func (hp *HyperPod) initPodNetwork(c *Container) error {
+	// Only start first container will setup netns
+	if len(hp.Containers) > 1 {
+		return nil
+	}
+
+	// container has no prestart hooks, means no net for this container
+	if len(c.Spec.Hooks.Prestart) == 0 {
+		// FIXME: need receive interface settting?
+		return nil
+	}
+
+	listener := hp.nslistener
+
+	/* send collect netns request to nsListener */
+	if err := listener.enc.Encode("init"); err != nil {
+		return err
+	}
+
+	nics := []pod.UserInterface{}
+	/* read nic information of ns from pipe */
+	err := listener.dec.Decode(&nics)
+	if err != nil {
+		return err
+	}
+
+	glog.Infof("interface configuration of pod ns is %v", nics)
+	for _, nic := range nics {
+		idx := nic.Ifname
+		nic.Ifname = ""
+
+		nic.Bridge = GetBridgeFromIndex(idx)
+		//hp.vm.AddNic(nic)
+	}
+	/*
+		go func() {
+			// watching container network setting, update vm/hyperstart
+		}()
+	*/
+
+	return nil
+}
+
+func newPipe() (parent, child *os.File, err error) {
+	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	return os.NewFile(uintptr(fds[1]), "parent"), os.NewFile(uintptr(fds[0]), "child"), nil
+}
+
+func (hp *HyperPod) startNsListener() (err error) {
+	var parentPipe, childPipe *os.File
+	var path string
+	if hp.nslistener != nil {
+		return nil
+	}
+
+	path, err = osext.Executable()
+	if err != nil {
+		glog.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
+		return err
+	}
+
+	glog.Infof("get exec path %s", path)
+	parentPipe, childPipe, err = newPipe()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			parentPipe.Close()
+			childPipe.Close()
+		}
+	}()
+
+	cmd := exec.Command(path)
+	cmd.Args[0] = "containerd-nslistener"
+	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
+	if err = cmd.Start(); err != nil {
+		glog.Error(err)
+		return err
+	}
+
+	childPipe.Close()
+
+	enc := gob.NewEncoder(parentPipe)
+	dec := gob.NewDecoder(parentPipe)
+
+	hp.nslistener = &nsListener{
+		enc: enc,
+		dec: dec,
+		cmd: cmd,
+	}
+
+	defer func() {
+		if err != nil {
+			hp.stopNsListener()
+		}
+	}()
+
+	/* Make sure nsListener create new netns */
+	var ready string
+	if err = dec.Decode(&ready); err != nil {
+		return err
+	}
+
+	if ready != "init" {
+		err = fmt.Errorf("containerd get incorrect init message: %s", ready)
+		return err
+	}
+
+	glog.Infof("nsListener pid is %d", hp.getNsPid())
+	return nil
+}
+
+func (hp *HyperPod) stopNsListener() {
+	if hp.nslistener != nil {
+		hp.nslistener.cmd.Process.Kill()
+	}
+}
+
+func (hp *HyperPod) getNsPid() int {
+	if hp.nslistener == nil {
+		return -1
+	}
+
+	return hp.nslistener.cmd.Process.Pid
 }
 
 func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr string, spec *specs.Spec) (*Container, error) {
@@ -90,13 +237,21 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 	}
 	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
 
-	return &HyperPod{
+	hp := &HyperPod{
 		userPod:    userPod,
 		podStatus:  podStatus,
 		vm:         vm,
 		Containers: make(map[string]*Container),
 		Processes:  make(map[string]*Process),
-	}, nil
+	}
+
+	// create Listener process running in its own netns
+	if err = hp.startNsListener(); err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return nil, err
+	}
+
+	return hp, nil
 }
 
 func (hp *HyperPod) reap() {
@@ -105,6 +260,7 @@ func (hp *HyperPod) reap() {
 		glog.V(1).Infof("StopPod fail: QEMU response data is nil\n")
 		return
 	}
+	hp.stopNsListener()
 	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
 	os.RemoveAll(filepath.Join(hypervisor.BaseDir, hp.vm.Id))
 }
