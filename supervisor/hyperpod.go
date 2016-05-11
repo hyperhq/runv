@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -14,6 +15,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/vishvananda/netlink"
 )
 
 type HyperPod struct {
@@ -34,8 +36,50 @@ type nsListener struct {
 	cmd *exec.Cmd
 }
 
-func GetBridgeFromIndex(idx string) string {
-	return "docker0"
+func GetBridgeFromIndex(index string) (string, error) {
+	idx, _ := strconv.Atoi(index)
+
+	var attr, bridge *netlink.LinkAttrs
+
+	links, err := netlink.LinkList()
+	if err != nil {
+		glog.Error(err)
+		return "", err
+	}
+
+	for _, link := range links {
+		if link.Type() != "veth" {
+			continue
+		}
+
+		if link.Attrs().Index == idx {
+			attr = link.Attrs()
+			break
+		}
+	}
+
+	if attr == nil {
+		return "", fmt.Errorf("cann't find nic whose ifindex is %d", idx)
+	}
+
+	for _, link := range links {
+		if link.Type() != "bridge" {
+			continue
+		}
+
+		if link.Attrs().Index == attr.MasterIndex {
+			bridge = link.Attrs()
+			break
+		}
+	}
+
+	if bridge == nil {
+		return "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
+	}
+
+	glog.Infof("find bridge %s", bridge.Name)
+
+	return bridge.Name, nil
 }
 
 func (hp *HyperPod) initPodNetwork(c *Container) error {
@@ -66,10 +110,11 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 
 	glog.Infof("interface configuration of pod ns is %v", nics)
 	for _, nic := range nics {
-		idx := nic.Ifname
-		nic.Ifname = ""
-
-		nic.Bridge = GetBridgeFromIndex(idx)
+		nic.Bridge, err = GetBridgeFromIndex(nic.Bridge)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
 		//hp.vm.AddNic(nic)
 	}
 	/*
