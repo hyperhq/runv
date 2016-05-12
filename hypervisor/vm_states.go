@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"time"
@@ -133,7 +134,7 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	}
 	glog.Infof("start sending INIT_NEWCONTAINER")
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_NEWCONTAINER,
+		Code:    hyperstartapi.INIT_NEWCONTAINER,
 		Message: jsonCmd,
 	}
 	glog.Infof("sent INIT_NEWCONTAINER")
@@ -173,7 +174,7 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 			return
 		}
 		ctx.vm <- &DecodedMessage{
-			Code:    INIT_WINSIZE,
+			Code:    hyperstartapi.INIT_WINSIZE,
 			Message: msg,
 		}
 	} else {
@@ -193,7 +194,7 @@ func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
 	}
 	writeCmd = append(writeCmd, cmd.Data[:]...)
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_WRITEFILE,
+		Code:    hyperstartapi.INIT_WRITEFILE,
 		Message: writeCmd,
 		Event:   cmd,
 	}
@@ -208,7 +209,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 		return
 	}
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_READFILE,
+		Code:    hyperstartapi.INIT_READFILE,
 		Message: readCmd,
 		Event:   cmd,
 	}
@@ -216,7 +217,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 
 func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_ONLINECPUMEM,
+		Code:    hyperstartapi.INIT_ONLINECPUMEM,
 		Message: []byte{},
 	}
 }
@@ -246,7 +247,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
 	}
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_EXECCMD,
+		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: pkg,
 		Event:   cmd,
 	}
@@ -261,7 +262,7 @@ func (ctx *VmContext) killCmd(cmd *KillCommand) {
 		return
 	}
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_KILLCONTAINER,
+		Code:    hyperstartapi.INIT_KILLCONTAINER,
 		Message: killCmd,
 		Event:   cmd,
 	}
@@ -321,7 +322,7 @@ func (ctx *VmContext) startPod() {
 		return
 	}
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_STARTPOD,
+		Code:    hyperstartapi.INIT_STARTPOD,
 		Message: pod,
 	}
 }
@@ -329,7 +330,7 @@ func (ctx *VmContext) startPod() {
 func (ctx *VmContext) stopPod() {
 	ctx.setTimeout(30)
 	ctx.vm <- &DecodedMessage{
-		Code:    INIT_STOPPOD,
+		Code:    hyperstartapi.INIT_STOPPOD,
 		Message: []byte{},
 	}
 }
@@ -351,7 +352,7 @@ func (ctx *VmContext) shutdownVM(err bool, msg string) {
 		glog.Error("Shutting down because of an exception: ", msg)
 	}
 	ctx.setTimeout(10)
-	ctx.vm <- &DecodedMessage{Code: INIT_DESTROYPOD, Message: []byte{}}
+	ctx.vm <- &DecodedMessage{Code: hyperstartapi.INIT_DESTROYPOD, Message: []byte{}}
 }
 
 func (ctx *VmContext) poweroffVM(err bool, msg string) {
@@ -556,7 +557,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
-			if ack.reply.Code == INIT_NEWCONTAINER {
+			if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
 				glog.Infof("Get ack for new container")
 
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
@@ -602,7 +603,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[starting] got init ack to %d", ack.reply)
-			if ack.reply.Code == INIT_STARTPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STARTPOD {
 				ctx.unsetTimeout()
 				var pinfo []byte = []byte{}
 				persist, err := ctx.dump()
@@ -621,7 +622,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.reply.Code == INIT_STARTPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STARTPOD {
 				reason := "Start POD failed"
 				ctx.shutdownVM(true, reason)
 				ctx.Become(stateTerminating, StateTerminating)
@@ -679,41 +680,41 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 
-			if ack.reply.Code == INIT_EXECCMD {
+			if ack.reply.Code == hyperstartapi.INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
 				ctx.ptys.startStdin(cmd.Process.Stdio, true)
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
-			} else if ack.reply.Code == INIT_READFILE {
-				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, false)
+			} else if ack.reply.Code == hyperstartapi.INIT_READFILE {
+				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_READFILE, ack.msg, false)
 				glog.Infof("Get ack for read data: %s", string(ack.msg))
-			} else if ack.reply.Code == INIT_WRITEFILE {
-				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, false)
+			} else if ack.reply.Code == hyperstartapi.INIT_WRITEFILE {
+				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_WRITEFILE, ack.msg, false)
 				glog.Infof("Get ack for write data: %s", string(ack.msg))
-			} else if ack.reply.Code == INIT_NEWCONTAINER {
+			} else if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
 				glog.Infof("Get ack for new container")
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-			} else if ack.reply.Code == INIT_KILLCONTAINER {
+			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, true)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.reply.Code == INIT_EXECCMD {
+			if ack.reply.Code == hyperstartapi.INIT_EXECCMD {
 				cmd := ack.reply.Event.(*ExecCommand)
 				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
 				glog.V(0).Infof("Exec command %v on session %d failed", cmd.Process.Args, cmd.Process.Stdio)
-			} else if ack.reply.Code == INIT_READFILE {
-				ctx.reportFile(ack.reply.Event, INIT_READFILE, ack.msg, true)
+			} else if ack.reply.Code == hyperstartapi.INIT_READFILE {
+				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_READFILE, ack.msg, true)
 				glog.Infof("Get error for read data: %s", string(ack.msg))
-			} else if ack.reply.Code == INIT_WRITEFILE {
-				ctx.reportFile(ack.reply.Event, INIT_WRITEFILE, ack.msg, true)
+			} else if ack.reply.Code == hyperstartapi.INIT_WRITEFILE {
+				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
-			} else if ack.reply.Code == INIT_KILLCONTAINER {
+			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, false)
 			}
@@ -745,14 +746,14 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply.Code)
-			if ack.reply.Code == INIT_STOPPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STOPPOD {
 				glog.Info("POD stopped ", string(ack.msg))
 				ctx.detachDevice()
 				ctx.Become(stateCleaning, StateCleaning)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.reply.Code == INIT_STOPPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STOPPOD {
 				ctx.unsetTimeout()
 				ctx.shutdownVM(true, "Stop pod failed as init report")
 				ctx.Become(stateTerminating, StateTerminating)
@@ -789,13 +790,13 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	case COMMAND_ACK:
 		ack := ev.(*CommandAck)
 		glog.V(1).Infof("[Terminating] Got reply to %d: '%s'", ack.reply, string(ack.msg))
-		if ack.reply.Code == INIT_DESTROYPOD {
+		if ack.reply.Code == hyperstartapi.INIT_DESTROYPOD {
 			glog.Info("POD destroyed ", string(ack.msg))
 			ctx.poweroffVM(false, "")
 		}
 	case ERROR_CMD_FAIL:
 		ack := ev.(*CommandError)
-		if ack.reply.Code == INIT_DESTROYPOD {
+		if ack.reply.Code == hyperstartapi.INIT_DESTROYPOD {
 			glog.Warning("Destroy pod failed")
 			ctx.poweroffVM(true, "Destroy pod failed")
 		}
@@ -825,7 +826,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			//            glog.V(1).Info("device ready, could run pod.")
 			//            ctx.Become(stateInit, StateInit)
 			ctx.vm <- &DecodedMessage{
-				Code:    INIT_READY,
+				Code:    hyperstartapi.INIT_READY,
 				Message: []byte{},
 			}
 			glog.V(1).Info("device ready, could run pod.")
@@ -846,7 +847,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[cleaning] Got reply to %d: '%s'", ack.reply.Code, string(ack.msg))
-			if ack.reply.Code == INIT_READY {
+			if ack.reply.Code == hyperstartapi.INIT_READY {
 				ctx.reset()
 				ctx.unsetTimeout()
 				ctx.reportPodStopped()

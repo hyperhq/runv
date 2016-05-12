@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/lib/telnet"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -115,7 +116,7 @@ func waitInitReady(ctx *VmContext) {
 			Reason: "read init message failed... " + err.Error(),
 		}
 		conn.Close()
-	} else if msg.Code == INIT_READY {
+	} else if msg.Code == hyperstartapi.INIT_READY {
 		glog.Info("Get init ready message")
 		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
 		go waitCmdToInit(ctx, conn.(*net.UnixConn))
@@ -161,14 +162,14 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			break
 		}
 		glog.Infof("got cmd:%d", cmd.Code)
-		if cmd.Code == INIT_ACK || cmd.Code == INIT_ERROR {
+		if cmd.Code == hyperstartapi.INIT_ACK || cmd.Code == hyperstartapi.INIT_ERROR {
 			if len(cmds) > 0 {
-				if cmds[0].Code == INIT_DESTROYPOD {
+				if cmds[0].Code == hyperstartapi.INIT_DESTROYPOD {
 					glog.Info("got response of shutdown command, last round of command to init")
 					looping = false
 				}
-				if cmd.Code == INIT_ACK {
-					if cmds[0].Code != INIT_PING {
+				if cmd.Code == hyperstartapi.INIT_ACK {
+					if cmds[0].Code != hyperstartapi.INIT_PING {
 						ctx.Hub <- &CommandAck{
 							reply: cmds[0],
 							msg:   cmd.Message,
@@ -192,7 +193,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 						defer func() { recover() }()
 						glog.V(1).Info("Send ping message to init")
 						ctx.vm <- &DecodedMessage{
-							Code:    INIT_PING,
+							Code:    hyperstartapi.INIT_PING,
 							Message: []byte{},
 						}
 						pingTimer = nil
@@ -203,7 +204,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			} else {
 				glog.Error("got ack but no command in queue")
 			}
-		} else if cmd.Code == INIT_FINISHPOD {
+		} else if cmd.Code == hyperstartapi.INIT_FINISHPOD {
 			num := len(cmd.Message) / 4
 			results := make([]uint32, num)
 			for i := 0; i < num; i++ {
@@ -211,7 +212,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			}
 
 			for _, c := range cmds {
-				if c.Code == INIT_DESTROYPOD {
+				if c.Code == hyperstartapi.INIT_DESTROYPOD {
 					glog.Info("got pod finish message after having send destroy message")
 					looping = false
 					ctx.Hub <- &CommandAck{
@@ -227,7 +228,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				result: results,
 			}
 		} else {
-			if cmd.Code == INIT_NEXT {
+			if cmd.Code == hyperstartapi.INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")
 
 				got += int(binary.BigEndian.Uint32(cmd.Message[0:4]))
@@ -283,8 +284,8 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 		if err != nil {
 			ctx.Hub <- &Interrupted{Reason: "init socket failed " + err.Error()}
 			return
-		} else if res.Code == INIT_ACK || res.Code == INIT_NEXT ||
-			res.Code == INIT_ERROR || res.Code == INIT_FINISHPOD {
+		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
+			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD {
 			ctx.vm <- res
 		}
 	}
