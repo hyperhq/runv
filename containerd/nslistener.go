@@ -83,6 +83,8 @@ func collectionInterfaceInfo() []supervisor.InterfaceInfo {
 			glog.Infof("get interface %v", info)
 			infos = append(infos, info)
 		}
+		// set link down, tap device take over it
+		netlink.LinkSetDown(link)
 	}
 	return infos
 }
