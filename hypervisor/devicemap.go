@@ -369,15 +369,6 @@ func (ctx *VmContext) onContainerRemoved(c *ContainerUnmounted) bool {
 		glog.V(1).Infof("container %d umounted", c.Index)
 		delete(ctx.progress.deleting.containers, c.Index)
 	}
-	if ctx.vmSpec.Containers[c.Index].Fstype != "" {
-		for name, image := range ctx.devices.imageMap {
-			if image.pos == c.Index {
-				glog.V(1).Info("need remove image dm file", image.info.Filename)
-				ctx.progress.deleting.blockdevs[name] = true
-				go UmountDMDevice(image.info.Filename, name, ctx.Hub)
-			}
-		}
-	}
 
 	return c.Success
 }
@@ -395,12 +386,6 @@ func (ctx *VmContext) onVolumeRemoved(v *VolumeUnmounted) bool {
 	if _, ok := ctx.progress.deleting.volumes[v.Name]; ok {
 		glog.V(1).Infof("volume %s umounted", v.Name)
 		delete(ctx.progress.deleting.volumes, v.Name)
-	}
-	vol := ctx.devices.volumeMap[v.Name]
-	if vol.info.Fstype != "" {
-		glog.V(1).Info("need remove dm file ", vol.info.Filename)
-		ctx.progress.deleting.blockdevs[vol.info.Name] = true
-		go UmountDMDevice(vol.info.Filename, vol.info.Name, ctx.Hub)
 	}
 	return v.Success
 }
