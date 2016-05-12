@@ -447,9 +447,6 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 	case EVENT_BLOCK_EJECTED:
 		success = ctx.onVolumeRemoved(ev.(*VolumeUnmounted))
 		glog.V(1).Info("Unplug block device return with ", success)
-	case EVENT_VOLUME_DELETE:
-		success = ctx.onBlockReleased(ev.(*BlockdevRemovedEvent))
-		glog.V(1).Info("release volume return with ", success)
 	case EVENT_INTERFACE_EJECTED:
 		n := ev.(*NetDevRemovedEvent)
 		nic := ctx.devices.networkMap[n.Index]

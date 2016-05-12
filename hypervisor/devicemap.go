@@ -390,14 +390,6 @@ func (ctx *VmContext) onVolumeRemoved(v *VolumeUnmounted) bool {
 	return v.Success
 }
 
-func (ctx *VmContext) onBlockReleased(v *BlockdevRemovedEvent) bool {
-	if _, ok := ctx.progress.deleting.blockdevs[v.Name]; ok {
-		glog.V(1).Infof("blockdev %s deleted", v.Name)
-		delete(ctx.progress.deleting.blockdevs, v.Name)
-	}
-	return v.Success
-}
-
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
 		if vol.info.Format == "raw" || vol.info.Format == "qcow2" || vol.info.Format == "vdi" || vol.info.Format == "rbd" {
