@@ -413,59 +413,6 @@ func (ctx *VmContext) onBlockReleased(v *BlockdevRemovedEvent) bool {
 	return v.Success
 }
 
-func (ctx *VmContext) releaseVolumeDir() {
-	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.Fstype == "" {
-			glog.V(1).Info("need umount dir ", vol.info.Filename)
-			ctx.progress.deleting.volumes[name] = true
-			go UmountVolume(ctx.ShareDir, vol.info.Filename, name, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) removeDMDevice() {
-	for name, container := range ctx.devices.imageMap {
-		if container.info.Fstype != "dir" {
-			glog.V(1).Info("need remove dm file", container.info.Filename)
-			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(container.info.Filename, name, ctx.Hub)
-		}
-	}
-	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.Fstype != "" {
-			glog.V(1).Info("need remove dm file ", vol.info.Filename)
-			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(vol.info.Filename, name, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) releaseOverlayDir() {
-	if !supportOverlay() {
-		return
-	}
-	for idx, container := range ctx.vmSpec.Containers {
-		if container.Fstype == "" {
-			glog.V(1).Info("need unmount overlay dir ", container.Image)
-			ctx.progress.deleting.containers[idx] = true
-			go UmountOverlayContainer(ctx.ShareDir, container.Image, idx, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) releaseAufsDir() {
-	if !supportAufs() {
-		return
-	}
-	for idx, container := range ctx.vmSpec.Containers {
-		if container.Fstype == "" {
-			glog.V(1).Info("need unmount aufs ", container.Image)
-			ctx.progress.deleting.containers[idx] = true
-			go UmountAufsContainer(ctx.ShareDir, container.Image, idx, ctx.Hub)
-		}
-	}
-}
-
 func (ctx *VmContext) removeVolumeDrive() {
 	for name, vol := range ctx.devices.volumeMap {
 		if vol.info.Format == "raw" || vol.info.Format == "qcow2" || vol.info.Format == "vdi" || vol.info.Format == "rbd" {
