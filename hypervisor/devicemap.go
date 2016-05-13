@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
@@ -97,17 +98,17 @@ func (ctx *VmContext) deviceReady() bool {
 	return ready
 }
 
-func (ctx *VmContext) initContainerInfo(index int, target *VmContainer, spec *pod.UserContainer) {
-	vols := []VmVolumeDescriptor{}
-	fsmap := []VmFsmapDescriptor{}
+func (ctx *VmContext) initContainerInfo(index int, target *hyperstartapi.Container, spec *pod.UserContainer) {
+	vols := []hyperstartapi.VolumeDescriptor{}
+	fsmap := []hyperstartapi.FsmapDescriptor{}
 	for _, v := range spec.Volumes {
 		ctx.devices.volumeMap[v.Volume].pos[index] = v.Path
 		ctx.devices.volumeMap[v.Volume].readOnly[index] = v.ReadOnly
 	}
 
-	envs := make([]VmEnvironmentVar, len(spec.Envs))
+	envs := make([]hyperstartapi.EnvironmentVar, len(spec.Envs))
 	for j, e := range spec.Envs {
-		envs[j] = VmEnvironmentVar{Env: e.Env, Value: e.Value}
+		envs[j] = hyperstartapi.EnvironmentVar{Env: e.Env, Value: e.Value}
 	}
 
 	restart := "never"
@@ -115,21 +116,21 @@ func (ctx *VmContext) initContainerInfo(index int, target *VmContainer, spec *po
 		restart = spec.RestartPolicy
 	}
 
-	p := VmProcess{Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
-	*target = VmContainer{
+	p := hyperstartapi.Process{Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
+	*target = hyperstartapi.Container{
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
-		Volumes: vols, Fsmap: fsmap, Process: p, Entrypoint: spec.Entrypoint,
+		Volumes: vols, Fsmap: fsmap, Process: p,
 		Sysctl: spec.Sysctl, RestartPolicy: restart,
 	}
 }
 
-func (ctx *VmContext) setContainerInfo(index int, container *VmContainer, info *ContainerInfo) {
+func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Container, info *ContainerInfo) {
 
 	container.Id = info.Id
 	container.Rootfs = info.Rootfs
 
 	container.Process.Args = info.Cmd
-	container.Process.Envs = make([]VmEnvironmentVar, len(info.Envs))
+	container.Process.Envs = make([]hyperstartapi.EnvironmentVar, len(info.Envs))
 	i := 0
 	for e, v := range info.Envs {
 		container.Process.Envs[i].Env = e
@@ -233,7 +234,7 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 		vol.info.Fstype = ""
 		for i, mount := range vol.pos {
 			glog.V(1).Infof("insert volume %s to %s on %d", info.Name, mount, i)
-			ctx.vmSpec.Containers[i].Fsmap = append(ctx.vmSpec.Containers[i].Fsmap, VmFsmapDescriptor{
+			ctx.vmSpec.Containers[i].Fsmap = append(ctx.vmSpec.Containers[i].Fsmap, hyperstartapi.FsmapDescriptor{
 				Source:       info.Filepath,
 				Path:         mount,
 				ReadOnly:     vol.readOnly[i],
@@ -255,7 +256,7 @@ func (ctx *VmContext) allocateNetworks() {
 	}
 
 	for _, srv := range ctx.userSpec.Services {
-		inf := VmNetworkInf{
+		inf := hyperstartapi.NetworkInf{
 			Device:    "lo",
 			IpAddress: srv.ServiceIP,
 			NetMask:   "255.255.255.255",
@@ -307,7 +308,7 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 		volume.info.ScsiId = info.ScsiId
 		for c, vol := range volume.pos {
 			ctx.vmSpec.Containers[c].Volumes = append(ctx.vmSpec.Containers[c].Volumes,
-				VmVolumeDescriptor{
+				hyperstartapi.VolumeDescriptor{
 					Device:       info.DeviceName,
 					Addr:         info.ScsiAddr,
 					Mount:        vol,
@@ -340,7 +341,7 @@ func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
 	if len(ctx.progress.adding.networks) == 0 {
 		count := len(ctx.devices.networkMap)
 		for i := 0; i < count; i++ {
-			inf := VmNetworkInf{
+			inf := hyperstartapi.NetworkInf{
 				Device:    ctx.devices.networkMap[i].DeviceName,
 				IpAddress: ctx.devices.networkMap[i].IpAddr,
 				NetMask:   ctx.devices.networkMap[i].NetMask,
@@ -351,7 +352,7 @@ func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
 				if rl.ViaThis {
 					dev = inf.Device
 				}
-				ctx.vmSpec.Routes = append(ctx.vmSpec.Routes, VmRoute{
+				ctx.vmSpec.Routes = append(ctx.vmSpec.Routes, hyperstartapi.Route{
 					Dest:    rl.Destination,
 					Gateway: rl.Gateway,
 					Device:  dev,

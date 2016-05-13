@@ -3,6 +3,7 @@ package hypervisor
 import (
 	"encoding/json"
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"os"
@@ -44,7 +45,7 @@ type VmContext struct {
 
 	// Specification
 	userSpec *pod.UserPod
-	vmSpec   *VmPod
+	vmSpec   *hyperstartapi.Pod
 	devices  *deviceMap
 
 	progress *processingList
@@ -247,7 +248,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		}
 	}
 
-	containers := make([]VmContainer, len(spec.Containers))
+	containers := make([]hyperstartapi.Container, len(spec.Containers))
 
 	for i, container := range spec.Containers {
 		ctx.initContainerInfo(i, &containers[i], &container)
@@ -269,7 +270,7 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		hostname = spec.Name[:64]
 	}
 
-	ctx.vmSpec = &VmPod{
+	ctx.vmSpec = &hyperstartapi.Pod{
 		Hostname:   hostname,
 		Containers: containers,
 		Dns:        spec.Dns,

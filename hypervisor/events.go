@@ -6,6 +6,7 @@ import (
 	"sync"
 	"syscall"
 
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
@@ -70,8 +71,8 @@ type NewContainerCommand struct {
 
 type ExecCommand struct {
 	*TtyIO    `json:"-"`
-	Container string    `json:"container,omitempty"`
-	Process   VmProcess `json:"process"`
+	Container string                `json:"container,omitempty"`
+	Process   hyperstartapi.Process `json:"process"`
 }
 
 type KillCommand struct {

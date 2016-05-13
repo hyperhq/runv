@@ -10,6 +10,7 @@ import (
 
 	"encoding/json"
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
@@ -485,11 +486,11 @@ func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 }
 
 func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
-	envs := []VmEnvironmentVar{}
+	envs := []hyperstartapi.EnvironmentVar{}
 
 	for _, v := range env {
 		if eqlIndex := strings.Index(v, "="); eqlIndex > 0 {
-			envs = append(envs, VmEnvironmentVar{
+			envs = append(envs, hyperstartapi.EnvironmentVar{
 				Env:   v[:eqlIndex],
 				Value: v[eqlIndex+1:],
 			})
@@ -499,7 +500,7 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	execCmd := &ExecCommand{
 		TtyIO:     tty,
 		Container: container,
-		Process: VmProcess{
+		Process: hyperstartapi.Process{
 			Terminal: terminal,
 			Args:     args,
 			Envs:     envs,

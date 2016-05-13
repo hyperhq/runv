@@ -84,11 +84,11 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 	return true
 }
 
-func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *VmContainer {
+func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.Container {
 	ctx.lock.Lock()
 
 	idx := len(ctx.vmSpec.Containers)
-	vmContainer := &VmContainer{}
+	vmContainer := &hyperstartapi.Container{}
 
 	ctx.initContainerInfo(idx, vmContainer, cmd.container)
 	ctx.setContainerInfo(idx, vmContainer, cmd.info)
@@ -291,7 +291,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
 	}
 }
 
-func (ctx *VmContext) attachTty2Container(process *VmProcess, cmd *AttachCommand) {
+func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
 	session := process.Stdio
 	ctx.ptys.ptyConnect(true, process.Terminal, session, cmd.Streams)
 	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
