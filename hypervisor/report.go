@@ -2,6 +2,7 @@ package hypervisor
 
 import (
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -190,7 +191,7 @@ func (ctx *VmContext) reportFile(reply VmEvent, code uint32, data []byte, err bo
 		Data:  data,
 	}
 
-	if code == INIT_READFILE {
+	if code == hyperstartapi.INIT_READFILE {
 		response.Code = types.E_READFILE
 		if err {
 			response.Cause = "readfile failed"
