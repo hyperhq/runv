@@ -179,11 +179,6 @@ type BlockdevInsertedEvent struct {
 
 type DevSkipEvent struct{}
 
-type BlockdevRemovedEvent struct {
-	Name    string
-	Success bool
-}
-
 type InterfaceCreated struct {
 	Index      int
 	PCIAddr    int
@@ -247,7 +242,6 @@ func (qe *VolumeUnmounted) Event() int       { return EVENT_BLOCK_EJECTED }
 func (qe *VolumeReadyEvent) Event() int      { return EVENT_VOLUME_ADD }
 func (qe *BlockdevInsertedEvent) Event() int { return EVENT_BLOCK_INSERTED }
 func (qe *DevSkipEvent) Event() int          { return EVENT_DEV_SKIP }
-func (qe *BlockdevRemovedEvent) Event() int  { return EVENT_VOLUME_DELETE }
 func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
 func (qe *InterfaceReleased) Event() int     { return EVENT_INTERFACE_DELETE }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }

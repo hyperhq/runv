@@ -369,15 +369,6 @@ func (ctx *VmContext) onContainerRemoved(c *ContainerUnmounted) bool {
 		glog.V(1).Infof("container %d umounted", c.Index)
 		delete(ctx.progress.deleting.containers, c.Index)
 	}
-	if ctx.vmSpec.Containers[c.Index].Fstype != "" {
-		for name, image := range ctx.devices.imageMap {
-			if image.pos == c.Index {
-				glog.V(1).Info("need remove image dm file", image.info.Filename)
-				ctx.progress.deleting.blockdevs[name] = true
-				go UmountDMDevice(image.info.Filename, name, ctx.Hub)
-			}
-		}
-	}
 
 	return c.Success
 }
@@ -396,74 +387,7 @@ func (ctx *VmContext) onVolumeRemoved(v *VolumeUnmounted) bool {
 		glog.V(1).Infof("volume %s umounted", v.Name)
 		delete(ctx.progress.deleting.volumes, v.Name)
 	}
-	vol := ctx.devices.volumeMap[v.Name]
-	if vol.info.Fstype != "" {
-		glog.V(1).Info("need remove dm file ", vol.info.Filename)
-		ctx.progress.deleting.blockdevs[vol.info.Name] = true
-		go UmountDMDevice(vol.info.Filename, vol.info.Name, ctx.Hub)
-	}
 	return v.Success
-}
-
-func (ctx *VmContext) onBlockReleased(v *BlockdevRemovedEvent) bool {
-	if _, ok := ctx.progress.deleting.blockdevs[v.Name]; ok {
-		glog.V(1).Infof("blockdev %s deleted", v.Name)
-		delete(ctx.progress.deleting.blockdevs, v.Name)
-	}
-	return v.Success
-}
-
-func (ctx *VmContext) releaseVolumeDir() {
-	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.Fstype == "" {
-			glog.V(1).Info("need umount dir ", vol.info.Filename)
-			ctx.progress.deleting.volumes[name] = true
-			go UmountVolume(ctx.ShareDir, vol.info.Filename, name, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) removeDMDevice() {
-	for name, container := range ctx.devices.imageMap {
-		if container.info.Fstype != "dir" {
-			glog.V(1).Info("need remove dm file", container.info.Filename)
-			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(container.info.Filename, name, ctx.Hub)
-		}
-	}
-	for name, vol := range ctx.devices.volumeMap {
-		if vol.info.Fstype != "" {
-			glog.V(1).Info("need remove dm file ", vol.info.Filename)
-			ctx.progress.deleting.blockdevs[name] = true
-			go UmountDMDevice(vol.info.Filename, name, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) releaseOverlayDir() {
-	if !supportOverlay() {
-		return
-	}
-	for idx, container := range ctx.vmSpec.Containers {
-		if container.Fstype == "" {
-			glog.V(1).Info("need unmount overlay dir ", container.Image)
-			ctx.progress.deleting.containers[idx] = true
-			go UmountOverlayContainer(ctx.ShareDir, container.Image, idx, ctx.Hub)
-		}
-	}
-}
-
-func (ctx *VmContext) releaseAufsDir() {
-	if !supportAufs() {
-		return
-	}
-	for idx, container := range ctx.vmSpec.Containers {
-		if container.Fstype == "" {
-			glog.V(1).Info("need unmount aufs ", container.Image)
-			ctx.progress.deleting.containers[idx] = true
-			go UmountAufsContainer(ctx.ShareDir, container.Image, idx, ctx.Hub)
-		}
-	}
 }
 
 func (ctx *VmContext) removeVolumeDrive() {
