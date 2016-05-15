@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"sync"
@@ -31,7 +32,7 @@ type PersistInfo struct {
 	Id          string
 	DriverInfo  map[string]interface{}
 	UserSpec    *pod.UserPod
-	VmSpec      *VmPod
+	VmSpec      *hyperstartapi.Pod
 	HwStat      *VmHwStatus
 	VolumeList  []*PersistVolumeInfo
 	NetworkList []*PersistNetworkInfo
@@ -125,34 +126,6 @@ func (vol *PersistVolumeInfo) blockInfo() *BlockDescriptor {
 	}
 }
 
-func (cr *VmContainer) roLookup(mpoint string) bool {
-	if v := cr.volLookup(mpoint); v != nil {
-		return v.ReadOnly
-	} else if m := cr.mapLookup(mpoint); m != nil {
-		return m.ReadOnly
-	}
-
-	return false
-}
-
-func (cr *VmContainer) mapLookup(mpoint string) *VmFsmapDescriptor {
-	for _, fs := range cr.Fsmap {
-		if fs.Path == mpoint {
-			return &fs
-		}
-	}
-	return nil
-}
-
-func (cr *VmContainer) volLookup(mpoint string) *VmVolumeDescriptor {
-	for _, vol := range cr.Volumes {
-		if vol.Mount == mpoint {
-			return &vol
-		}
-	}
-	return nil
-}
-
 func vmDeserialize(s []byte) (*PersistInfo, error) {
 	info := &PersistInfo{}
 	err := json.Unmarshal(s, info)
@@ -203,7 +176,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			for i := 0; i < len(vol.Containers); i++ {
 				idx := vol.Containers[i]
 				v.pos[idx] = vol.MontPoints[i]
-				v.readOnly[idx] = ctx.vmSpec.Containers[idx].roLookup(vol.MontPoints[i])
+				v.readOnly[idx] = ctx.vmSpec.Containers[idx].RoLookup(vol.MontPoints[i])
 			}
 			ctx.devices.volumeMap[vol.Name] = v
 		}
