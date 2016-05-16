@@ -469,9 +469,11 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 			result <- fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
 			return
 		}
-		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
+
 		close(client)
-		result <- nil
+
+		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
+		ctx.updateInterface(idx, result)
 	}, StateRunning)
 
 	err := <-res

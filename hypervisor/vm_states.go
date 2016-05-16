@@ -140,6 +140,36 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	glog.Infof("sent INIT_NEWCONTAINER")
 }
 
+func (ctx *VmContext) updateInterface(index int, result chan<- error) {
+	cmd := &GenericOperation{
+		OpName: "updateInterface",
+		Result: result,
+	}
+
+	if _, ok := ctx.devices.networkMap[index]; !ok {
+		result <- fmt.Errorf("can't find interface whose index is %d", index)
+		return
+	}
+
+	inf := hyperstartapi.NetworkInf{
+		Device:    ctx.devices.networkMap[index].DeviceName,
+		IpAddress: ctx.devices.networkMap[index].IpAddr,
+		NetMask:   ctx.devices.networkMap[index].NetMask,
+	}
+
+	message, err := json.Marshal(inf)
+	if err != nil {
+		result <- fmt.Errorf("marshal interface %d failed %v", index, err)
+		return
+	}
+
+	ctx.vm <- &DecodedMessage{
+		Code:    hyperstartapi.INIT_SETUPINTERFACE,
+		Message: message,
+		Event:   cmd,
+	}
+}
+
 func (ctx *VmContext) pauseVm(cmd *PauseCommand) {
 	/* FIXME: only support pause whole vm now */
 	ctx.DCtx.Pause(ctx, cmd)
@@ -683,6 +713,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, true)
+			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
+				ctx.reportGenericOperation(ack.reply.Event, true)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
@@ -700,6 +732,8 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, false)
+			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
+				ctx.reportGenericOperation(ack.reply.Event, false)
 			}
 
 		case COMMAND_GET_POD_IP:
