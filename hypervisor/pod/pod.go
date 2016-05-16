@@ -16,6 +16,12 @@ import (
 )
 
 // Pod Data Structure
+type UserUser struct {
+	Name             string   `json:"name"`
+	Group            string   `json:"group"`
+	AdditionalGroups []string `json:"additionalGroups,omitempty"`
+}
+
 type UserContainerPort struct {
 	HostPort      int    `json:"hostPort"`
 	ContainerPort int    `json:"containerPort"`
@@ -45,6 +51,7 @@ type UserFileReference struct {
 type UserContainer struct {
 	Name          string                `json:"name"`
 	Image         string                `json:"image"`
+	User          UserUser              `json:"user,omitempty"`
 	Command       []string              `json:"command"`
 	Workdir       string                `json:"workdir"`
 	Entrypoint    []string              `json:"entrypoint"`

@@ -116,7 +116,8 @@ func (ctx *VmContext) initContainerInfo(index int, target *hyperstartapi.Contain
 		restart = spec.RestartPolicy
 	}
 
-	p := hyperstartapi.Process{Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
+	p := hyperstartapi.Process{User: spec.User.Name, Group: spec.User.Group, AdditionalGroups: spec.User.AdditionalGroups,
+		Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
 	*target = hyperstartapi.Container{
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
 		Volumes: vols, Fsmap: fsmap, Process: p,
@@ -136,6 +137,10 @@ func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Conta
 		container.Process.Envs[i].Env = e
 		container.Process.Envs[i].Value = v
 		i++
+	}
+
+	if container.Process.User == "" && info.User != "" {
+		container.Process.User = info.User
 	}
 
 	if container.Process.Workdir == "" {

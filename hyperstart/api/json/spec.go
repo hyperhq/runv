@@ -22,6 +22,10 @@ type EnvironmentVar struct {
 }
 
 type Process struct {
+	// User, Group, AdditionalGroups specify the user information
+	User             string   `json:"user,omitempty"`
+	Group            string   `json:"group,omitempty"`
+	AdditionalGroups []string `json:"additionalGroups,omitempty"`
 	// Terminal creates an interactive terminal for the process.
 	Terminal bool `json:"terminal"`
 	// Sequeue number for stdin and stdout

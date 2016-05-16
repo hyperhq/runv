@@ -133,6 +133,7 @@ type ContainerCreatedEvent struct {
 
 type ContainerInfo struct {
 	Id      string
+	User    string
 	MountId string
 	Rootfs  string
 	Image   string // if fstype is `dir`, this should be a path relative to share_dir
