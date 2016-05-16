@@ -17,6 +17,11 @@ before_install:
   - tar xf lvm2-2_02_131.tar.xz
   - cd lvm2-2_02_131
   - ./configure && make device-mapper && sudo make install
+
+# override the default `install`, otherwise default `install` will export ${TRAVIS_BUILD_DIR}/Godeps/_workspace as GOPATH
+# see https://docs.travis-ci.com/user/languages/go#Dependency-Management
+
+install:
   - cd ${TRAVIS_BUILD_DIR}
   - hack/verify-gofmt.sh
   - hack/validate-vet.sh
