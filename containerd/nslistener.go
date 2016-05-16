@@ -2,12 +2,11 @@ package main
 
 import (
 	"encoding/gob"
-	"fmt"
 	"os"
 	"syscall"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/supervisor"
 	"github.com/vishvananda/netlink"
 )
 
@@ -41,8 +40,8 @@ func nsListenerDaemon() {
 	}
 
 	/* send interface info to containerd */
-	nics := collectionInterfaceInfo()
-	if err := enc.Encode(nics); err != nil {
+	infos := collectionInterfaceInfo()
+	if err := enc.Encode(infos); err != nil {
 		glog.Error(err)
 		return
 	}
@@ -54,13 +53,13 @@ func nsListenerDaemon() {
 	}
 }
 
-func collectionInterfaceInfo() []pod.UserInterface {
-	nics := []pod.UserInterface{}
+func collectionInterfaceInfo() []supervisor.InterfaceInfo {
+	infos := []supervisor.InterfaceInfo{}
 
 	links, err := netlink.LinkList()
 	if err != nil {
 		glog.Error(err)
-		return nics
+		return infos
 	}
 
 	for _, link := range links {
@@ -72,18 +71,18 @@ func collectionInterfaceInfo() []pod.UserInterface {
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
 			glog.Error(err)
-			return nics
+			return infos
 		}
 
 		for _, addr := range addrs {
-			nic := pod.UserInterface{
-				Ip: addr.String(),
-				//reuse Bridge as ifindex of peer device
-				Bridge: fmt.Sprintf("%d", link.Attrs().ParentIndex),
+			info := supervisor.InterfaceInfo{
+				Ip:        addr.IPNet.String(),
+				Index:     link.Attrs().Index,
+				PeerIndex: link.Attrs().ParentIndex,
 			}
-			glog.Infof("get interface %v", nic)
-			nics = append(nics, nic)
+			glog.Infof("get interface %v", info)
+			infos = append(infos, info)
 		}
 	}
-	return nics
+	return infos
 }

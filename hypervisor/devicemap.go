@@ -359,23 +359,22 @@ func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
 		delete(ctx.progress.adding.networks, info.Index)
 	}
 	if len(ctx.progress.adding.networks) == 0 {
-		count := len(ctx.devices.networkMap)
-		for i := 0; i < count; i++ {
+		for _, dev := range ctx.devices.networkMap {
 			inf := hyperstartapi.NetworkInf{
-				Device:    ctx.devices.networkMap[i].DeviceName,
-				IpAddress: ctx.devices.networkMap[i].IpAddr,
-				NetMask:   ctx.devices.networkMap[i].NetMask,
+				Device:    dev.DeviceName,
+				IpAddress: dev.IpAddr,
+				NetMask:   dev.NetMask,
 			}
 			ctx.vmSpec.Interfaces = append(ctx.vmSpec.Interfaces, inf)
-			for _, rl := range ctx.devices.networkMap[i].RouteTable {
-				dev := ""
+			for _, rl := range dev.RouteTable {
+				device := ""
 				if rl.ViaThis {
-					dev = inf.Device
+					device = inf.Device
 				}
 				ctx.vmSpec.Routes = append(ctx.vmSpec.Routes, hyperstartapi.Route{
 					Dest:    rl.Destination,
 					Gateway: rl.Gateway,
-					Device:  dev,
+					Device:  device,
 				})
 			}
 		}

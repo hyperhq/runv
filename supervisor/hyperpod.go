@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -30,15 +29,19 @@ type HyperPod struct {
 	nslistener *nsListener
 }
 
+type InterfaceInfo struct {
+	Index     int
+	PeerIndex int
+	Ip        string
+}
+
 type nsListener struct {
 	enc *gob.Encoder
 	dec *gob.Decoder
 	cmd *exec.Cmd
 }
 
-func GetBridgeFromIndex(index string) (string, error) {
-	idx, _ := strconv.Atoi(index)
-
+func GetBridgeFromIndex(idx int) (string, error) {
 	var attr, bridge *netlink.LinkAttrs
 
 	links, err := netlink.LinkList()
@@ -101,21 +104,30 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		return err
 	}
 
-	nics := []pod.UserInterface{}
+	infos := []InterfaceInfo{}
 	/* read nic information of ns from pipe */
-	err := listener.dec.Decode(&nics)
+	err := listener.dec.Decode(&infos)
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("interface configuration of pod ns is %v", nics)
-	for _, nic := range nics {
-		nic.Bridge, err = GetBridgeFromIndex(nic.Bridge)
+	glog.Infof("interface configuration of pod ns is %v", infos)
+	for idx, info := range infos {
+		bridge, err := GetBridgeFromIndex(info.PeerIndex)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
-		//hp.vm.AddNic(nic)
+		conf := pod.UserInterface{
+			Bridge: bridge,
+			Ip:     info.Ip,
+		}
+
+		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
 	}
 	/*
 		go func() {
