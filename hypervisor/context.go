@@ -25,7 +25,7 @@ type VmContext struct {
 	// Communication Context
 	Hub    chan VmEvent
 	client chan *types.VmResponse
-	vm     chan *DecodedMessage
+	vm     chan *VmMessage
 
 	DCtx DriverContext
 
@@ -64,7 +64,7 @@ type stateHandler func(ctx *VmContext, event VmEvent)
 func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
 	var err error = nil
 
-	vmChannel := make(chan *DecodedMessage, 128)
+	vmChannel := make(chan *VmMessage, 128)
 
 	//dir and sockets:
 	homeDir := BaseDir + "/" + id + "/"

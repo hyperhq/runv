@@ -106,7 +106,7 @@ type AttachCommand struct {
 }
 
 type CommandAck struct {
-	reply *DecodedMessage
+	reply *VmMessage
 	msg   []byte
 }
 
