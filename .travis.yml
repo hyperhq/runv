@@ -17,12 +17,10 @@ before_install:
   - tar xf lvm2-2_02_131.tar.xz
   - cd lvm2-2_02_131
   - ./configure && make device-mapper && sudo make install
-
-script:
   - cd ${TRAVIS_BUILD_DIR}
   - hack/verify-gofmt.sh
   - hack/validate-vet.sh
-  - ./autogen.sh
-  - ./configure
-  - make
-  - hack/test-cmd.sh
+  - ./autogen.sh && ./configure && make
+
+script:
+  - cd ${TRAVIS_BUILD_DIR} && hack/test-cmd.sh
