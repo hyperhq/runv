@@ -13,10 +13,9 @@ import (
 )
 
 // Message
-type DecodedMessage struct {
-	Code    uint32
-	Message []byte
-	Event   VmEvent
+type VmMessage struct {
+	Msg   *hyperstartapi.DecodedMessage
+	Event VmEvent
 }
 
 func waitConsoleOutput(ctx *VmContext) {
@@ -50,7 +49,7 @@ func waitConsoleOutput(ctx *VmContext) {
 	}
 }
 
-func NewVmMessage(m *DecodedMessage) []byte {
+func NewVmMessage(m *hyperstartapi.DecodedMessage) []byte {
 	length := len(m.Message) + 8
 	msg := make([]byte, length)
 	binary.BigEndian.PutUint32(msg[:], uint32(m.Code))
@@ -59,7 +58,7 @@ func NewVmMessage(m *DecodedMessage) []byte {
 	return msg
 }
 
-func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
+func ReadVmMessage(conn *net.UnixConn) (*hyperstartapi.DecodedMessage, error) {
 	needRead := 8
 	length := 0
 	read := 0
@@ -91,7 +90,7 @@ func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
 		}
 	}
 
-	return &DecodedMessage{
+	return &hyperstartapi.DecodedMessage{
 		Code:    binary.BigEndian.Uint32(res[:4]),
 		Message: res[8:],
 	}, nil
@@ -144,7 +143,7 @@ func connectToInit(ctx *VmContext) {
 
 func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 	looping := true
-	cmds := []*DecodedMessage{}
+	cmds := []*VmMessage{}
 
 	var data []byte
 	var timeout bool = false
@@ -161,24 +160,24 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			glog.Info("vm channel closed, quit")
 			break
 		}
-		glog.Infof("got cmd:%d", cmd.Code)
-		if cmd.Code == hyperstartapi.INIT_ACK || cmd.Code == hyperstartapi.INIT_ERROR {
+		glog.Infof("got cmd:%d", cmd.Msg.Code)
+		if cmd.Msg.Code == hyperstartapi.INIT_ACK || cmd.Msg.Code == hyperstartapi.INIT_ERROR {
 			if len(cmds) > 0 {
-				if cmds[0].Code == hyperstartapi.INIT_DESTROYPOD {
+				if cmds[0].Msg.Code == hyperstartapi.INIT_DESTROYPOD {
 					glog.Info("got response of shutdown command, last round of command to init")
 					looping = false
 				}
-				if cmd.Code == hyperstartapi.INIT_ACK {
-					if cmds[0].Code != hyperstartapi.INIT_PING {
+				if cmd.Msg.Code == hyperstartapi.INIT_ACK {
+					if cmds[0].Msg.Code != hyperstartapi.INIT_PING {
 						ctx.Hub <- &CommandAck{
 							reply: cmds[0],
-							msg:   cmd.Message,
+							msg:   cmd.Msg.Message,
 						}
 					}
 				} else {
 					ctx.Hub <- &CommandError{
 						reply: cmds[0],
-						msg:   cmd.Message,
+						msg:   cmd.Msg.Message,
 					}
 				}
 				cmds = cmds[1:]
@@ -192,9 +191,8 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					pingTimer = time.AfterFunc(30*time.Second, func() {
 						defer func() { recover() }()
 						glog.V(1).Info("Send ping message to init")
-						ctx.vm <- &DecodedMessage{
-							Code:    hyperstartapi.INIT_PING,
-							Message: []byte{},
+						ctx.vm <- &VmMessage{
+							Msg: &hyperstartapi.DecodedMessage{Code: hyperstartapi.INIT_PING, Message: []byte{}},
 						}
 						pingTimer = nil
 					})
@@ -204,15 +202,15 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			} else {
 				glog.Error("got ack but no command in queue")
 			}
-		} else if cmd.Code == hyperstartapi.INIT_FINISHPOD {
-			num := len(cmd.Message) / 4
+		} else if cmd.Msg.Code == hyperstartapi.INIT_FINISHPOD {
+			num := len(cmd.Msg.Message) / 4
 			results := make([]uint32, num)
 			for i := 0; i < num; i++ {
-				results[i] = binary.BigEndian.Uint32(cmd.Message[i*4 : i*4+4])
+				results[i] = binary.BigEndian.Uint32(cmd.Msg.Message[i*4 : i*4+4])
 			}
 
 			for _, c := range cmds {
-				if c.Code == hyperstartapi.INIT_DESTROYPOD {
+				if c.Msg.Code == hyperstartapi.INIT_DESTROYPOD {
 					glog.Info("got pod finish message after having send destroy message")
 					looping = false
 					ctx.Hub <- &CommandAck{
@@ -228,10 +226,10 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				result: results,
 			}
 		} else {
-			if cmd.Code == hyperstartapi.INIT_NEXT {
+			if cmd.Msg.Code == hyperstartapi.INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")
 
-				got += int(binary.BigEndian.Uint32(cmd.Message[0:4]))
+				got += int(binary.BigEndian.Uint32(cmd.Msg.Message[0:4]))
 				glog.V(1).Infof("send %d, receive %d", index, got)
 				timeout = false
 				if index == got {
@@ -242,9 +240,9 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
-				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(cmd.Message))
+				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Msg.Code, string(cmd.Msg.Message))
 				cmds = append(cmds, cmd)
-				data = append(data, NewVmMessage(cmd)...)
+				data = append(data, NewVmMessage(cmd.Msg)...)
 				timeout = true
 			}
 
@@ -286,7 +284,7 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 			return
 		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
 			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD {
-			ctx.vm <- res
+			ctx.vm <- &VmMessage{Msg: res}
 		}
 	}
 }
