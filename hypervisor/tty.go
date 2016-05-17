@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/hyperhq/runv/lib/utils"
@@ -54,31 +55,17 @@ type ttyAttachments struct {
 
 type pseudoTtys struct {
 	attachId    uint64 //next available attachId for attached tty
-	channel     chan *ttyMessage
+	channel     chan *hyperstartapi.TtyMessage
 	ttys        map[uint64]*ttyAttachments
 	ttySessions map[string]uint64
 	pendingTtys []*AttachCommand
 	lock        *sync.Mutex
 }
 
-type ttyMessage struct {
-	session uint64
-	message []byte
-}
-
-func (tm *ttyMessage) toBuffer() []byte {
-	length := len(tm.message) + 12
-	buf := make([]byte, length)
-	binary.BigEndian.PutUint64(buf[:8], tm.session)
-	binary.BigEndian.PutUint32(buf[8:12], uint32(length))
-	copy(buf[12:], tm.message)
-	return buf
-}
-
 func newPts() *pseudoTtys {
 	return &pseudoTtys{
 		attachId:    1,
-		channel:     make(chan *ttyMessage, 256),
+		channel:     make(chan *hyperstartapi.TtyMessage, 256),
 		ttys:        make(map[uint64]*ttyAttachments),
 		ttySessions: make(map[string]uint64),
 		pendingTtys: []*AttachCommand{},
@@ -86,7 +73,7 @@ func newPts() *pseudoTtys {
 	}
 }
 
-func readTtyMessage(conn *net.UnixConn) (*ttyMessage, error) {
+func readTtyMessage(conn *net.UnixConn) (*hyperstartapi.TtyMessage, error) {
 	needRead := 12
 	length := 0
 	read := 0
@@ -118,9 +105,9 @@ func readTtyMessage(conn *net.UnixConn) (*ttyMessage, error) {
 		}
 	}
 
-	return &ttyMessage{
-		session: binary.BigEndian.Uint64(res[:8]),
-		message: res[12:],
+	return &hyperstartapi.TtyMessage{
+		Session: binary.BigEndian.Uint64(res[:8]),
+		Message: res[12:],
 	}, nil
 }
 
@@ -132,10 +119,10 @@ func waitTtyMessage(ctx *VmContext, conn *net.UnixConn) {
 			break
 		}
 
-		glog.V(3).Infof("trying to write to session %d", msg.session)
+		glog.V(3).Infof("trying to write to session %d", msg.Session)
 
-		if _, ok := ctx.ptys.ttys[msg.session]; ok {
-			_, err := conn.Write(msg.toBuffer())
+		if _, ok := ctx.ptys.ttys[msg.Session]; ok {
+			_, err := conn.Write(msg.ToBuffer())
 			if err != nil {
 				glog.V(1).Info("Cannot write to tty socket: ", err.Error())
 				return
@@ -166,24 +153,24 @@ func waitPts(ctx *VmContext) {
 			close(ctx.ptys.channel)
 			return
 		}
-		if ta, ok := ctx.ptys.ttys[res.session]; ok {
-			if len(res.message) == 0 {
-				glog.V(1).Infof("session %d closed by peer, close pty", res.session)
+		if ta, ok := ctx.ptys.ttys[res.Session]; ok {
+			if len(res.Message) == 0 {
+				glog.V(1).Infof("session %d closed by peer, close pty", res.Session)
 				ta.closed = true
 			} else if ta.closed {
 				var code uint8 = 255
-				if len(res.message) == 1 {
-					code = uint8(res.message[0])
+				if len(res.Message) == 1 {
+					code = uint8(res.Message[0])
 				}
-				glog.V(1).Infof("session %d, exit code %d", res.session, code)
-				ctx.ptys.Close(res.session, code)
+				glog.V(1).Infof("session %d, exit code %d", res.Session, code)
+				ctx.ptys.Close(res.Session, code)
 			} else {
 				for _, tty := range ta.attachments {
 					if tty.Stdout != nil {
-						_, err := tty.Stdout.Write(res.message)
+						_, err := tty.Stdout.Write(res.Message)
 						if err != nil {
-							glog.V(1).Infof("fail to write session %d, close pty attachment", res.session)
-							ctx.ptys.Detach(res.session, tty)
+							glog.V(1).Infof("fail to write session %d, close pty attachment", res.Session)
+							ctx.ptys.Detach(res.Session, tty)
 						}
 					}
 				}
@@ -396,9 +383,9 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 					if err == io.EOF && !isTty && pts.isLastStdin(session) {
 						// send eof to hyperstart
 						glog.V(1).Infof("session %d send eof to hyperstart", session)
-						pts.channel <- &ttyMessage{
-							session: session,
-							message: make([]byte, 0),
+						pts.channel <- &hyperstartapi.TtyMessage{
+							Session: session,
+							Message: make([]byte, 0),
 						}
 						// don't detach, we need the last output of the container
 					} else {
@@ -411,9 +398,9 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 
 				mbuf := make([]byte, nr)
 				copy(mbuf, buf[:nr])
-				pts.channel <- &ttyMessage{
-					session: session,
-					message: mbuf[:nr],
+				pts.channel <- &hyperstartapi.TtyMessage{
+					Session: session,
+					Message: mbuf[:nr],
 				}
 			}
 		}()
