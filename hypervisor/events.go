@@ -107,7 +107,7 @@ type AttachCommand struct {
 }
 
 type CommandAck struct {
-	reply *DecodedMessage
+	reply *hyperstartCmd
 	msg   []byte
 }
 

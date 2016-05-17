@@ -133,7 +133,7 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 		return
 	}
 	glog.Infof("start sending INIT_NEWCONTAINER")
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_NEWCONTAINER,
 		Message: jsonCmd,
 	}
@@ -163,7 +163,7 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 		return
 	}
 
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_SETUPINTERFACE,
 		Message: message,
 		Event:   cmd,
@@ -203,7 +203,7 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 			ctx.reportBadRequest(fmt.Sprintf("command window size parse failed"))
 			return
 		}
-		ctx.vm <- &DecodedMessage{
+		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_WINSIZE,
 			Message: msg,
 		}
@@ -223,7 +223,7 @@ func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
 		return
 	}
 	writeCmd = append(writeCmd, cmd.Data[:]...)
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_WRITEFILE,
 		Message: writeCmd,
 		Event:   cmd,
@@ -238,7 +238,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 		}
 		return
 	}
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_READFILE,
 		Message: readCmd,
 		Event:   cmd,
@@ -246,7 +246,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 }
 
 func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_ONLINECPUMEM,
 		Message: []byte{},
 	}
@@ -276,7 +276,7 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 		}
 		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
 	}
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: pkg,
 		Event:   cmd,
@@ -291,7 +291,7 @@ func (ctx *VmContext) killCmd(cmd *KillCommand) {
 		}
 		return
 	}
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_KILLCONTAINER,
 		Message: killCmd,
 		Event:   cmd,
@@ -351,7 +351,7 @@ func (ctx *VmContext) startPod() {
 		}
 		return
 	}
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_STARTPOD,
 		Message: pod,
 	}
@@ -359,7 +359,7 @@ func (ctx *VmContext) startPod() {
 
 func (ctx *VmContext) stopPod() {
 	ctx.setTimeout(30)
-	ctx.vm <- &DecodedMessage{
+	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_STOPPOD,
 		Message: []byte{},
 	}
@@ -382,7 +382,7 @@ func (ctx *VmContext) shutdownVM(err bool, msg string) {
 		glog.Error("Shutting down because of an exception: ", msg)
 	}
 	ctx.setTimeout(10)
-	ctx.vm <- &DecodedMessage{Code: hyperstartapi.INIT_DESTROYPOD, Message: []byte{}}
+	ctx.vm <- &hyperstartCmd{Code: hyperstartapi.INIT_DESTROYPOD, Message: []byte{}}
 }
 
 func (ctx *VmContext) poweroffVM(err bool, msg string) {
@@ -842,7 +842,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			//            ctx.reportPodStopped()
 			//            glog.V(1).Info("device ready, could run pod.")
 			//            ctx.Become(stateInit, StateInit)
-			ctx.vm <- &DecodedMessage{
+			ctx.vm <- &hyperstartCmd{
 				Code:    hyperstartapi.INIT_READY,
 				Message: []byte{},
 			}
