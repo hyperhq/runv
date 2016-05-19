@@ -289,6 +289,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 
 	Response := vm.StartPod(podStatus, userPod, nil, nil)
 	if Response.Data == nil {
+		vm.Kill()
 		glog.V(1).Infof("StartPod fail: QEMU response data is nil\n")
 		return nil, fmt.Errorf("StartPod fail")
 	}
@@ -304,7 +305,8 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 
 	// create Listener process running in its own netns
 	if err = hp.startNsListener(); err != nil {
-		glog.V(1).Infof("%s\n", err.Error())
+		hp.reap()
+		glog.V(1).Infof("start ns listener fail: %s\n", err.Error())
 		return nil, err
 	}
 
