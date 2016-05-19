@@ -422,7 +422,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 	res := vm.SendGenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
-		client := make(chan VmEvent)
+		client := make(chan VmEvent, 1)
 
 		addr := ctx.nextPciAddr()
 		go ctx.ConfigureInterface(idx, addr, name, info, client)
