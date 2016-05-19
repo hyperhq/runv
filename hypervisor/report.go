@@ -1,6 +1,8 @@
 package hypervisor
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
@@ -144,6 +146,17 @@ func (ctx *VmContext) reportKill(ev VmEvent, ok bool) {
 		Cause: "",
 	}
 	ctx.client <- response
+}
+
+func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
+	gop := ev.(*GenericOperation)
+	if success {
+		gop.Result <- nil
+		return
+	}
+
+	gop.Result <- fmt.Errorf("fail to handle event %s", gop.OpName)
+	close(gop.Result)
 }
 
 func (ctx *VmContext) reportPodIP(ev VmEvent) {

@@ -254,7 +254,7 @@ func (ctx *VmContext) allocateNetworks() {
 		name := fmt.Sprintf("eth%d", i)
 		addr := ctx.nextPciAddr()
 		if len(ctx.userSpec.Interfaces) > 0 {
-			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i])
+			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i], ctx.Hub)
 		} else {
 			go ctx.CreateInterface(i, addr, name)
 		}
@@ -330,10 +330,30 @@ func (ctx *VmContext) blockdevInserted(info *BlockdevInsertedEvent) {
 	}
 }
 
-func (ctx *VmContext) interfaceCreated(info *InterfaceCreated) {
+func (ctx *VmContext) interfaceCreated(info *InterfaceCreated, lazy bool, result chan<- VmEvent) {
 	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
 	ctx.devices.networkMap[info.Index] = info
+	ctx.lock.Unlock()
+
+	h := &HostNicInfo{
+		Fd:      uint64(info.Fd.Fd()),
+		Device:  info.HostDevice,
+		Mac:     info.MacAddr,
+		Bridge:  info.Bridge,
+		Gateway: info.Bridge,
+	}
+	g := &GuestNicInfo{
+		Device:  info.DeviceName,
+		Ipaddr:  info.IpAddr,
+		Index:   info.Index,
+		Busaddr: info.PCIAddr,
+	}
+
+	if lazy {
+		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
+	} else {
+		ctx.DCtx.AddNic(ctx, h, g, result)
+	}
 }
 
 func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
@@ -344,23 +364,22 @@ func (ctx *VmContext) netdevInserted(info *NetDevInsertedEvent) {
 		delete(ctx.progress.adding.networks, info.Index)
 	}
 	if len(ctx.progress.adding.networks) == 0 {
-		count := len(ctx.devices.networkMap)
-		for i := 0; i < count; i++ {
+		for _, dev := range ctx.devices.networkMap {
 			inf := hyperstartapi.NetworkInf{
-				Device:    ctx.devices.networkMap[i].DeviceName,
-				IpAddress: ctx.devices.networkMap[i].IpAddr,
-				NetMask:   ctx.devices.networkMap[i].NetMask,
+				Device:    dev.DeviceName,
+				IpAddress: dev.IpAddr,
+				NetMask:   dev.NetMask,
 			}
 			ctx.vmSpec.Interfaces = append(ctx.vmSpec.Interfaces, inf)
-			for _, rl := range ctx.devices.networkMap[i].RouteTable {
-				dev := ""
+			for _, rl := range dev.RouteTable {
+				device := ""
 				if rl.ViaThis {
-					dev = inf.Device
+					device = inf.Device
 				}
 				ctx.vmSpec.Routes = append(ctx.vmSpec.Routes, hyperstartapi.Route{
 					Dest:    rl.Destination,
 					Gateway: rl.Gateway,
-					Device:  dev,
+					Device:  device,
 				})
 			}
 		}
@@ -478,7 +497,7 @@ func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string) (*I
 	return interfaceGot(index, pciAddr, name, inf)
 }
 
-func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, config pod.UserInterface) {
+func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, config pod.UserInterface, result chan<- VmEvent) {
 	var err error
 	var inf *network.Settings
 	var maps []pod.UserContainerPort
@@ -501,17 +520,17 @@ func (ctx *VmContext) ConfigureInterface(index int, pciAddr int, name string, co
 	if err != nil {
 		glog.Error("interface creating failed: ", err.Error())
 		session := &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}
-		ctx.Hub <- &DeviceFailed{Session: session}
+		result <- &DeviceFailed{Session: session}
 		return
 	}
 
 	session, err := interfaceGot(index, pciAddr, name, inf)
 	if err != nil {
-		ctx.Hub <- &DeviceFailed{Session: session}
+		result <- &DeviceFailed{Session: session}
 		return
 	}
 
-	ctx.Hub <- session
+	result <- session
 }
 
 func (ctx *VmContext) CreateInterface(index int, pciAddr int, name string) {

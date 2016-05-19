@@ -56,7 +56,7 @@ type DriverContext interface {
 	AddDisk(ctx *VmContext, sourceType string, blockInfo *BlockDescriptor)
 	RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent)
 
-	AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo)
+	AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo, result chan<- VmEvent)
 	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent)
 
 	SetCpus(ctx *VmContext, cpus int, result chan<- error)
@@ -123,7 +123,8 @@ func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *Bl
 func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent) {
 }
 
-func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo) {}
+func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo, result chan<- VmEvent) {
+}
 
 func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent) {}
 

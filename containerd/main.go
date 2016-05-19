@@ -83,6 +83,11 @@ var daemonFlags = []cli.Flag{
 }
 
 func main() {
+	if os.Args[0] == "containerd-nslistener" {
+		nsListenerDaemon()
+		os.Exit(0)
+	}
+
 	app := cli.NewApp()
 	app.Name = "runv-containerd"
 	app.Version = "0.01"

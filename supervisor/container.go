@@ -70,10 +70,11 @@ func (c *Container) start(p *Process) error {
 		glog.V(1).Infof("%s\n", err.Error())
 		return err
 	}
+
 	state := &specs.State{
 		Version:    c.Spec.Version,
 		ID:         c.Id,
-		Pid:        -1,
+		Pid:        c.ownerPod.getNsPid(),
 		BundlePath: c.BundlePath,
 	}
 	stateData, err := json.MarshalIndent(state, "", "\t")
@@ -125,6 +126,12 @@ func (c *Container) start(p *Process) error {
 	err = execPrestartHooks(c.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
+		return err
+	}
+
+	err = c.ownerPod.initPodNetwork(c)
+	if err != nil {
+		glog.Errorf("fail to initialize pod network %v", err)
 		return err
 	}
 

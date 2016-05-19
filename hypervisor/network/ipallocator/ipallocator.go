@@ -98,6 +98,10 @@ func (a *IPAllocator) RegisterSubnet(network *net.IPNet, subnet *net.IPNet) erro
 // ip provided is not nil it will validate that the provided ip is available
 // for use or return an error
 func (a *IPAllocator) RequestIP(network *net.IPNet, ip net.IP) (net.IP, error) {
+	if network == nil {
+		return nil, ErrBadSubnet
+	}
+
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -117,6 +121,10 @@ func (a *IPAllocator) RequestIP(network *net.IPNet, ip net.IP) (net.IP, error) {
 // ReleaseIP adds the provided ip back into the pool of
 // available ips to be returned for use.
 func (a *IPAllocator) ReleaseIP(network *net.IPNet, ip net.IP) error {
+	if network == nil {
+		return nil
+	}
+
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 

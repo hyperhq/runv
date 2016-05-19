@@ -99,21 +99,6 @@ func (ctx *VmContext) lazyPrepareDevice(cmd *RunPodCommand) bool {
 	return true
 }
 
-func networkConfigure(info *InterfaceCreated) (*HostNicInfo, *GuestNicInfo) {
-	return &HostNicInfo{
-			Fd:      uint64(info.Fd.Fd()),
-			Device:  info.HostDevice,
-			Mac:     info.MacAddr,
-			Bridge:  info.Bridge,
-			Gateway: info.Bridge,
-		}, &GuestNicInfo{
-			Device:  info.DeviceName,
-			Ipaddr:  info.IpAddr,
-			Index:   info.Index,
-			Busaddr: info.PCIAddr,
-		}
-}
-
 func (ctx *VmContext) lazyAllocateNetworks() error {
 	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
@@ -122,9 +107,7 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 		if err != nil {
 			return err
 		}
-		ctx.interfaceCreated(nic)
-		h, g := networkConfigure(nic)
-		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
+		ctx.interfaceCreated(nic, true, ctx.Hub)
 	}
 
 	return nil

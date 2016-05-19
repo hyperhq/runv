@@ -231,7 +231,7 @@ func (xc *XenContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hyperviso
 	go diskRoutine(false, xc, ctx, "", "", filename, format, id, callback)
 }
 
-func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	go func() {
 		callback := &hypervisor.NetDevInsertedEvent{
 			Index:      guest.Index,
@@ -262,16 +262,16 @@ func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNic
 					return
 				}
 
-				ctx.Hub <- callback
+				result <- callback
 				return
 			}
 			glog.V(1).Infof("nic %s insert succeeded [faked] ", guest.Device)
-			ctx.Hub <- callback
+			result <- callback
 			return
 		}
 
 		glog.Errorf("nic %s insert failed", guest.Device)
-		ctx.Hub <- &hypervisor.DeviceFailed{
+		result <- &hypervisor.DeviceFailed{
 			Session: callback,
 		}
 	}()

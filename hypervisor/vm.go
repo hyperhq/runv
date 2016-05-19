@@ -420,6 +420,66 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	return nil
 }
 
+func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
+	res := vm.SendGenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
+		client := make(chan VmEvent, 1)
+
+		addr := ctx.nextPciAddr()
+		go ctx.ConfigureInterface(idx, addr, name, info, client)
+		ev, ok := <-client
+		if !ok {
+			result <- fmt.Errorf("internal error")
+			return
+		}
+
+		switch ev.Event() {
+		case EVENT_INTERFACE_ADD:
+			info := ev.(*InterfaceCreated)
+			ctx.interfaceCreated(info, false, client)
+		case ERROR_QMP_FAIL:
+			if ev.(*DeviceFailed).Session != nil {
+				result <- fmt.Errorf("failed while waiting %s", EventString(ev.(*DeviceFailed).Session.Event()))
+				return
+			}
+			result <- fmt.Errorf("allocate device failed")
+			return
+		default:
+			result <- fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
+			return
+		}
+
+		ev, ok = <-client
+		if !ok {
+			result <- fmt.Errorf("internal error")
+			return
+		}
+
+		switch ev.Event() {
+		case EVENT_INTERFACE_INSERTED:
+			info := ev.(*NetDevInsertedEvent)
+			ctx.netdevInserted(info)
+		case ERROR_QMP_FAIL:
+			if ev.(*DeviceFailed).Session != nil {
+				result <- fmt.Errorf("failed while waiting %s", EventString(ev.(*DeviceFailed).Session.Event()))
+				return
+			}
+			result <- fmt.Errorf("allocate device failed")
+			return
+		default:
+			result <- fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
+			return
+		}
+
+		close(client)
+
+		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
+		ctx.updateInterface(idx, result)
+	}, StateRunning)
+
+	err := <-res
+	return err
+}
+
 // TODO: deprecated api, it will be removed after the hyper.git updated
 func (vm *Vm) AddCpu(totalCpu int) error {
 	return vm.SetCpus(totalCpu)

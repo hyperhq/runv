@@ -335,7 +335,7 @@ func (vc *VBoxContext) RemoveDir(name string) error {
 	return nil
 }
 
-func (vc *VBoxContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+func (vc *VBoxContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	go func() {
 		callback := &hypervisor.NetDevInsertedEvent{
 			Index:      guest.Index,
@@ -344,7 +344,7 @@ func (vc *VBoxContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 		}
 		if guest.Index > 7 || guest.Index < 0 {
 			glog.Errorf("Hot adding NIC failed, can not add more than 8 NICs")
-			ctx.Hub <- &hypervisor.DeviceFailed{
+			result <- &hypervisor.DeviceFailed{
 				Session: callback,
 			}
 		}
@@ -358,7 +358,7 @@ func (vc *VBoxContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 			}
 		*/
 		glog.V(1).Infof("nic %s insert succeeded", guest.Device)
-		ctx.Hub <- callback
+		result <- callback
 		return
 	}()
 }
