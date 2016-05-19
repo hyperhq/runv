@@ -16,6 +16,11 @@ import (
 type DecodedMessage struct {
 	Code    uint32
 	Message []byte
+}
+
+type hyperstartCmd struct {
+	Code    uint32
+	Message []byte
 	Event   VmEvent
 }
 
@@ -144,7 +149,7 @@ func connectToInit(ctx *VmContext) {
 
 func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 	looping := true
-	cmds := []*DecodedMessage{}
+	cmds := []*hyperstartCmd{}
 
 	var data []byte
 	var timeout bool = false
@@ -192,7 +197,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					pingTimer = time.AfterFunc(30*time.Second, func() {
 						defer func() { recover() }()
 						glog.V(1).Info("Send ping message to init")
-						ctx.vm <- &DecodedMessage{
+						ctx.vm <- &hyperstartCmd{
 							Code:    hyperstartapi.INIT_PING,
 							Message: []byte{},
 						}
@@ -242,9 +247,13 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
+				msg := &DecodedMessage{
+					Code:    cmd.Code,
+					Message: cmd.Message,
+				}
 				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(cmd.Message))
 				cmds = append(cmds, cmd)
-				data = append(data, NewVmMessage(cmd)...)
+				data = append(data, NewVmMessage(msg)...)
 				timeout = true
 			}
 
@@ -286,7 +295,7 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 			return
 		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
 			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD {
-			ctx.vm <- res
+			ctx.vm <- &hyperstartCmd{Code: res.Code, Message: res.Message}
 		}
 	}
 }
