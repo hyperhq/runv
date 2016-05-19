@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.5",
-	"GodepVersion": "v62",
+	"GodepVersion": "v63",
 	"Packages": [
 		"github.com/hyperhq/runv",
 		"github.com/hyperhq/runv/containerd"
@@ -19,7 +19,7 @@
 		},
 		{
 			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-237-g71f57d3",
+			"Comment": "v1.14.0",
 			"Rev": "71f57d300dd6a780ac1856c005c4b518cfd498ec"
 		},
 		{
@@ -41,6 +41,31 @@
 			"ImportPath": "github.com/docker/docker/pkg/jsonlog",
 			"Comment": "v1.4.1-11540-g2bcb6d6",
 			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/longpath",
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/mount",
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/symlink",
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/system",
+			"Comment": "v1.4.1-11540-g2bcb6d6",
+			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+		},
+		{
+			"ImportPath": "github.com/docker/go-units",
+			"Comment": "v0.3.0",
+			"Rev": "5d2041e26a699eaca682e2ea41c8f891e1060444"
 		},
 		{
 			"ImportPath": "github.com/golang/glog",
