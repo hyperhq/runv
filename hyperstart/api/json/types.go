@@ -4,6 +4,12 @@ import (
 	"encoding/binary"
 )
 
+// Message
+type DecodedMessage struct {
+	Code    uint32
+	Message []byte
+}
+
 type TtyMessage struct {
 	Session uint64
 	Message []byte

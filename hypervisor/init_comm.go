@@ -12,12 +12,6 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
-// Message
-type DecodedMessage struct {
-	Code    uint32
-	Message []byte
-}
-
 type hyperstartCmd struct {
 	Code    uint32
 	Message []byte
@@ -55,7 +49,7 @@ func waitConsoleOutput(ctx *VmContext) {
 	}
 }
 
-func NewVmMessage(m *DecodedMessage) []byte {
+func NewVmMessage(m *hyperstartapi.DecodedMessage) []byte {
 	length := len(m.Message) + 8
 	msg := make([]byte, length)
 	binary.BigEndian.PutUint32(msg[:], uint32(m.Code))
@@ -64,7 +58,7 @@ func NewVmMessage(m *DecodedMessage) []byte {
 	return msg
 }
 
-func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
+func ReadVmMessage(conn *net.UnixConn) (*hyperstartapi.DecodedMessage, error) {
 	needRead := 8
 	length := 0
 	read := 0
@@ -96,7 +90,7 @@ func ReadVmMessage(conn *net.UnixConn) (*DecodedMessage, error) {
 		}
 	}
 
-	return &DecodedMessage{
+	return &hyperstartapi.DecodedMessage{
 		Code:    binary.BigEndian.Uint32(res[:4]),
 		Message: res[8:],
 	}, nil
@@ -247,7 +241,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
-				msg := &DecodedMessage{
+				msg := &hyperstartapi.DecodedMessage{
 					Code:    cmd.Code,
 					Message: cmd.Message,
 				}
