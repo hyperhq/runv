@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -73,53 +72,6 @@ func waitConsoleOutput(ctx *VmContext) {
 	}
 }
 
-func NewVmMessage(m *hyperstartapi.DecodedMessage) []byte {
-	length := len(m.Message) + 8
-	msg := make([]byte, length)
-	binary.BigEndian.PutUint32(msg[:], uint32(m.Code))
-	binary.BigEndian.PutUint32(msg[4:], uint32(length))
-	copy(msg[8:], m.Message)
-	return msg
-}
-
-func ReadVmMessage(conn *net.UnixConn) (*hyperstartapi.DecodedMessage, error) {
-	needRead := 8
-	length := 0
-	read := 0
-	buf := make([]byte, 512)
-	res := []byte{}
-	for read < needRead {
-		want := needRead - read
-		if want > 512 {
-			want = 512
-		}
-		glog.V(1).Infof("trying to read %d bytes", want)
-		nr, err := conn.Read(buf[:want])
-		if err != nil {
-			glog.Error("read init data failed")
-			return nil, err
-		}
-
-		res = append(res, buf[:nr]...)
-		read = read + nr
-
-		glog.V(1).Infof("read %d/%d [length = %d]", read, needRead, length)
-
-		if length == 0 && read >= 8 {
-			length = int(binary.BigEndian.Uint32(res[4:8]))
-			glog.V(1).Infof("data length is %d", length)
-			if length > 8 {
-				needRead = length
-			}
-		}
-	}
-
-	return &hyperstartapi.DecodedMessage{
-		Code:    binary.BigEndian.Uint32(res[:4]),
-		Message: res[8:],
-	}, nil
-}
-
 func waitInitReady(ctx *VmContext) {
 	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
 	if err != nil {
@@ -132,7 +84,7 @@ func waitInitReady(ctx *VmContext) {
 
 	glog.Info("Wating for init messages...")
 
-	msg, err := ReadVmMessage(conn.(*net.UnixConn))
+	msg, err := hyperstartapi.ReadVmMessage(conn.(*net.UnixConn))
 	if err != nil {
 		glog.Error("read init message failed... ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -263,24 +215,15 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
-				var message []byte
-				if message1, ok := cmd.Message.([]byte); ok {
-					message = message1
-				} else if message2, err := json.Marshal(cmd.Message); err == nil {
-					message = message2
-				} else {
+				msg, err := hyperstartapi.NewVmMessage(cmd.Code, cmd.Message)
+				if err != nil {
 					glog.Infof("marshal command %d failed. object: %v", cmd.Code, cmd.Message)
-					cmd.result <- fmt.Errorf("marshal command %d failed", cmd.Code)
+					cmd.result <- err
 					continue
-				}
-
-				msg := &hyperstartapi.DecodedMessage{
-					Code:    cmd.Code,
-					Message: message,
 				}
 				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(msg.Message))
 				cmds = append(cmds, cmd)
-				data = append(data, NewVmMessage(msg)...)
+				data = append(data, hyperstartapi.VmMessage2Bytes(msg)...)
 				timeout = true
 			}
 
@@ -290,8 +233,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					end = 512
 				}
 
-				wrote, _ := init.Write(data[:end])
-				glog.V(1).Infof("write %d to init, payload: '%s'.", wrote, data[:end])
+				wrote := hyperstartapi.WriteVmMessage(init, data, end)
 				index += wrote
 			}
 
@@ -316,7 +258,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 
 func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 	for {
-		res, err := ReadVmMessage(init)
+		res, err := hyperstartapi.ReadVmMessage(init)
 		if err != nil {
 			ctx.Hub <- &Interrupted{Reason: "init socket failed " + err.Error()}
 			return
