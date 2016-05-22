@@ -69,6 +69,16 @@ func (ctx *VmContext) reportPodFinished(result *PodFinished) {
 	}
 }
 
+func (ctx *VmContext) reportContainerFinished(result *ContainerFinished) {
+	glog.V(1).Infof("container finished result %v", result)
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  types.E_CONTAINER_FINISHED,
+		Cause: "Container run finished",
+		Data:  result,
+	}
+}
+
 func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,

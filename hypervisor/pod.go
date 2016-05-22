@@ -24,6 +24,7 @@ type PodStatus struct {
 	Vm            string
 	Wg            *sync.WaitGroup
 	Containers    []*Container
+	ContainerCode map[uint32]uint32
 	Status        uint
 	Type          string
 	RestartPolicy string
@@ -138,6 +139,7 @@ func NewPod(podId string, userPod *pod.UserPod) *PodStatus {
 		Wg:            new(sync.WaitGroup),
 		Status:        types.S_POD_CREATED,
 		Type:          userPod.Type,
+		ContainerCode: make(map[uint32]uint32),
 		RestartPolicy: userPod.RestartPolicy,
 		Autoremove:    false,
 		Handler: HandleEvent{

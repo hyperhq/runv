@@ -165,6 +165,10 @@ func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
 		mypod.Vm = ""
 		vm.Status = types.S_VM_IDLE
+	} else if Response.Code == types.E_CONTAINER_FINISHED {
+		result := Response.Data.(*ContainerFinished)
+		mypod.ContainerCode[result.Idx] = result.Code
+		glog.V(1).Infof("Container %d finished with %d", result.Idx, result.Code)
 	} else if Response.Code == types.E_VM_SHUTDOWN {
 		if mypod.Status == types.S_POD_RUNNING {
 			mypod.Status = types.S_POD_SUCCEEDED
@@ -182,6 +186,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
+		glog.Errorf("handlePodEvent fail to get fanout chan pod %s, vm %s", mypod.Id, vm.Id)
 		return
 	}
 	defer vm.ReleaseResponseChan(Status)
@@ -189,6 +194,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	for {
 		Response, ok := <-Status
 		if !ok {
+			glog.V(1).Infof("handlePodEvent read channel failed pod %s, vm %s", mypod.Id, vm.Id)
 			break
 		}
 

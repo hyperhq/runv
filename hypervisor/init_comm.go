@@ -231,6 +231,11 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			code := binary.BigEndian.Uint32(cmd.Message[4:8])
 			glog.V(1).Infof("Container finished, idx %d code %d", idx, code)
 
+			ctx.Hub <- &ContainerFinished{
+				Idx:  idx,
+				Code: code,
+			}
+
 		} else {
 			if cmd.Code == hyperstartapi.INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")

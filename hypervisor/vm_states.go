@@ -691,6 +691,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
 			ctx.exitVM(false, "", true, false)
+		case EVENT_CONTAINER_FINISH:
+			result := ev.(*ContainerFinished)
+			ctx.reportContainerFinished(result)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)

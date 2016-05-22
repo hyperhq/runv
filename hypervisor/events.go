@@ -28,6 +28,11 @@ type PodFinished struct {
 	result []uint32
 }
 
+type ContainerFinished struct {
+	Idx  uint32
+	Code uint32
+}
+
 type VmTimeout struct{}
 
 type InitFailedEvent struct {
@@ -238,6 +243,7 @@ func (qe *PauseCommand) Event() int          { return COMMAND_PAUSEVM }
 func (qe *PauseResult) Event() int           { return EVENT_PAUSE_RESULT }
 func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
 func (qe *PodFinished) Event() int           { return EVENT_POD_FINISH }
+func (qe *ContainerFinished) Event() int     { return EVENT_CONTAINER_FINISH }
 func (qe *InitConnectedEvent) Event() int    { return EVENT_INIT_CONNECTED }
 func (qe *ContainerCreatedEvent) Event() int { return EVENT_CONTAINER_ADD }
 func (qe *ContainerUnmounted) Event() int    { return EVENT_CONTAINER_DELETE }
