@@ -226,6 +226,11 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			ctx.Hub <- &PodFinished{
 				result: results,
 			}
+		} else if cmd.Code == hyperstartapi.INIT_FINISHCONTAINER {
+			idx := binary.BigEndian.Uint32(cmd.Message[:4])
+			code := binary.BigEndian.Uint32(cmd.Message[4:8])
+			glog.V(1).Infof("Container finished, idx %d code %d", idx, code)
+
 		} else {
 			if cmd.Code == hyperstartapi.INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")
@@ -288,7 +293,8 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 			ctx.Hub <- &Interrupted{Reason: "init socket failed " + err.Error()}
 			return
 		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
-			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD {
+			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD ||
+			res.Code == hyperstartapi.INIT_FINISHCONTAINER {
 			ctx.vm <- &hyperstartCmd{Code: res.Code, Message: res.Message}
 		}
 	}
