@@ -594,6 +594,15 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	return execCmd.WaitForFinish()
 }
 
+func (vm *Vm) NewTempContainer(c *pod.UserContainer, info *ContainerInfo) error {
+	oldtemp := info.TempContainer
+	info.TempContainer = true
+
+	err := vm.NewContainer(c, info)
+	info.TempContainer = oldtemp
+	return err
+}
+
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	newContainerCommand := &NewContainerCommand{
 		container: c,

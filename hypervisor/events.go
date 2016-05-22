@@ -138,12 +138,13 @@ type ContainerInfo struct {
 	Rootfs  string
 	Image   string // if fstype is `dir`, this should be a path relative to share_dir
 	// which described the mounted aufs or overlayfs dir.
-	Fstype     string
-	Workdir    string
-	Entrypoint []string
-	Cmd        []string
-	Envs       map[string]string
-	Initialize bool // need to initialize container environment in start
+	Fstype        string
+	Workdir       string
+	Entrypoint    []string
+	Cmd           []string
+	Envs          map[string]string
+	Initialize    bool // need to initialize container environment in start
+	TempContainer bool
 }
 
 type ContainerUnmounted struct {

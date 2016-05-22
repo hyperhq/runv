@@ -152,6 +152,7 @@ func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Conta
 	}
 
 	container.Initialize = info.Initialize
+	container.TempContainer = info.TempContainer
 
 	if info.Fstype == "dir" {
 		container.Image = info.Image
