@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"encoding/json"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -602,7 +603,32 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	}
 
 	vm.Hub <- newContainerCommand
-	return nil
+
+	// wait for the VM response
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return err
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	for {
+		response, ok := <-Status
+		if !ok {
+			err = errors.New("Create container failed")
+			glog.Errorf("return response %v", response)
+			break
+		}
+		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
+		if response.VmId == vm.Id {
+			if response.Code != types.E_OK {
+				glog.Errorf("Create container failed on vm %s: %s", response.VmId, response.Cause)
+				err = errors.New(response.Cause)
+			}
+			break
+		}
+	}
+
+	return err
 }
 
 func (vm *Vm) Tty(tag string, row, column int) error {
