@@ -270,8 +270,6 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	if response.Data != nil {
 		mypod.Status = types.S_POD_RUNNING
 		mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-		// Set the container status to online
-		mypod.SetContainerStatus(types.S_POD_RUNNING)
 	}
 
 	return response
