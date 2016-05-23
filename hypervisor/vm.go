@@ -8,7 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"encoding/binary"
 	"encoding/json"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -163,6 +165,10 @@ func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
 		mypod.SetPodContainerStatus(Response.Data.([]uint32))
 		mypod.Vm = ""
 		vm.Status = types.S_VM_IDLE
+	} else if Response.Code == types.E_CONTAINER_FINISHED {
+		result := Response.Data.(*ContainerFinished)
+		mypod.ContainerCode[result.Idx] = result.Code
+		glog.V(1).Infof("Container %d finished with %d", result.Idx, result.Code)
 	} else if Response.Code == types.E_VM_SHUTDOWN {
 		if mypod.Status == types.S_POD_RUNNING {
 			mypod.Status = types.S_POD_SUCCEEDED
@@ -180,6 +186,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
+		glog.Errorf("handlePodEvent fail to get fanout chan pod %s, vm %s", mypod.Id, vm.Id)
 		return
 	}
 	defer vm.ReleaseResponseChan(Status)
@@ -187,6 +194,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	for {
 		Response, ok := <-Status
 		if !ok {
+			glog.V(1).Infof("handlePodEvent read channel failed pod %s, vm %s", mypod.Id, vm.Id)
 			break
 		}
 
@@ -195,6 +203,18 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 			vm.clients = nil
 			break
 		}
+	}
+}
+
+func (vm *Vm) WaitContainer(mypod *PodStatus, index uint32) (uint32, error) {
+	for {
+		if mypod.Status != types.S_POD_RUNNING {
+			return 0, fmt.Errorf("Pod(%d) not running", mypod.Status)
+		}
+		if code, ok := mypod.ContainerCode[index]; ok {
+			return code, nil
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -269,8 +289,6 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	if response.Data != nil {
 		mypod.Status = types.S_POD_RUNNING
 		mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-		// Set the container status to online
-		mypod.SetContainerStatus(types.S_POD_RUNNING)
 	}
 
 	return response
@@ -595,14 +613,52 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	return execCmd.WaitForFinish()
 }
 
-func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
+func (vm *Vm) NewTempContainer(c *pod.UserContainer, info *ContainerInfo) (uint32, error) {
+	oldtemp := info.TempContainer
+	info.TempContainer = true
+
+	idx, err := vm.NewContainer(c, info)
+	info.TempContainer = oldtemp
+	return idx, err
+}
+
+func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) (uint32, error) {
 	newContainerCommand := &NewContainerCommand{
 		container: c,
 		info:      info,
 	}
 
 	vm.Hub <- newContainerCommand
-	return nil
+
+	var idx uint32
+	// wait for the VM response
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		return idx, err
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	for {
+		response, ok := <-Status
+		if !ok {
+			err = errors.New("Create container failed")
+			glog.Errorf("return response %v", response)
+			break
+		}
+		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
+		if response.VmId == vm.Id {
+			if response.Code == types.E_OK {
+				idx = binary.BigEndian.Uint32(response.Data.([]byte))
+				glog.V(1).Infof("container index %d", idx)
+			} else {
+				glog.Errorf("Create container failed on vm %s: %s", response.VmId, response.Cause)
+				err = errors.New(response.Cause)
+			}
+			break
+		}
+	}
+
+	return idx, err
 }
 
 func (vm *Vm) Tty(tag string, row, column int) error {

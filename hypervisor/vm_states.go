@@ -3,11 +3,12 @@ package hypervisor
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"time"
 )
 
 // states
@@ -577,6 +578,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
+				ctx.reportSuccess("Create container success", nil)
 			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
@@ -689,6 +691,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
 			ctx.exitVM(false, "", true, false)
+		case EVENT_CONTAINER_FINISH:
+			result := ev.(*ContainerFinished)
+			ctx.reportContainerFinished(result)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
@@ -710,6 +715,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
+				ctx.reportSuccess("Create container success", ack.msg)
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, true)
@@ -729,6 +735,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			} else if ack.reply.Code == hyperstartapi.INIT_WRITEFILE {
 				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_WRITEFILE, ack.msg, true)
 				glog.Infof("Get error for write data: %s", string(ack.msg))
+			} else if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
+				glog.Infof("Get error for new container")
+				ctx.reportVmFault("Fail to create container")
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, false)

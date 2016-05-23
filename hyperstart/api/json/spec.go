@@ -53,6 +53,7 @@ type Container struct {
 	Process       Process            `json:"process"`
 	RestartPolicy string             `json:"restartPolicy"`
 	Initialize    bool               `json:"initialize"`
+	TempContainer bool               `json:"tempContainer"`
 }
 
 type NetworkInf struct {
