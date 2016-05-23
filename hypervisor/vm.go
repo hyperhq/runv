@@ -206,6 +206,18 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	}
 }
 
+func (vm *Vm) WaitContainer(mypod *PodStatus, index uint32) (uint32, error) {
+	for {
+		if mypod.Status != types.S_POD_RUNNING {
+			return 0, fmt.Errorf("Pod(%d) not running", mypod.Status)
+		}
+		if code, ok := mypod.ContainerCode[index]; ok {
+			return code, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	cList []*ContainerInfo, vList map[string]*VolumeInfo) *types.VmResponse {
 	mypod.Vm = vm.Id
