@@ -185,23 +185,31 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 }
 
 func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
-	writeCmd, err := json.Marshal(*cmd)
+	msg := hyperstartapi.WriteFileMessage{
+		Container: cmd.Container,
+		File:      cmd.File,
+	}
+	writeMsg, err := json.Marshal(msg)
 	if err != nil {
 		ctx.Hub <- &InitFailedEvent{
 			Reason: "Generated wrong run profile " + err.Error(),
 		}
 		return
 	}
-	writeCmd = append(writeCmd, cmd.Data[:]...)
+	writeMsg = append(writeMsg, cmd.Data[:]...)
 	ctx.vm <- &DecodedMessage{
 		Code:    hyperstartapi.INIT_WRITEFILE,
-		Message: writeCmd,
+		Message: writeMsg,
 		Event:   cmd,
 	}
 }
 
 func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
-	readCmd, err := json.Marshal(*cmd)
+	msg := hyperstartapi.ReadFileMessage{
+		Container: cmd.Container,
+		File:      cmd.File,
+	}
+	readMsg, err := json.Marshal(msg)
 	if err != nil {
 		ctx.Hub <- &InitFailedEvent{
 			Reason: "Generated wrong run profile " + err.Error(),
@@ -210,7 +218,7 @@ func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
 	}
 	ctx.vm <- &DecodedMessage{
 		Code:    hyperstartapi.INIT_READFILE,
-		Message: readCmd,
+		Message: readMsg,
 		Event:   cmd,
 	}
 }
@@ -227,7 +235,11 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
-	pkg, err := json.Marshal(*cmd)
+	msg := hyperstartapi.ExecMessage{
+		Container: cmd.Container,
+		Process:   cmd.Process,
+	}
+	pkg, err := json.Marshal(msg)
 	if err != nil {
 		cmd.Callback <- &types.VmResponse{
 			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
@@ -254,7 +266,11 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 }
 
 func (ctx *VmContext) killCmd(cmd *KillCommand) {
-	killCmd, err := json.Marshal(*cmd)
+	msg := hyperstartapi.KillMessage{
+		Container: cmd.Container,
+		Signal:    cmd.Signal,
+	}
+	killMsg, err := json.Marshal(msg)
 	if err != nil {
 		ctx.Hub <- &InitFailedEvent{
 			Reason: "Generated wrong kill profile " + err.Error(),
@@ -263,7 +279,7 @@ func (ctx *VmContext) killCmd(cmd *KillCommand) {
 	}
 	ctx.vm <- &DecodedMessage{
 		Code:    hyperstartapi.INIT_KILLCONTAINER,
-		Message: killCmd,
+		Message: killMsg,
 		Event:   cmd,
 	}
 }

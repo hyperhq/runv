@@ -2,7 +2,28 @@ package json
 
 import (
 	"encoding/binary"
+	"syscall"
 )
+
+type ExecMessage struct {
+	Container string  `json:"container,omitempty"`
+	Process   Process `json:"process"`
+}
+
+type KillMessage struct {
+	Container string         `json:"container"`
+	Signal    syscall.Signal `json:"signal"`
+}
+
+type WriteFileMessage struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+}
+
+type ReadFileMessage struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+}
 
 type TtyMessage struct {
 	Session uint64
