@@ -712,7 +712,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-				ctx.reportSuccess("Create container success", nil)
+				ctx.reportSuccess("Create container success", ack.msg)
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, true)

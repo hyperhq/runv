@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"encoding/binary"
 	"encoding/json"
 
 	"github.com/golang/glog"
@@ -594,16 +595,16 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	return execCmd.WaitForFinish()
 }
 
-func (vm *Vm) NewTempContainer(c *pod.UserContainer, info *ContainerInfo) error {
+func (vm *Vm) NewTempContainer(c *pod.UserContainer, info *ContainerInfo) (uint32, error) {
 	oldtemp := info.TempContainer
 	info.TempContainer = true
 
-	err := vm.NewContainer(c, info)
+	idx, err := vm.NewContainer(c, info)
 	info.TempContainer = oldtemp
-	return err
+	return idx, err
 }
 
-func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
+func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) (uint32, error) {
 	newContainerCommand := &NewContainerCommand{
 		container: c,
 		info:      info,
@@ -611,10 +612,11 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 
 	vm.Hub <- newContainerCommand
 
+	var idx uint32
 	// wait for the VM response
 	Status, err := vm.GetResponseChan()
 	if err != nil {
-		return err
+		return idx, err
 	}
 	defer vm.ReleaseResponseChan(Status)
 
@@ -627,7 +629,10 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 		}
 		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
 		if response.VmId == vm.Id {
-			if response.Code != types.E_OK {
+			if response.Code == types.E_OK {
+				idx = binary.BigEndian.Uint32(response.Data.([]byte))
+				glog.V(1).Infof("container index %d", idx)
+			} else {
 				glog.Errorf("Create container failed on vm %s: %s", response.VmId, response.Cause)
 				err = errors.New(response.Cause)
 			}
@@ -635,7 +640,7 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 		}
 	}
 
-	return err
+	return idx, err
 }
 
 func (vm *Vm) Tty(tag string, row, column int) error {
