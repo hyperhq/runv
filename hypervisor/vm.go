@@ -383,57 +383,54 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 }
 
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
-	return vm.GenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
-		client := make(chan VmEvent, 1)
+	var (
+		failEvent     *DeviceFailed
+		createdEvent  *InterfaceCreated
+		insertedEvent *NetDevInsertedEvent
+	)
 
+	client := make(chan VmEvent, 1)
+	vm.SendGenericOperation("CreateInterface", func(ctx *VmContext, result chan<- error) {
 		addr := ctx.nextPciAddr()
 		go ctx.ConfigureInterface(idx, addr, name, info, client)
-		ev, ok := <-client
-		if !ok {
-			result <- fmt.Errorf("internal error")
-			return
+	}, StateRunning)
+
+	ev, ok := <-client
+	if !ok {
+		return fmt.Errorf("internal error")
+	}
+
+	if failEvent, ok = ev.(*DeviceFailed); ok {
+		if failEvent.Session != nil {
+			return fmt.Errorf("failed while waiting %s",
+				EventString(failEvent.Session.Event()))
 		}
+		return fmt.Errorf("allocate device failed")
+	} else if createdEvent, ok = ev.(*InterfaceCreated); !ok {
+		return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
+	}
 
-		switch ev.Event() {
-		case EVENT_INTERFACE_ADD:
-			info := ev.(*InterfaceCreated)
-			ctx.interfaceCreated(info, false, client)
-		case ERROR_QMP_FAIL:
-			if ev.(*DeviceFailed).Session != nil {
-				result <- fmt.Errorf("failed while waiting %s", EventString(ev.(*DeviceFailed).Session.Event()))
-				return
-			}
-			result <- fmt.Errorf("allocate device failed")
-			return
-		default:
-			result <- fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
-			return
+	vm.SendGenericOperation("InterfaceCreated", func(ctx *VmContext, result chan<- error) {
+		ctx.interfaceCreated(createdEvent, false, client)
+	}, StateRunning)
+
+	ev, ok = <-client
+	if !ok {
+		return fmt.Errorf("internal error")
+	}
+
+	if failEvent, ok = ev.(*DeviceFailed); ok {
+		if failEvent.Session != nil {
+			return fmt.Errorf("failed while waiting %s",
+				EventString(failEvent.Session.Event()))
 		}
+		return fmt.Errorf("allocate device failed")
+	} else if insertedEvent, ok = ev.(*NetDevInsertedEvent); !ok {
+		return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
+	}
 
-		ev, ok = <-client
-		if !ok {
-			result <- fmt.Errorf("internal error")
-			return
-		}
-
-		switch ev.Event() {
-		case EVENT_INTERFACE_INSERTED:
-			info := ev.(*NetDevInsertedEvent)
-			ctx.netdevInserted(info)
-		case ERROR_QMP_FAIL:
-			if ev.(*DeviceFailed).Session != nil {
-				result <- fmt.Errorf("failed while waiting %s", EventString(ev.(*DeviceFailed).Session.Event()))
-				return
-			}
-			result <- fmt.Errorf("allocate device failed")
-			return
-		default:
-			result <- fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
-			return
-		}
-
-		close(client)
-
+	return vm.GenericOperation("InterfaceInserted", func(ctx *VmContext, result chan<- error) {
+		ctx.netdevInserted(insertedEvent)
 		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
 		ctx.updateInterface(idx, result)
 	}, StateRunning)
