@@ -2,6 +2,7 @@ package hypervisor
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -14,8 +15,10 @@ import (
 
 type hyperstartCmd struct {
 	Code    uint32
-	Message []byte
+	Message interface{}
 	Event   VmEvent
+
+	retMsg []byte
 }
 
 func waitConsoleOutput(ctx *VmContext) {
@@ -171,13 +174,13 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					if cmds[0].Code != hyperstartapi.INIT_PING {
 						ctx.Hub <- &CommandAck{
 							reply: cmds[0],
-							msg:   cmd.Message,
+							msg:   cmd.retMsg,
 						}
 					}
 				} else {
 					ctx.Hub <- &CommandError{
 						reply: cmds[0],
-						msg:   cmd.Message,
+						msg:   cmd.retMsg,
 					}
 				}
 				cmds = cmds[1:]
@@ -192,8 +195,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 						defer func() { recover() }()
 						glog.V(1).Info("Send ping message to init")
 						ctx.vm <- &hyperstartCmd{
-							Code:    hyperstartapi.INIT_PING,
-							Message: []byte{},
+							Code: hyperstartapi.INIT_PING,
 						}
 						pingTimer = nil
 					})
@@ -204,10 +206,10 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				glog.Error("got ack but no command in queue")
 			}
 		} else if cmd.Code == hyperstartapi.INIT_FINISHPOD {
-			num := len(cmd.Message) / 4
+			num := len(cmd.retMsg) / 4
 			results := make([]uint32, num)
 			for i := 0; i < num; i++ {
-				results[i] = binary.BigEndian.Uint32(cmd.Message[i*4 : i*4+4])
+				results[i] = binary.BigEndian.Uint32(cmd.retMsg[i*4 : i*4+4])
 			}
 
 			for _, c := range cmds {
@@ -230,7 +232,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			if cmd.Code == hyperstartapi.INIT_NEXT {
 				glog.V(1).Infof("get command NEXT")
 
-				got += int(binary.BigEndian.Uint32(cmd.Message[0:4]))
+				got += int(binary.BigEndian.Uint32(cmd.retMsg[0:4]))
 				glog.V(1).Infof("send %d, receive %d", index, got)
 				timeout = false
 				if index == got {
@@ -241,11 +243,21 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					got = 0
 				}
 			} else {
+				var message []byte
+				if message1, ok := cmd.Message.([]byte); ok {
+					message = message1
+				} else if message2, err := json.Marshal(cmd.Message); err == nil {
+					message = message2
+				} else {
+					glog.Infof("marshal command %d failed. object: %v", cmd.Code, cmd.Message)
+					continue
+				}
+
 				msg := &hyperstartapi.DecodedMessage{
 					Code:    cmd.Code,
-					Message: cmd.Message,
+					Message: message,
 				}
-				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(cmd.Message))
+				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(msg.Message))
 				cmds = append(cmds, cmd)
 				data = append(data, NewVmMessage(msg)...)
 				timeout = true
@@ -289,7 +301,7 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 			return
 		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
 			res.Code == hyperstartapi.INIT_ERROR || res.Code == hyperstartapi.INIT_FINISHPOD {
-			ctx.vm <- &hyperstartCmd{Code: res.Code, Message: res.Message}
+			ctx.vm <- &hyperstartCmd{Code: res.Code, retMsg: res.Message}
 		}
 	}
 }
