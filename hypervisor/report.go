@@ -127,23 +127,6 @@ func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
 	close(gop.Result)
 }
 
-func (ctx *VmContext) reportPodIP(ev VmEvent) {
-	ips := []string{}
-	for _, i := range ctx.vmSpec.Interfaces {
-		if i.Device == "lo" {
-			continue
-		}
-		ips = append(ips, i.IpAddress)
-	}
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_POD_IP,
-		Cause: "",
-		Reply: ev,
-		Data:  ips,
-	}
-}
-
 func (ctx *VmContext) reportPodStats(ev VmEvent) {
 	response := types.VmResponse{
 		VmId:  ctx.Id,

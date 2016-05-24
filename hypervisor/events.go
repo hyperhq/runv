@@ -36,10 +36,6 @@ type InitConnectedEvent struct {
 	conn *net.UnixConn
 }
 
-type GetPodIPCommand struct {
-	Id string
-}
-
 type GetPodStatsCommand struct {
 	Id string
 }
@@ -225,7 +221,6 @@ func (qe *InterfaceReleased) Event() int     { return EVENT_INTERFACE_DELETE }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
 func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
-func (qe *GetPodIPCommand) Event() int       { return COMMAND_GET_POD_IP }
 func (qe *GetPodStatsCommand) Event() int    { return COMMAND_GET_POD_STATS }
 func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }

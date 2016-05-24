@@ -416,7 +416,6 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
 	case COMMAND_RUN_POD,
-		COMMAND_GET_POD_IP,
 		COMMAND_STOP_POD,
 		COMMAND_REPLACE_POD,
 		COMMAND_SHUTDOWN,
@@ -485,8 +484,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				ctx.setTimeout(60)
 				ctx.Become(stateStarting, StateStarting)
 			}
-		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP(ev)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
@@ -619,9 +616,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
 				ctx.reportGenericOperation(ack.reply.Event, false)
 			}
-
-		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP(ev)
 		case COMMAND_GET_POD_STATS:
 			ctx.reportPodStats(ev)
 		default:
