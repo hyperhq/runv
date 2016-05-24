@@ -156,24 +156,6 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 	}
 }
 
-func (ctx *VmContext) pauseVm(cmd *PauseCommand) {
-	/* FIXME: only support pause whole vm now */
-	ctx.DCtx.Pause(ctx, cmd)
-}
-
-func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
-	if ev.Cause == "" {
-		ctx.Paused = ev.Reply.Pause
-		if ctx.Paused {
-			glog.V(1).Info("vm is paused")
-		} else {
-			glog.V(1).Info("vm is resumed")
-		}
-	}
-
-	ctx.reportPauseResult(ev)
-}
-
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	if session, ok := ctx.ptys.ttySessions[tag]; ok {
 		if !ctx.ptys.isTty(session) {
@@ -460,10 +442,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "")
 			ctx.Become(stateDestroying, StateDestroying)
 			ctx.reportVmShutdown()
-		case COMMAND_PAUSEVM:
-			ctx.pauseVm(ev.(*PauseCommand))
-		case EVENT_PAUSE_RESULT:
-			ctx.handlePauseResult(ev.(*PauseResult))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_ONLINECPUMEM:
@@ -574,10 +552,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
 			ctx.reportSuccess("", nil)
-		case COMMAND_PAUSEVM:
-			ctx.pauseVm(ev.(*PauseCommand))
-		case EVENT_PAUSE_RESULT:
-			ctx.handlePauseResult(ev.(*PauseResult))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:

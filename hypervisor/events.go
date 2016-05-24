@@ -49,15 +49,6 @@ type RunPodCommand struct {
 
 type ReplacePodCommand RunPodCommand
 
-type PauseCommand struct {
-	Pause bool
-}
-
-type PauseResult struct {
-	Cause string
-	Reply *PauseCommand
-}
-
 type NewContainerCommand struct {
 	container *pod.UserContainer
 	info      *ContainerInfo
@@ -205,8 +196,6 @@ type GenericOperation struct {
 func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
-func (qe *PauseCommand) Event() int          { return COMMAND_PAUSEVM }
-func (qe *PauseResult) Event() int           { return EVENT_PAUSE_RESULT }
 func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
 func (qe *PodFinished) Event() int           { return EVENT_POD_FINISH }
 func (qe *InitConnectedEvent) Event() int    { return EVENT_INIT_CONNECTED }

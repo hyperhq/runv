@@ -564,38 +564,15 @@ func (vm *Vm) Stats() *types.VmResponse {
 }
 
 func (vm *Vm) Pause(pause bool) error {
-	pauseCmd := &PauseCommand{Pause: pause}
-
-	command := "pause"
+	command := "Pause"
 	if !pause {
-		command = "unpause"
+		command = "Unpause"
 	}
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- pauseCmd
-
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return fmt.Errorf("%s failed: get response failed", command)
-		}
-
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == pauseCmd {
-			if Response.Cause != "" {
-				return fmt.Errorf("%s failed: %s", command, Response.Cause)
-			}
-
-			break
-		}
-	}
-
-	return nil
+	return vm.GenericOperation(command, func(ctx *VmContext, result chan<- error) {
+		/* FIXME: only support pause whole vm now */
+		ctx.DCtx.Pause(ctx, pause, result)
+	}, StateInit, StateRunning)
 }
 
 func (vm *Vm) Save(path string) error {

@@ -148,10 +148,10 @@ func (qc *QemuContext) Close() {
 	close(qc.wdt)
 }
 
-func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
+func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {
 	commands := make([]*QmpCommand, 1)
 
-	if cmd.Pause {
+	if pause {
 		commands[0] = &QmpCommand{
 			Execute: "stop",
 		}
@@ -164,15 +164,9 @@ func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCom
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: func(err error) {
-			cause := ""
-			if err != nil {
-				cause = err.Error()
-			}
-
-			ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+			result <- err
 		},
 	}
-
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.BlockDescriptor) {
