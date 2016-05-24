@@ -82,17 +82,6 @@ type KillCommand struct {
 
 type OnlineCpuMemCommand struct{}
 
-type WriteFileCommand struct {
-	Container string `json:"container"`
-	File      string `json:"file"`
-	Data      []byte `json:"-"`
-}
-
-type ReadFileCommand struct {
-	Container string `json:"container"`
-	File      string `json:"file"`
-}
-
 type StopPodCommand struct{}
 type ShutdownCommand struct {
 	Wait bool
@@ -257,8 +246,6 @@ func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *KillCommand) Event() int           { return COMMAND_KILL }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
-func (qe *WriteFileCommand) Event() int      { return COMMAND_WRITEFILE }
-func (qe *ReadFileCommand) Event() int       { return COMMAND_READFILE }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }

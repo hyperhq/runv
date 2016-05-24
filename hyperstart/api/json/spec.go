@@ -1,5 +1,10 @@
 package json
 
+type FileCommand struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+}
+
 type VolumeDescriptor struct {
 	Device       string `json:"device"`
 	Addr         string `json:"addr,omitempty"`

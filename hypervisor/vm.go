@@ -315,38 +315,18 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 		return fmt.Errorf("'write' without file")
 	}
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	writeEvent := &WriteFileCommand{
-		Container: container,
-		File:      target,
-		Data:      []byte{},
-	}
-
-	writeEvent.Data = append(writeEvent.Data, data[:]...)
-	vm.Hub <- writeEvent
-
-	cause := "get response failed"
-	for {
-		Response, ok := <-Status
-		if !ok {
-			break
+	return vm.GenericOperation("WriteFile", func(ctx *VmContext, result chan<- error) {
+		writeCmd, _ := json.Marshal(hyperstartapi.FileCommand{
+			Container: container,
+			File:      target,
+		})
+		writeCmd = append(writeCmd, data[:]...)
+		ctx.vm <- &hyperstartCmd{
+			Code:    hyperstartapi.INIT_WRITEFILE,
+			Message: writeCmd,
+			result:  result,
 		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == writeEvent {
-			if Response.Cause == "" {
-				return nil
-			}
-			cause = Response.Cause
-			break
-		}
-	}
-
-	return fmt.Errorf("Write container %s file %s failed: %s", container, target, cause)
+	}, StateRunning)
 }
 
 func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
@@ -354,37 +334,19 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		return nil, fmt.Errorf("'read' without file")
 	}
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil, err
+	cmd := hyperstartCmd{
+		Code: hyperstartapi.INIT_READFILE,
+		Message: &hyperstartapi.FileCommand{
+			Container: container,
+			File:      target,
+		},
 	}
-	defer vm.ReleaseResponseChan(Status)
+	err := vm.GenericOperation("ReadFile", func(ctx *VmContext, result chan<- error) {
+		cmd.result = result
+		ctx.vm <- &cmd
+	}, StateRunning)
 
-	readEvent := &ReadFileCommand{
-		Container: container,
-		File:      target,
-	}
-
-	vm.Hub <- readEvent
-
-	cause := "get response failed"
-	for {
-		Response, ok := <-Status
-		if !ok {
-			break
-		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == readEvent {
-			if Response.Cause == "" {
-				return Response.Data.([]byte), nil
-			}
-
-			cause = Response.Cause
-			break
-		}
-	}
-
-	return nil, fmt.Errorf("Read container %s file %s failed: %s", container, target, cause)
+	return cmd.retMsg, err
 }
 
 func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
