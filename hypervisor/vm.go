@@ -315,38 +315,18 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 		return fmt.Errorf("'write' without file")
 	}
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	writeEvent := &WriteFileCommand{
-		Container: container,
-		File:      target,
-		Data:      []byte{},
-	}
-
-	writeEvent.Data = append(writeEvent.Data, data[:]...)
-	vm.Hub <- writeEvent
-
-	cause := "get response failed"
-	for {
-		Response, ok := <-Status
-		if !ok {
-			break
+	return vm.GenericOperation("WriteFile", func(ctx *VmContext, result chan<- error) {
+		writeCmd, _ := json.Marshal(hyperstartapi.FileCommand{
+			Container: container,
+			File:      target,
+		})
+		writeCmd = append(writeCmd, data[:]...)
+		ctx.vm <- &hyperstartCmd{
+			Code:    hyperstartapi.INIT_WRITEFILE,
+			Message: writeCmd,
+			result:  result,
 		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == writeEvent {
-			if Response.Cause == "" {
-				return nil
-			}
-			cause = Response.Cause
-			break
-		}
-	}
-
-	return fmt.Errorf("Write container %s file %s failed: %s", container, target, cause)
+	}, StateRunning)
 }
 
 func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
@@ -354,37 +334,19 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		return nil, fmt.Errorf("'read' without file")
 	}
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil, err
+	cmd := hyperstartCmd{
+		Code: hyperstartapi.INIT_READFILE,
+		Message: &hyperstartapi.FileCommand{
+			Container: container,
+			File:      target,
+		},
 	}
-	defer vm.ReleaseResponseChan(Status)
+	err := vm.GenericOperation("ReadFile", func(ctx *VmContext, result chan<- error) {
+		cmd.result = result
+		ctx.vm <- &cmd
+	}, StateRunning)
 
-	readEvent := &ReadFileCommand{
-		Container: container,
-		File:      target,
-	}
-
-	vm.Hub <- readEvent
-
-	cause := "get response failed"
-	for {
-		Response, ok := <-Status
-		if !ok {
-			break
-		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == readEvent {
-			if Response.Cause == "" {
-				return Response.Data.([]byte), nil
-			}
-
-			cause = Response.Cause
-			break
-		}
-	}
-
-	return nil, fmt.Errorf("Read container %s file %s failed: %s", container, target, cause)
+	return cmd.retMsg, err
 }
 
 func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
@@ -421,7 +383,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 }
 
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
-	res := vm.SendGenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
+	return vm.GenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
 		client := make(chan VmEvent, 1)
 
 		addr := ctx.nextPciAddr()
@@ -475,9 +437,6 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
 		ctx.updateInterface(idx, result)
 	}, StateRunning)
-
-	err := <-res
-	return err
 }
 
 // TODO: deprecated api, it will be removed after the hyper.git updated
@@ -490,11 +449,10 @@ func (vm *Vm) SetCpus(cpus int) error {
 		return nil
 	}
 
-	res := vm.SendGenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
+	err := vm.GenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.SetCpus(ctx, cpus, result)
 	}, StateInit)
 
-	err := <-res
 	if err == nil {
 		vm.Cpu = cpus
 	}
@@ -507,11 +465,10 @@ func (vm *Vm) AddMem(totalMem int) error {
 	}
 
 	size := totalMem - vm.Mem
-	res := vm.SendGenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
+	err := vm.GenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.AddMem(ctx, 1, size, result)
 	}, StateInit)
 
-	err := <-res
 	if err == nil {
 		vm.Mem = totalMem
 	}
@@ -684,16 +641,13 @@ func (vm *Vm) Pause(pause bool) error {
 }
 
 func (vm *Vm) Save(path string) error {
-	res := vm.SendGenericOperation("Save", func(ctx *VmContext, result chan<- error) {
+	return vm.GenericOperation("Save", func(ctx *VmContext, result chan<- error) {
 		if ctx.Paused {
 			ctx.DCtx.Save(ctx, path, result)
 		} else {
 			result <- fmt.Errorf("the vm should paused on non-live Save()")
 		}
 	}, StateInit, StateRunning)
-
-	err := <-res
-	return err
 }
 
 func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
@@ -706,6 +660,10 @@ func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result c
 	}
 	vm.Hub <- goe
 	return result
+}
+
+func (vm *Vm) GenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) error {
+	return <-vm.SendGenericOperation(name, op, states...)
 }
 
 func errorResponse(cause string) *types.VmResponse {

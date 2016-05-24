@@ -123,19 +123,10 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.
 
 func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 	c := ctx.prepareContainer(cmd)
-
-	jsonCmd, err := json.Marshal(*c)
-	if err != nil {
-		ctx.Hub <- &InitFailedEvent{
-			Reason: "Generated wrong run profile " + err.Error(),
-		}
-		glog.Infof("INIT_NEWCONTAINER marshal failed")
-		return
-	}
 	glog.Infof("start sending INIT_NEWCONTAINER")
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_NEWCONTAINER,
-		Message: jsonCmd,
+		Message: c,
 	}
 	glog.Infof("sent INIT_NEWCONTAINER")
 }
@@ -157,15 +148,9 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 		NetMask:   ctx.devices.networkMap[index].NetMask,
 	}
 
-	message, err := json.Marshal(inf)
-	if err != nil {
-		result <- fmt.Errorf("marshal interface %d failed %v", index, err)
-		return
-	}
-
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_SETUPINTERFACE,
-		Message: message,
+		Message: inf,
 		Event:   cmd,
 	}
 }
@@ -198,14 +183,9 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 			"row":    size.Row,
 			"column": size.Column,
 		}
-		msg, err := json.Marshal(cmd)
-		if err != nil {
-			ctx.reportBadRequest(fmt.Sprintf("command window size parse failed"))
-			return
-		}
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_WINSIZE,
-			Message: msg,
+			Message: cmd,
 		}
 	} else {
 		msg := fmt.Sprintf("cannot resolve client tag %s", tag)
@@ -214,41 +194,9 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	}
 }
 
-func (ctx *VmContext) writeFile(cmd *WriteFileCommand) {
-	writeCmd, err := json.Marshal(*cmd)
-	if err != nil {
-		ctx.Hub <- &InitFailedEvent{
-			Reason: "Generated wrong run profile " + err.Error(),
-		}
-		return
-	}
-	writeCmd = append(writeCmd, cmd.Data[:]...)
-	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_WRITEFILE,
-		Message: writeCmd,
-		Event:   cmd,
-	}
-}
-
-func (ctx *VmContext) readFile(cmd *ReadFileCommand) {
-	readCmd, err := json.Marshal(*cmd)
-	if err != nil {
-		ctx.Hub <- &InitFailedEvent{
-			Reason: "Generated wrong run profile " + err.Error(),
-		}
-		return
-	}
-	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_READFILE,
-		Message: readCmd,
-		Event:   cmd,
-	}
-}
-
 func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_ONLINECPUMEM,
-		Message: []byte{},
+		Code: hyperstartapi.INIT_ONLINECPUMEM,
 	}
 }
 
@@ -256,14 +204,6 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	cmd.Process.Stdio = ctx.ptys.nextAttachId()
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
-	}
-	pkg, err := json.Marshal(*cmd)
-	if err != nil {
-		cmd.Callback <- &types.VmResponse{
-			VmId: ctx.Id, Code: types.E_JSON_PARSE_FAIL,
-			Cause: fmt.Sprintf("command %s parse failed", cmd.Process.Args), Data: cmd.Process.Stdio,
-		}
-		return
 	}
 	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.TtyIO)
 	ctx.ptys.clientReg(cmd.ClientTag, cmd.Process.Stdio)
@@ -278,22 +218,15 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	}
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
-		Message: pkg,
+		Message: cmd,
 		Event:   cmd,
 	}
 }
 
 func (ctx *VmContext) killCmd(cmd *KillCommand) {
-	killCmd, err := json.Marshal(*cmd)
-	if err != nil {
-		ctx.Hub <- &InitFailedEvent{
-			Reason: "Generated wrong kill profile " + err.Error(),
-		}
-		return
-	}
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_KILLCONTAINER,
-		Message: killCmd,
+		Message: cmd,
 		Event:   cmd,
 	}
 }
@@ -344,24 +277,16 @@ func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *A
 }
 
 func (ctx *VmContext) startPod() {
-	pod, err := json.Marshal(*ctx.vmSpec)
-	if err != nil {
-		ctx.Hub <- &InitFailedEvent{
-			Reason: "Generated wrong run profile " + err.Error(),
-		}
-		return
-	}
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_STARTPOD,
-		Message: pod,
+		Message: ctx.vmSpec,
 	}
 }
 
 func (ctx *VmContext) stopPod() {
 	ctx.setTimeout(30)
 	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_STOPPOD,
-		Message: []byte{},
+		Code: hyperstartapi.INIT_STOPPOD,
 	}
 }
 
@@ -382,7 +307,7 @@ func (ctx *VmContext) shutdownVM(err bool, msg string) {
 		glog.Error("Shutting down because of an exception: ", msg)
 	}
 	ctx.setTimeout(10)
-	ctx.vm <- &hyperstartCmd{Code: hyperstartapi.INIT_DESTROYPOD, Message: []byte{}}
+	ctx.vm <- &hyperstartCmd{Code: hyperstartapi.INIT_DESTROYPOD}
 }
 
 func (ctx *VmContext) poweroffVM(err bool, msg string) {
@@ -491,8 +416,6 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
 		COMMAND_KILL,
-		COMMAND_WRITEFILE,
-		COMMAND_READFILE,
 		COMMAND_SHUTDOWN,
 		COMMAND_RELEASE,
 		COMMAND_PAUSEVM:
@@ -552,10 +475,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.execCmd(ev.(*ExecCommand))
 		case COMMAND_ONLINECPUMEM:
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
-		case COMMAND_WRITEFILE:
-			ctx.writeFile(ev.(*WriteFileCommand))
-		case COMMAND_READFILE:
-			ctx.readFile(ev.(*ReadFileCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -681,10 +600,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
-		case COMMAND_WRITEFILE:
-			ctx.writeFile(ev.(*WriteFileCommand))
-		case COMMAND_READFILE:
-			ctx.readFile(ev.(*ReadFileCommand))
 		case EVENT_POD_FINISH:
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
@@ -698,12 +613,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.ptys.startStdin(cmd.Process.Stdio, true)
 				ctx.reportExec(ack.reply.Event, false)
 				glog.Infof("Get ack for exec cmd")
-			} else if ack.reply.Code == hyperstartapi.INIT_READFILE {
-				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_READFILE, ack.msg, false)
-				glog.Infof("Get ack for read data: %s", string(ack.msg))
-			} else if ack.reply.Code == hyperstartapi.INIT_WRITEFILE {
-				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_WRITEFILE, ack.msg, false)
-				glog.Infof("Get ack for write data: %s", string(ack.msg))
 			} else if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
 				glog.Infof("Get ack for new container")
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
@@ -723,12 +632,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
 				glog.V(0).Infof("Exec command %v on session %d failed", cmd.Process.Args, cmd.Process.Stdio)
-			} else if ack.reply.Code == hyperstartapi.INIT_READFILE {
-				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_READFILE, ack.msg, true)
-				glog.Infof("Get error for read data: %s", string(ack.msg))
-			} else if ack.reply.Code == hyperstartapi.INIT_WRITEFILE {
-				ctx.reportFile(ack.reply.Event, hyperstartapi.INIT_WRITEFILE, ack.msg, true)
-				glog.Infof("Get error for write data: %s", string(ack.msg))
 			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
 				glog.Infof("Get ack for kill container")
 				ctx.reportKill(ack.reply.Event, false)
@@ -843,8 +746,7 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 			//            glog.V(1).Info("device ready, could run pod.")
 			//            ctx.Become(stateInit, StateInit)
 			ctx.vm <- &hyperstartCmd{
-				Code:    hyperstartapi.INIT_READY,
-				Message: []byte{},
+				Code: hyperstartapi.INIT_READY,
 			}
 			glog.V(1).Info("device ready, could run pod.")
 		}

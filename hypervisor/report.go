@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -193,25 +192,4 @@ func (ctx *VmContext) reportPodStats(ev VmEvent) {
 	}
 
 	ctx.client <- &response
-}
-
-func (ctx *VmContext) reportFile(reply VmEvent, code uint32, data []byte, err bool) {
-	response := &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_WRITEFILE,
-		Cause: "",
-		Reply: reply,
-		Data:  data,
-	}
-
-	if code == hyperstartapi.INIT_READFILE {
-		response.Code = types.E_READFILE
-		if err {
-			response.Cause = "readfile failed"
-		}
-	} else if err == true {
-		response.Cause = "writefile failed"
-	}
-
-	ctx.client <- response
 }
