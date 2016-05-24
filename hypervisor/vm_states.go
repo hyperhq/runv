@@ -3,11 +3,13 @@ package hypervisor
 import (
 	"encoding/json"
 	"fmt"
+	"syscall"
+	"time"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"time"
 )
 
 // states
@@ -223,11 +225,14 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	}
 }
 
-func (ctx *VmContext) killCmd(cmd *KillCommand) {
+func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result chan<- error) {
 	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_KILLCONTAINER,
-		Message: cmd,
-		Event:   cmd,
+		Code: hyperstartapi.INIT_KILLCONTAINER,
+		Message: hyperstartapi.KillCommand{
+			Container: container,
+			Signal:    signal,
+		},
+		result: result,
 	}
 }
 
@@ -415,7 +420,6 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 		COMMAND_STOP_POD,
 		COMMAND_REPLACE_POD,
 		COMMAND_EXEC,
-		COMMAND_KILL,
 		COMMAND_SHUTDOWN,
 		COMMAND_RELEASE,
 		COMMAND_PAUSEVM:
@@ -587,8 +591,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.reportSuccess("", nil)
 		case COMMAND_EXEC:
 			ctx.execCmd(ev.(*ExecCommand))
-		case COMMAND_KILL:
-			ctx.killCmd(ev.(*KillCommand))
 		case COMMAND_ATTACH:
 			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_PAUSEVM:
@@ -619,9 +621,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
-				glog.Infof("Get ack for kill container")
-				ctx.reportKill(ack.reply.Event, true)
 			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
 				ctx.reportGenericOperation(ack.reply.Event, true)
 			}
@@ -632,9 +631,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				ctx.ptys.Close(cmd.Process.Stdio, 255)
 				ctx.reportExec(ack.reply.Event, true)
 				glog.V(0).Infof("Exec command %v on session %d failed", cmd.Process.Args, cmd.Process.Stdio)
-			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
-				glog.Infof("Get ack for kill container")
-				ctx.reportKill(ack.reply.Event, false)
 			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
 				ctx.reportGenericOperation(ack.reply.Event, false)
 			}

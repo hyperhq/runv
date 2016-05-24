@@ -4,7 +4,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -73,11 +72,6 @@ type ExecCommand struct {
 	*TtyIO    `json:"-"`
 	Container string                `json:"container,omitempty"`
 	Process   hyperstartapi.Process `json:"process"`
-}
-
-type KillCommand struct {
-	Container string         `json:"container"`
-	Signal    syscall.Signal `json:"signal"`
 }
 
 type OnlineCpuMemCommand struct{}
@@ -244,7 +238,6 @@ func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
-func (qe *KillCommand) Event() int           { return COMMAND_KILL }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }

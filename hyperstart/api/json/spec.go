@@ -1,8 +1,15 @@
 package json
 
+import "syscall"
+
 type FileCommand struct {
 	Container string `json:"container"`
 	File      string `json:"file"`
+}
+
+type KillCommand struct {
+	Container string         `json:"container"`
+	Signal    syscall.Signal `json:"signal"`
 }
 
 type VolumeDescriptor struct {

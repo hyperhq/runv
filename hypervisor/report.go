@@ -133,20 +133,6 @@ func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
 	ctx.client <- response
 }
 
-func (ctx *VmContext) reportKill(ev VmEvent, ok bool) {
-	code := types.E_OK
-	if !ok {
-		code = types.E_FAILED
-	}
-	response := &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  code,
-		Reply: ev,
-		Cause: "",
-	}
-	ctx.client <- response
-}
-
 func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
 	gop := ev.(*GenericOperation)
 	if success {

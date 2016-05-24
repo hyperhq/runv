@@ -350,36 +350,9 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 }
 
 func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
-	killCmd := &KillCommand{
-		Container: container,
-		Signal:    signal,
-	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- killCmd
-
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return fmt.Errorf("kill container %v failed: get response failed", container)
-		}
-
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == killCmd {
-			if Response.Code != types.E_OK {
-				return fmt.Errorf("kill container %v failed: %s", container, Response.Cause)
-			}
-
-			break
-		}
-	}
-
-	return nil
+	return vm.GenericOperation("KillContainer", func(ctx *VmContext, result chan<- error) {
+		ctx.killCmd(container, signal, result)
+	}, StateRunning)
 }
 
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
