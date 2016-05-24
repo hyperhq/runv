@@ -18,7 +18,28 @@ type hyperstartCmd struct {
 	Message interface{}
 	Event   VmEvent
 
+	// result
 	retMsg []byte
+	result chan<- error
+}
+
+func defaultHyperstartResultChan(ctx *VmContext, cmd *hyperstartCmd) chan<- error {
+	result := make(chan error, 1)
+	go func() {
+		err := <-result
+		if err == nil {
+			ctx.Hub <- &CommandAck{
+				reply: cmd,
+				msg:   cmd.retMsg,
+			}
+		} else {
+			ctx.Hub <- &CommandError{
+				reply: cmd,
+				msg:   cmd.retMsg,
+			}
+		}
+	}()
+	return result
 }
 
 func waitConsoleOutput(ctx *VmContext) {
@@ -163,6 +184,9 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			glog.Info("vm channel closed, quit")
 			break
 		}
+		if cmd.result == nil {
+			cmd.result = defaultHyperstartResultChan(ctx, cmd)
+		}
 		glog.Infof("got cmd:%d", cmd.Code)
 		if cmd.Code == hyperstartapi.INIT_ACK || cmd.Code == hyperstartapi.INIT_ERROR {
 			if len(cmds) > 0 {
@@ -172,16 +196,12 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 				}
 				if cmd.Code == hyperstartapi.INIT_ACK {
 					if cmds[0].Code != hyperstartapi.INIT_PING {
-						ctx.Hub <- &CommandAck{
-							reply: cmds[0],
-							msg:   cmd.retMsg,
-						}
+						cmds[0].retMsg = cmd.retMsg
+						cmds[0].result <- nil
 					}
 				} else {
-					ctx.Hub <- &CommandError{
-						reply: cmds[0],
-						msg:   cmd.retMsg,
-					}
+					cmds[0].retMsg = cmd.retMsg
+					cmds[0].result <- fmt.Errorf("Error: %s", string(cmd.retMsg))
 				}
 				cmds = cmds[1:]
 
@@ -250,6 +270,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 					message = message2
 				} else {
 					glog.Infof("marshal command %d failed. object: %v", cmd.Code, cmd.Message)
+					cmd.result <- fmt.Errorf("marshal command %d failed", cmd.Code)
 					continue
 				}
 
