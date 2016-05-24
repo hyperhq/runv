@@ -9,7 +9,6 @@ import (
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 // states
@@ -236,27 +235,23 @@ func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result ch
 	}
 }
 
-func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
+func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
+		result <- nil
 		return
 	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
-		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
-		ctx.reportBadRequest(cause)
-		cmd.Streams.Callback <- &types.VmResponse{
-			VmId:  ctx.Id,
-			Code:  types.E_NO_TTY,
-			Cause: cause,
-			Data:  uint64(0),
-		}
+		result <- fmt.Errorf("tty is not configured for %s", cmd.Container)
 		return
 	}
 	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
 	}
+
+	result <- nil
 }
 
 func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
@@ -469,8 +464,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.pauseVm(ev.(*PauseCommand))
 		case EVENT_PAUSE_RESULT:
 			ctx.handlePauseResult(ev.(*PauseResult))
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_ONLINECPUMEM:
@@ -525,8 +518,6 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 		case COMMAND_RELEASE:
 			glog.Info("pod starting, got release, please wait")
 			ctx.reportBusy("")
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -583,8 +574,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
 			ctx.reportSuccess("", nil)
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_PAUSEVM:
 			ctx.pauseVm(ev.(*PauseCommand))
 		case EVENT_PAUSE_RESULT:
