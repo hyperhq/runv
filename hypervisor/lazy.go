@@ -52,8 +52,6 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 		glog.Info("got shutdown or release command, not started yet")
 		ctx.reportVmShutdown()
 		ctx.Become(nil, StateNone)
-	case COMMAND_EXEC:
-		ctx.execCmd(ev.(*ExecCommand))
 	case COMMAND_WINDOWSIZE:
 		cmd := ev.(*WindowSizeCommand)
 		ctx.setWindowSize(cmd.ClientTag, cmd.Size)

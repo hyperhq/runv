@@ -5,7 +5,6 @@ import (
 	"os"
 	"sync"
 
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
@@ -66,12 +65,6 @@ type PauseResult struct {
 type NewContainerCommand struct {
 	container *pod.UserContainer
 	info      *ContainerInfo
-}
-
-type ExecCommand struct {
-	*TtyIO    `json:"-"`
-	Container string                `json:"container,omitempty"`
-	Process   hyperstartapi.Process `json:"process"`
 }
 
 type OnlineCpuMemCommand struct{}
@@ -237,7 +230,6 @@ func (qe *GetPodStatsCommand) Event() int    { return COMMAND_GET_POD_STATS }
 func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
-func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }

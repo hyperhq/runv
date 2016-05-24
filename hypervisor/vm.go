@@ -484,8 +484,7 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 		}
 	}
 
-	execCmd := &ExecCommand{
-		TtyIO:     tty,
+	execCmd := &hyperstartapi.ExecCommand{
 		Container: container,
 		Process: hyperstartapi.Process{
 			Terminal: terminal,
@@ -495,31 +494,20 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 		},
 	}
 
-	Status, err := vm.GetResponseChan()
+	err := vm.GenericOperation("AddProcess", func(ctx *VmContext, result chan<- error) {
+		ctx.execCmd(execCmd, tty, result)
+	}, StateRunning)
+
 	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- execCmd
-
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return fmt.Errorf("exec command %v failed: get response failed", args)
-		}
-
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Reply == execCmd {
-			if Response.Cause != "" {
-				return fmt.Errorf("exec command %v failed: %s", args, Response.Cause)
-			}
-
-			break
-		}
+		return fmt.Errorf("exec command %v failed: %v", args, err)
 	}
 
-	return execCmd.WaitForFinish()
+	vm.GenericOperation("StartStdin", func(ctx *VmContext, result chan<- error) {
+		ctx.ptys.startStdin(execCmd.Process.Stdio, true)
+		result <- nil
+	}, StateRunning)
+
+	return tty.WaitForFinish()
 }
 
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {

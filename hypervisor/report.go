@@ -116,23 +116,6 @@ func (ctx *VmContext) reportVmFault(cause string) {
 	}
 }
 
-// reportExec send report to daemon, notify about that:
-//   1. exec status
-func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
-	response := &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_EXEC_FINISH,
-		Reply: ev,
-		Cause: "",
-	}
-
-	if fail {
-		response.Cause = "exec failed"
-	}
-
-	ctx.client <- response
-}
-
 func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
 	gop := ev.(*GenericOperation)
 	if success {
