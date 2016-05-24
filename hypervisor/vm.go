@@ -421,7 +421,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 }
 
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
-	res := vm.SendGenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
+	return vm.GenericOperation("AddNic", func(ctx *VmContext, result chan<- error) {
 		client := make(chan VmEvent, 1)
 
 		addr := ctx.nextPciAddr()
@@ -475,9 +475,6 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
 		ctx.updateInterface(idx, result)
 	}, StateRunning)
-
-	err := <-res
-	return err
 }
 
 // TODO: deprecated api, it will be removed after the hyper.git updated
@@ -490,11 +487,10 @@ func (vm *Vm) SetCpus(cpus int) error {
 		return nil
 	}
 
-	res := vm.SendGenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
+	err := vm.GenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.SetCpus(ctx, cpus, result)
 	}, StateInit)
 
-	err := <-res
 	if err == nil {
 		vm.Cpu = cpus
 	}
@@ -507,11 +503,10 @@ func (vm *Vm) AddMem(totalMem int) error {
 	}
 
 	size := totalMem - vm.Mem
-	res := vm.SendGenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
+	err := vm.GenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.AddMem(ctx, 1, size, result)
 	}, StateInit)
 
-	err := <-res
 	if err == nil {
 		vm.Mem = totalMem
 	}
@@ -684,16 +679,13 @@ func (vm *Vm) Pause(pause bool) error {
 }
 
 func (vm *Vm) Save(path string) error {
-	res := vm.SendGenericOperation("Save", func(ctx *VmContext, result chan<- error) {
+	return vm.GenericOperation("Save", func(ctx *VmContext, result chan<- error) {
 		if ctx.Paused {
 			ctx.DCtx.Save(ctx, path, result)
 		} else {
 			result <- fmt.Errorf("the vm should paused on non-live Save()")
 		}
 	}, StateInit, StateRunning)
-
-	err := <-res
-	return err
 }
 
 func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
@@ -706,6 +698,10 @@ func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result c
 	}
 	vm.Hub <- goe
 	return result
+}
+
+func (vm *Vm) GenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) error {
+	return <-vm.SendGenericOperation(name, op, states...)
 }
 
 func errorResponse(cause string) *types.VmResponse {
