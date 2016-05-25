@@ -2,7 +2,23 @@ package json
 
 import (
 	"encoding/binary"
+	"syscall"
 )
+
+type FileCommand struct {
+	Container string `json:"container"`
+	File      string `json:"file"`
+}
+
+type KillCommand struct {
+	Container string         `json:"container"`
+	Signal    syscall.Signal `json:"signal"`
+}
+
+type ExecCommand struct {
+	Container string  `json:"container,omitempty"`
+	Process   Process `json:"process"`
+}
 
 // Message
 type DecodedMessage struct {

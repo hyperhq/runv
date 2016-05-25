@@ -34,14 +34,6 @@ func (ctx *VmContext) reportVmShutdown() {
 	}
 }
 
-func (ctx *VmContext) reportPauseResult(result *PauseResult) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Reply: result.Reply,
-		Cause: result.Cause,
-	}
-}
-
 func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
@@ -116,37 +108,6 @@ func (ctx *VmContext) reportVmFault(cause string) {
 	}
 }
 
-// reportExec send report to daemon, notify about that:
-//   1. exec status
-func (ctx *VmContext) reportExec(ev VmEvent, fail bool) {
-	response := &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_EXEC_FINISH,
-		Reply: ev,
-		Cause: "",
-	}
-
-	if fail {
-		response.Cause = "exec failed"
-	}
-
-	ctx.client <- response
-}
-
-func (ctx *VmContext) reportKill(ev VmEvent, ok bool) {
-	code := types.E_OK
-	if !ok {
-		code = types.E_FAILED
-	}
-	response := &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  code,
-		Reply: ev,
-		Cause: "",
-	}
-	ctx.client <- response
-}
-
 func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
 	gop := ev.(*GenericOperation)
 	if success {
@@ -156,23 +117,6 @@ func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
 
 	gop.Result <- fmt.Errorf("fail to handle event %s", gop.OpName)
 	close(gop.Result)
-}
-
-func (ctx *VmContext) reportPodIP(ev VmEvent) {
-	ips := []string{}
-	for _, i := range ctx.vmSpec.Interfaces {
-		if i.Device == "lo" {
-			continue
-		}
-		ips = append(ips, i.IpAddress)
-	}
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_POD_IP,
-		Cause: "",
-		Reply: ev,
-		Data:  ips,
-	}
 }
 
 func (ctx *VmContext) reportPodStats(ev VmEvent) {

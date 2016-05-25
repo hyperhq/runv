@@ -3,11 +3,12 @@ package hypervisor
 import (
 	"encoding/json"
 	"fmt"
+	"syscall"
+	"time"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/types"
-	"time"
 )
 
 // states
@@ -155,24 +156,6 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 	}
 }
 
-func (ctx *VmContext) pauseVm(cmd *PauseCommand) {
-	/* FIXME: only support pause whole vm now */
-	ctx.DCtx.Pause(ctx, cmd)
-}
-
-func (ctx *VmContext) handlePauseResult(ev *PauseResult) {
-	if ev.Cause == "" {
-		ctx.Paused = ev.Reply.Pause
-		if ctx.Paused {
-			glog.V(1).Info("vm is paused")
-		} else {
-			glog.V(1).Info("vm is resumed")
-		}
-	}
-
-	ctx.reportPauseResult(ev)
-}
-
 func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 	if session, ok := ctx.ptys.ttySessions[tag]; ok {
 		if !ctx.ptys.isTty(session) {
@@ -200,18 +183,18 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	}
 }
 
-func (ctx *VmContext) execCmd(cmd *ExecCommand) {
+func (ctx *VmContext) execCmd(cmd *hyperstartapi.ExecCommand, tty *TtyIO, result chan<- error) {
 	cmd.Process.Stdio = ctx.ptys.nextAttachId()
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
-	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.TtyIO)
-	ctx.ptys.clientReg(cmd.ClientTag, cmd.Process.Stdio)
+	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, tty)
+	ctx.ptys.clientReg(tty.ClientTag, cmd.Process.Stdio)
 	if !cmd.Process.Terminal {
 		stderrIO := &TtyIO{
 			Stdin:     nil,
-			Stdout:    cmd.TtyIO.Stdout,
-			ClientTag: cmd.TtyIO.ClientTag,
+			Stdout:    tty.Stdout,
+			ClientTag: tty.ClientTag,
 			Callback:  nil,
 		}
 		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
@@ -219,39 +202,38 @@ func (ctx *VmContext) execCmd(cmd *ExecCommand) {
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: cmd,
-		Event:   cmd,
+		result:  result,
 	}
 }
 
-func (ctx *VmContext) killCmd(cmd *KillCommand) {
+func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result chan<- error) {
 	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_KILLCONTAINER,
-		Message: cmd,
-		Event:   cmd,
+		Code: hyperstartapi.INIT_KILLCONTAINER,
+		Message: hyperstartapi.KillCommand{
+			Container: container,
+			Signal:    signal,
+		},
+		result: result,
 	}
 }
 
-func (ctx *VmContext) attachCmd(cmd *AttachCommand) {
+func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
 		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
+		result <- nil
 		return
 	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
-		cause := fmt.Sprintf("tty is not configured for %s", cmd.Container)
-		ctx.reportBadRequest(cause)
-		cmd.Streams.Callback <- &types.VmResponse{
-			VmId:  ctx.Id,
-			Code:  types.E_NO_TTY,
-			Cause: cause,
-			Data:  uint64(0),
-		}
+		result <- fmt.Errorf("tty is not configured for %s", cmd.Container)
 		return
 	}
 	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
 	}
+
+	result <- nil
 }
 
 func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
@@ -411,11 +393,8 @@ func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
 	case COMMAND_RUN_POD,
-		COMMAND_GET_POD_IP,
 		COMMAND_STOP_POD,
 		COMMAND_REPLACE_POD,
-		COMMAND_EXEC,
-		COMMAND_KILL,
 		COMMAND_SHUTDOWN,
 		COMMAND_RELEASE,
 		COMMAND_PAUSEVM:
@@ -463,16 +442,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "")
 			ctx.Become(stateDestroying, StateDestroying)
 			ctx.reportVmShutdown()
-		case COMMAND_PAUSEVM:
-			ctx.pauseVm(ev.(*PauseCommand))
-		case EVENT_PAUSE_RESULT:
-			ctx.handlePauseResult(ev.(*PauseResult))
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
-		case COMMAND_EXEC:
-			ctx.execCmd(ev.(*ExecCommand))
 		case COMMAND_ONLINECPUMEM:
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 		case COMMAND_WINDOWSIZE:
@@ -484,8 +455,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 				ctx.setTimeout(60)
 				ctx.Become(stateStarting, StateStarting)
 			}
-		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP(ev)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
@@ -527,8 +496,6 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 		case COMMAND_RELEASE:
 			glog.Info("pod starting, got release, please wait")
 			ctx.reportBusy("")
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
@@ -585,16 +552,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
 			ctx.reportSuccess("", nil)
-		case COMMAND_EXEC:
-			ctx.execCmd(ev.(*ExecCommand))
-		case COMMAND_KILL:
-			ctx.killCmd(ev.(*KillCommand))
-		case COMMAND_ATTACH:
-			ctx.attachCmd(ev.(*AttachCommand))
-		case COMMAND_PAUSEVM:
-			ctx.pauseVm(ev.(*PauseCommand))
-		case EVENT_PAUSE_RESULT:
-			ctx.handlePauseResult(ev.(*PauseResult))
 		case COMMAND_NEWCONTAINER:
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:
@@ -608,39 +565,20 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
 
-			if ack.reply.Code == hyperstartapi.INIT_EXECCMD {
-				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.startStdin(cmd.Process.Stdio, true)
-				ctx.reportExec(ack.reply.Event, false)
-				glog.Infof("Get ack for exec cmd")
-			} else if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
+			if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
 				glog.Infof("Get ack for new container")
 				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
-				glog.Infof("Get ack for kill container")
-				ctx.reportKill(ack.reply.Event, true)
 			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
 				ctx.reportGenericOperation(ack.reply.Event, true)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.reply.Code == hyperstartapi.INIT_EXECCMD {
-				cmd := ack.reply.Event.(*ExecCommand)
-				ctx.ptys.Close(cmd.Process.Stdio, 255)
-				ctx.reportExec(ack.reply.Event, true)
-				glog.V(0).Infof("Exec command %v on session %d failed", cmd.Process.Args, cmd.Process.Stdio)
-			} else if ack.reply.Code == hyperstartapi.INIT_KILLCONTAINER {
-				glog.Infof("Get ack for kill container")
-				ctx.reportKill(ack.reply.Event, false)
-			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
+			if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
 				ctx.reportGenericOperation(ack.reply.Event, false)
 			}
-
-		case COMMAND_GET_POD_IP:
-			ctx.reportPodIP(ev)
 		case COMMAND_GET_POD_STATS:
 			ctx.reportPodStats(ev)
 		default:

@@ -449,15 +449,15 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
-	attachCommand := &AttachCommand{
+	cmd := &AttachCommand{
 		Streams:   tty,
 		Size:      size,
 		Container: container,
 	}
 
-	vm.Hub <- attachCommand
-
-	return nil
+	return vm.GenericOperation("Attach", func(ctx *VmContext, result chan<- error) {
+		ctx.attachCmd(cmd, result)
+	}, StateInit, StateStarting, StateRunning)
 }
 
 func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {

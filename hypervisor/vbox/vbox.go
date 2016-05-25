@@ -175,10 +175,10 @@ func (vc *VBoxContext) Dump() (map[string]interface{}, error) {
 	}, nil
 }
 
-func (vc *VBoxContext) Pause(ctx *hypervisor.VmContext, cmd *hypervisor.PauseCommand) {
-	cause := "doesn't support pause for vbox right now"
-	glog.Warning(cause)
-	ctx.Hub <- &hypervisor.PauseResult{Cause: cause, Reply: cmd}
+func (vc *VBoxContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {
+	err := fmt.Errorf("doesn't support pause for vbox right now")
+	glog.Warning(err)
+	result <- err
 }
 
 func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {

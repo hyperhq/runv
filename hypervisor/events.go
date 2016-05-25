@@ -4,9 +4,7 @@ import (
 	"net"
 	"os"
 	"sync"
-	"syscall"
 
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
@@ -38,10 +36,6 @@ type InitConnectedEvent struct {
 	conn *net.UnixConn
 }
 
-type GetPodIPCommand struct {
-	Id string
-}
-
 type GetPodStatsCommand struct {
 	Id string
 }
@@ -55,29 +49,9 @@ type RunPodCommand struct {
 
 type ReplacePodCommand RunPodCommand
 
-type PauseCommand struct {
-	Pause bool
-}
-
-type PauseResult struct {
-	Cause string
-	Reply *PauseCommand
-}
-
 type NewContainerCommand struct {
 	container *pod.UserContainer
 	info      *ContainerInfo
-}
-
-type ExecCommand struct {
-	*TtyIO    `json:"-"`
-	Container string                `json:"container,omitempty"`
-	Process   hyperstartapi.Process `json:"process"`
-}
-
-type KillCommand struct {
-	Container string         `json:"container"`
-	Signal    syscall.Signal `json:"signal"`
 }
 
 type OnlineCpuMemCommand struct{}
@@ -222,8 +196,6 @@ type GenericOperation struct {
 func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
-func (qe *PauseCommand) Event() int          { return COMMAND_PAUSEVM }
-func (qe *PauseResult) Event() int           { return EVENT_PAUSE_RESULT }
 func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
 func (qe *PodFinished) Event() int           { return EVENT_POD_FINISH }
 func (qe *InitConnectedEvent) Event() int    { return EVENT_INIT_CONNECTED }
@@ -238,13 +210,10 @@ func (qe *InterfaceReleased) Event() int     { return EVENT_INTERFACE_DELETE }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
 func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
-func (qe *GetPodIPCommand) Event() int       { return COMMAND_GET_POD_IP }
 func (qe *GetPodStatsCommand) Event() int    { return COMMAND_GET_POD_STATS }
 func (qe *StopPodCommand) Event() int        { return COMMAND_STOP_POD }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
-func (qe *ExecCommand) Event() int           { return COMMAND_EXEC }
-func (qe *KillCommand) Event() int           { return COMMAND_KILL }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }

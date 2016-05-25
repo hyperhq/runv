@@ -101,33 +101,25 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	if mypod.Vm == "" {
 		return nil
 	}
-	var response *types.VmResponse
 
-	Status, err := vm.GetResponseChan()
+	ips := []string{}
+
+	err := vm.GenericOperation("GetIP", func(ctx *VmContext, result chan<- error) {
+		for _, i := range ctx.vmSpec.Interfaces {
+			if i.Device == "lo" {
+				continue
+			}
+			ips = append(ips, i.IpAddress)
+		}
+
+		result <- nil
+	}, StateRunning)
+
 	if err != nil {
-		return nil
+		glog.Errorf("get pod ip failed: %v", err)
 	}
-	defer vm.ReleaseResponseChan(Status)
 
-	getPodIPEvent := &GetPodIPCommand{
-		Id: mypod.Vm,
-	}
-	vm.Hub <- getPodIPEvent
-	// wait for the VM response
-	for {
-		response = <-Status
-		glog.V(1).Infof("Got response, Code %d, VM id %s!", response.Code, response.VmId)
-		if response.Reply != getPodIPEvent {
-			continue
-		}
-		if response.VmId == vm.Id {
-			break
-		}
-	}
-	if response.Data == nil {
-		return []string{}
-	}
-	return response.Data.([]string)
+	return ips
 }
 
 func NewPod(podId string, userPod *pod.UserPod) *PodStatus {
