@@ -1,8 +1,6 @@
 package hypervisor
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
@@ -106,17 +104,6 @@ func (ctx *VmContext) reportVmFault(cause string) {
 		Code:  types.E_FAILED,
 		Cause: cause,
 	}
-}
-
-func (ctx *VmContext) reportGenericOperation(ev VmEvent, success bool) {
-	gop := ev.(*GenericOperation)
-	if success {
-		gop.Result <- nil
-		return
-	}
-
-	gop.Result <- fmt.Errorf("fail to handle event %s", gop.OpName)
-	close(gop.Result)
 }
 
 func (ctx *VmContext) reportPodStats(ev VmEvent) {

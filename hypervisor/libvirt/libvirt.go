@@ -629,10 +629,9 @@ func (lc *LibvirtContext) Pause(ctx *hypervisor.VmContext, pause bool, result ch
 
 	if pause {
 		result <- lc.domain.Suspend()
-		return
+	} else {
+		result <- lc.domain.Resume()
 	}
-
-	result <- lc.domain.Resume()
 }
 
 type diskdriver struct {
