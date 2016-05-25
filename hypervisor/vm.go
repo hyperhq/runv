@@ -405,6 +405,8 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 	return vm.GenericOperation("InterfaceInserted", func(ctx *VmContext, result chan<- error) {
 		ctx.netdevInserted(insertedEvent)
 		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
+		glog.Infof("finial vmSpec.Routes is %v", ctx.vmSpec.Routes)
+
 		ctx.updateInterface(idx, result)
 	}, StateRunning)
 }

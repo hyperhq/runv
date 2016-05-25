@@ -39,9 +39,21 @@ func nsListenerDaemon() {
 		return
 	}
 
+	/* get route info before link down */
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		glog.Error(err)
+		return
+	}
+
 	/* send interface info to containerd */
 	infos := collectionInterfaceInfo()
 	if err := enc.Encode(infos); err != nil {
+		glog.Error(err)
+		return
+	}
+
+	if err := enc.Encode(routes); err != nil {
 		glog.Error(err)
 		return
 	}

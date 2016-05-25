@@ -111,6 +111,19 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		return err
 	}
 
+	routes := []netlink.Route{}
+	err = listener.dec.Decode(&routes)
+	if err != nil {
+		return err
+	}
+
+	var gw_route *netlink.Route
+	for idx, route := range routes {
+		if route.Dst == nil {
+			gw_route = &routes[idx]
+		}
+	}
+
 	glog.Infof("interface configuration of pod ns is %v", infos)
 	for idx, info := range infos {
 		bridge, err := GetBridgeFromIndex(info.PeerIndex)
@@ -121,6 +134,10 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		conf := pod.UserInterface{
 			Bridge: bridge,
 			Ip:     info.Ip,
+		}
+
+		if gw_route != nil && gw_route.LinkIndex == info.Index {
+			conf.Gw = gw_route.Gw.String()
 		}
 
 		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
