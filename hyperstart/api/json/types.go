@@ -20,6 +20,10 @@ type ExecCommand struct {
 	Process   Process `json:"process"`
 }
 
+type Routes struct {
+	Routes []Route `json:"routes,omitempty"`
+}
+
 // Message
 type DecodedMessage struct {
 	Code    uint32

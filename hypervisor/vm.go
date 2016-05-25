@@ -355,6 +355,16 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	}, StateRunning)
 }
 
+func (vm *Vm) AddRoute() error {
+	return vm.GenericOperation("AddRoute", func(ctx *VmContext, result chan<- error) {
+		ctx.vm <- &hyperstartCmd{
+			Code:    hyperstartapi.INIT_SETUPROUTE,
+			Message: hyperstartapi.Routes{Routes: ctx.vmSpec.Routes},
+			result:  result,
+		}
+	}, StateRunning)
+}
+
 func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 	var (
 		failEvent     *DeviceFailed
@@ -405,6 +415,8 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 	return vm.GenericOperation("InterfaceInserted", func(ctx *VmContext, result chan<- error) {
 		ctx.netdevInserted(insertedEvent)
 		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
+		glog.Infof("finial vmSpec.Routes is %v", ctx.vmSpec.Routes)
+
 		ctx.updateInterface(idx, result)
 	}, StateRunning)
 }
