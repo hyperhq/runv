@@ -146,6 +146,12 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 			return err
 		}
 	}
+
+	err = hp.vm.AddRoute()
+	if err != nil {
+		glog.Error(err)
+		return err
+	}
 	/*
 		go func() {
 			// watching container network setting, update vm/hyperstart
