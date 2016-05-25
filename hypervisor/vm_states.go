@@ -133,11 +133,6 @@ func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
 }
 
 func (ctx *VmContext) updateInterface(index int, result chan<- error) {
-	cmd := &GenericOperation{
-		OpName: "updateInterface",
-		Result: result,
-	}
-
 	if _, ok := ctx.devices.networkMap[index]; !ok {
 		result <- fmt.Errorf("can't find interface whose index is %d", index)
 		return
@@ -152,7 +147,7 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_SETUPINTERFACE,
 		Message: inf,
-		Event:   cmd,
+		result:  result,
 	}
 }
 
@@ -571,13 +566,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 				idx := len(ctx.vmSpec.Containers) - 1
 				c := ctx.vmSpec.Containers[idx]
 				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-			} else if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
-				ctx.reportGenericOperation(ack.reply.Event, true)
-			}
-		case ERROR_CMD_FAIL:
-			ack := ev.(*CommandError)
-			if ack.reply.Code == hyperstartapi.INIT_SETUPINTERFACE {
-				ctx.reportGenericOperation(ack.reply.Event, false)
 			}
 		case COMMAND_GET_POD_STATS:
 			ctx.reportPodStats(ev)
