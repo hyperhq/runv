@@ -43,3 +43,9 @@ func (tm *TtyMessage) ToBuffer() []byte {
 	copy(buf[12:], tm.Message)
 	return buf
 }
+
+type WindowSizeMessage struct {
+	Seq    uint64 `json:"seq"`
+	Row    uint16 `json:"row"`
+	Column uint16 `json:"column"`
+}

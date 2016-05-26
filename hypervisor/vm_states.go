@@ -156,10 +156,11 @@ func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
 		if !ctx.ptys.isTty(session) {
 			ctx.reportBadRequest(fmt.Sprintf("the session is not a tty, doesn't support resize."))
 		}
-		cmd := map[string]interface{}{
-			"seq":    session,
-			"row":    size.Row,
-			"column": size.Column,
+
+		cmd := hyperstartapi.WindowSizeMessage{
+			Seq:    session,
+			Row:    size.Row,
+			Column: size.Column,
 		}
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_WINSIZE,
