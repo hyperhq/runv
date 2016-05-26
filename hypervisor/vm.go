@@ -357,6 +357,11 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 
 func (vm *Vm) AddRoute() error {
 	return vm.GenericOperation("AddRoute", func(ctx *VmContext, result chan<- error) {
+		if len(ctx.vmSpec.Routes) == 0 {
+			result <- nil
+			return
+		}
+
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_SETUPROUTE,
 			Message: hyperstartapi.Routes{Routes: ctx.vmSpec.Routes},
