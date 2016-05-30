@@ -184,6 +184,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	}
 	defer vm.ReleaseResponseChan(Status)
 
+	mypod.Wg.Add(1)
 	for {
 		Response, ok := <-Status
 		if !ok {
@@ -196,6 +197,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 			break
 		}
 	}
+	mypod.Wg.Done()
 }
 
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
