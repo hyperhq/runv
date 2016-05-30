@@ -59,7 +59,7 @@ type Container struct {
 	Process       Process            `json:"process"`
 	RestartPolicy string             `json:"restartPolicy"`
 	Initialize    bool               `json:"initialize"`
-	Ports         []Port             `json:"ports"`
+	Ports         []Port             `json:"ports,omitempty"`
 }
 
 type NetworkInf struct {
@@ -81,7 +81,7 @@ type Pod struct {
 	Dns        []string     `json:"dns,omitempty"`
 	Routes     []Route      `json:"routes,omitempty"`
 	ShareDir   string       `json:"shareDir"`
-	WhiteCIDRs []string     `json:"whiteCIDRs"`
+	WhiteCIDRs []string     `json:"whiteCIDRs,omitempty"`
 }
 
 func (cr *Container) RoLookup(mpoint string) bool {
