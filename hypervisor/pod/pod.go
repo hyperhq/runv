@@ -126,6 +126,7 @@ type UserPod struct {
 	Services      []UserService     `json:"services,omitempty"`
 	LogConfig     PodLogConfig      `json:"log"`
 	Dns           []string          `json:"dns,omitempty"`
+	WhiteCIDRs    []string          `json:"whiteCIDRs,omitempty"`
 	Tty           bool              `json:"tty"`
 	Type          string            `json:"type"`
 	RestartPolicy string

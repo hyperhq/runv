@@ -116,11 +116,30 @@ func (ctx *VmContext) initContainerInfo(index int, target *hyperstartapi.Contain
 		restart = spec.RestartPolicy
 	}
 
+	ports := make([]hyperstartapi.Port, 0, len(spec.Ports))
+	for _, port := range spec.Ports {
+		if port.ContainerPort == 0 {
+			continue
+		}
+		p := hyperstartapi.Port{
+			Protocol:      port.Protocol,
+			HostPort:      port.HostPort,
+			ContainerPort: port.ContainerPort,
+		}
+		if port.Protocol == "" {
+			p.Protocol = "tcp"
+		}
+		if port.HostPort == 0 {
+			p.HostPort = p.ContainerPort
+		}
+		ports = append(ports, p)
+	}
+
 	p := hyperstartapi.Process{User: spec.User.Name, Group: spec.User.Group, AdditionalGroups: spec.User.AdditionalGroups,
 		Terminal: spec.Tty, Stdio: 0, Stderr: 0, Args: spec.Command, Envs: envs, Workdir: spec.Workdir}
 	*target = hyperstartapi.Container{
 		Id: "", Rootfs: "rootfs", Fstype: "", Image: "",
-		Volumes: vols, Fsmap: fsmap, Process: p,
+		Volumes: vols, Fsmap: fsmap, Process: p, Ports: ports,
 		Sysctl: spec.Sysctl, RestartPolicy: restart,
 	}
 }
