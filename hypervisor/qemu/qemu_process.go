@@ -63,7 +63,8 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	pid, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
+	logFile := ctx.HomeDir + "qemu.log"
+	pid, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...), logFile)
 	if err != nil {
 		//fail to daemonize
 		glog.Errorf("%v", err)

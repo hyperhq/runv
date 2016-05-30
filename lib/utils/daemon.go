@@ -10,9 +10,10 @@ package utils
 //#include <sys/time.h>
 //#include <sys/resource.h>
 //#include <fcntl.h>
+//#include <string.h>
 /*
-int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num) {
-	int status = 0, fd, pid, i;
+int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num, char* logFile) {
+	int status = 0, fd, logFd, pid, i;
 	struct sigaction sa;
 
 	pid = fork();
@@ -73,8 +74,16 @@ int daemonize(char *cmd, char *argv[], int pipe, int fds[], int num) {
 	//Attach file descriptors 0, 1, and 2 to /dev/null
 	fd = open("/dev/null", O_RDWR);
 	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
+	//Redirect the stdout & stderr to logFile if it is not empty
+	if (strlen(logFile) != 0) {
+		logFd = open(logFile, O_RDWR|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+		dup2(logFd, 1);
+		dup2(logFd, 2);
+		close(logFd);
+	} else {
+		dup2(fd, 1);
+		dup2(fd, 2);
+	}
 	close(fd);
 
 	if (execvp(cmd, argv) < 0)
@@ -93,7 +102,7 @@ import (
 	"unsafe"
 )
 
-func ExecInDaemon(cmd string, argv []string) (pid uint32, err error) {
+func ExecInDaemon(cmd string, argv []string, logFile string) (pid uint32, err error) {
 	// convert the args to the C style args
 	// +1 for the list of arguments must be terminated by a null pointer
 	cargs := make([]*C.char, len(argv)+1)
@@ -119,7 +128,7 @@ func ExecInDaemon(cmd string, argv []string) (pid uint32, err error) {
 	}
 
 	// do the job!
-	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe[1]), fds, num)
+	ret, err := C.daemonize(C.CString(cmd), (**C.char)(unsafe.Pointer(&cargs[0])), C.int(pipe[1]), fds, num, C.CString(logFile))
 	if err != nil || ret < 0 {
 		return 0, fmt.Errorf("fail to start %s in daemon mode: %v", argv[0], err)
 	}

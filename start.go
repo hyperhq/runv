@@ -155,7 +155,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			if context.GlobalBool("debug") {
 				args = append(args, "-v", "3", "--log_dir", context.GlobalString("log_dir"))
 			}
-			_, err = utils.ExecInDaemon(path, args)
+			_, err = utils.ExecInDaemon(path, args, "")
 			if err != nil {
 				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
 				os.Exit(-1)
