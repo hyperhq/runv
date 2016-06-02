@@ -33,6 +33,11 @@ The current release of `runV` supports the following distros:
 
 ### Build
 ```bash
+# install autoconf automake pkg-config make gcc golang qemu
+# optional install device-mapper and device-mapper-devel for device-mapper storage
+# optional install xen and xen-devel for xen driver
+# optional install libvirt and libvirt-devel for libvirt driver
+# note: the above package names might be different in various distros
 # create a 'github.com/hyperhq' in your GOPATH/src
 cd $GOPATH/src/github.com/hyperhq
 git clone https://github.com/hyperhq/runv/
