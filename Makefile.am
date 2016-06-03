@@ -14,9 +14,10 @@ endif
 HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
 all-local: build-runv build-containerd
 clean-local:
-	-rm -f runv
+	-rm -f runv runv-containerd
 install-exec-local: 
 	$(INSTALL_PROGRAM) runv $(bindir)
+	$(INSTALL_PROGRAM) runv-containerd $(bindir)
 
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
