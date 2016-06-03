@@ -114,22 +114,27 @@ type PodLogConfig struct {
 	Config map[string]string `json:"config"`
 }
 
+type PortmappingWhiteList struct {
+	InternalNetworks []string `json:"internalNetworks,omitempty"`
+	ExternalNetworks []string `json:"externalNetworks,omitempty"`
+}
+
 type UserPod struct {
-	Name          string            `json:"id"`
-	Hostname      string            `json:"hostname"`
-	Containers    []UserContainer   `json:"containers"`
-	Resource      UserResource      `json:"resource"`
-	Files         []UserFile        `json:"files"`
-	Volumes       []UserVolume      `json:"volumes"`
-	Interfaces    []UserInterface   `json:"interfaces,omitempty"`
-	Labels        map[string]string `json:"labels"`
-	Services      []UserService     `json:"services,omitempty"`
-	LogConfig     PodLogConfig      `json:"log"`
-	Dns           []string          `json:"dns,omitempty"`
-	WhiteCIDRs    []string          `json:"whiteCIDRs,omitempty"`
-	Tty           bool              `json:"tty"`
-	Type          string            `json:"type"`
-	RestartPolicy string
+	Name                  string                `json:"id"`
+	Hostname              string                `json:"hostname"`
+	Containers            []UserContainer       `json:"containers"`
+	Resource              UserResource          `json:"resource"`
+	Files                 []UserFile            `json:"files"`
+	Volumes               []UserVolume          `json:"volumes"`
+	Interfaces            []UserInterface       `json:"interfaces,omitempty"`
+	Labels                map[string]string     `json:"labels"`
+	Services              []UserService         `json:"services,omitempty"`
+	LogConfig             PodLogConfig          `json:"log"`
+	Dns                   []string              `json:"dns,omitempty"`
+	PortmappingWhiteLists *PortmappingWhiteList `json:"portmappingWhiteLists,omitempty"`
+	Tty                   bool                  `json:"tty"`
+	Type                  string                `json:"type"`
+	RestartPolicy         string
 }
 
 func ProcessPodFile(jsonFile string) (*UserPod, error) {
