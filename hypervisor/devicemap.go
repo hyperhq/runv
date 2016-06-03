@@ -129,9 +129,6 @@ func (ctx *VmContext) initContainerInfo(index int, target *hyperstartapi.Contain
 		if port.Protocol == "" {
 			p.Protocol = "tcp"
 		}
-		if port.HostPort == 0 {
-			p.HostPort = p.ContainerPort
-		}
 		ports = append(ports, p)
 	}
 

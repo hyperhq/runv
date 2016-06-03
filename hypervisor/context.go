@@ -2,13 +2,14 @@ package hypervisor
 
 import (
 	"encoding/json"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"os"
-	"sync"
-	"time"
 )
 
 type VmHwStatus struct {
@@ -270,15 +271,21 @@ func (ctx *VmContext) InitDeviceContext(spec *pod.UserPod, wg *sync.WaitGroup,
 		hostname = spec.Name[:64]
 	}
 
-	ctx.vmSpec = &hyperstartapi.Pod{
+	vmspec := &hyperstartapi.Pod{
 		Hostname:   hostname,
 		Containers: containers,
 		Dns:        spec.Dns,
-		WhiteCIDRs: spec.WhiteCIDRs,
 		Interfaces: nil,
 		Routes:     nil,
 		ShareDir:   ShareDirTag,
 	}
+	if spec.PortmappingWhiteLists != nil {
+		vmspec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
+			InternalNetworks: spec.PortmappingWhiteLists.InternalNetworks,
+			ExternalNetworks: spec.PortmappingWhiteLists.ExternalNetworks,
+		}
+	}
+	ctx.vmSpec = vmspec
 
 	for _, vol := range vInfo {
 		ctx.setVolumeInfo(vol)

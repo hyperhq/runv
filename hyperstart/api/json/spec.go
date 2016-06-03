@@ -74,14 +74,19 @@ type Route struct {
 	Device  string `json:"device,omitempty"`
 }
 
+type PortmappingWhiteList struct {
+	InternalNetworks []string `json:"internalNetworks,omitempty"`
+	ExternalNetworks []string `json:"externalNetworks,omitempty"`
+}
+
 type Pod struct {
-	Hostname   string       `json:"hostname"`
-	Containers []Container  `json:"containers"`
-	Interfaces []NetworkInf `json:"interfaces,omitempty"`
-	Dns        []string     `json:"dns,omitempty"`
-	Routes     []Route      `json:"routes,omitempty"`
-	ShareDir   string       `json:"shareDir"`
-	WhiteCIDRs []string     `json:"whiteCIDRs,omitempty"`
+	Hostname              string                `json:"hostname"`
+	Containers            []Container           `json:"containers"`
+	Interfaces            []NetworkInf          `json:"interfaces,omitempty"`
+	Dns                   []string              `json:"dns,omitempty"`
+	Routes                []Route               `json:"routes,omitempty"`
+	ShareDir              string                `json:"shareDir"`
+	PortmappingWhiteLists *PortmappingWhiteList `json:"portmappingWhiteLists,omitempty"`
 }
 
 func (cr *Container) RoLookup(mpoint string) bool {
