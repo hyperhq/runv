@@ -1,10 +1,10 @@
 [![Build Status](https://travis-ci.org/hyperhq/runv.svg?branch=master)](https://travis-ci.org/hyperhq/runv)
 ## runV
 
-`runV` is a hypervisor-based runtime for [OCF](https://github.com/opencontainers/specs).
+`runV` is a hypervisor-based runtime for [OCI](https://github.com/opencontainers/runtime-spec).
 
-### OCF
-`runV` is compatible with OCF. However, due to the difference between hypervisors and containers, the following sections of OCF don't apply to runV:
+### OCI
+`runV` is compatible with OCI. However, due to the difference between hypervisors and containers, the following sections of OCI don't apply to runV:
 - Namespace
 - Capability
 - Device
@@ -49,7 +49,7 @@ sudo make install
 ```
 
 ### Run
-To run a OCF image, execute `runv` with the [OCF JSON format file](https://github.com/opencontainers/runc#ocf-container-json-format) as argument, or have a `config.json` file in `CWD`.
+To run a OCI image, execute `runv` with the [OCI JSON format file](https://github.com/opencontainers/runc#oci-container-json-format) as argument, or have a `config.json` file in `CWD`.
 
 Also, a kernel and initrd images are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to load the `kernel` and `initrd.img` files from `CWD`.
 
@@ -66,6 +66,6 @@ root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 Please check the runC example to get the container rootfs.
 https://github.com/opencontainers/runc#examples
 
-And you can get a sample OCF config.json at
+And you can get a sample OCI config.json at
 https://github.com/opencontainers/runc#oci-container-json-format or
 simply execute `runv spec`.
