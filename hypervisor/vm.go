@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"encoding/json"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
@@ -570,6 +571,9 @@ func (vm *Vm) Stats() *types.VmResponse {
 	// wait for the VM response
 	for {
 		response = <-Status
+		if response == nil {
+			continue
+		}
 		glog.V(1).Infof("Got response, Code %d, VM id %s!", response.Code, response.VmId)
 		if response.Reply != getPodStatsEvent {
 			continue
