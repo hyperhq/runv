@@ -119,7 +119,8 @@ type ContainerInfo struct {
 	Entrypoint []string
 	Cmd        []string
 	Envs       map[string]string
-	Initialize bool // need to initialize container environment in start
+	Initialize bool            // need to initialize container environment in start
+	ClientTag  map[string]bool // TODO: get rid of ClientTag
 	ExitCode   uint8
 }
 
