@@ -86,7 +86,6 @@ type WindowSizeCommand struct {
 type ExecInfo struct {
 	Container string
 	ExecId    string
-	ClientTag string
 	Command   string
 	Terminal  bool
 	Stdin     io.ReadCloser

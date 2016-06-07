@@ -483,10 +483,9 @@ func (vm *Vm) Exec(exec *ExecInfo) error {
 	var command []string
 
 	tty := &TtyIO{
-		ClientTag: exec.ClientTag,
-		Stdin:     exec.Stdin,
-		Stdout:    exec.Stdout,
-		Callback:  make(chan *types.VmResponse, 1),
+		Stdin:    exec.Stdin,
+		Stdout:   exec.Stdout,
+		Callback: make(chan *types.VmResponse, 1),
 	}
 
 	if exec.Command == "" {

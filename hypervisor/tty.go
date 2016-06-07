@@ -20,11 +20,10 @@ type WindowSize struct {
 }
 
 type TtyIO struct {
-	Stdin     io.ReadCloser
-	Stdout    io.WriteCloser
-	ClientTag string
-	Callback  chan *types.VmResponse
-	ExitCode  uint8
+	Stdin    io.ReadCloser
+	Stdout   io.WriteCloser
+	Callback chan *types.VmResponse
+	ExitCode uint8
 }
 
 func (tty *TtyIO) WaitForFinish() error {
@@ -425,9 +424,6 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
-	// tag of container should be containerid+"-stdio"
-	tty.ClientTag = container + "-stdio"
-
 	cmd := &AttachCommand{
 		Streams:   tty,
 		Size:      size,
@@ -439,20 +435,18 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 	}, StateInit, StateStarting, StateRunning)
 }
 
-func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
+func (vm *Vm) GetLogOutput(container string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
 	stdout, stdoutStub := io.Pipe()
 	stderr, stderrStub := io.Pipe()
 	outIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stdoutStub,
-		ClientTag: tag,
-		Callback:  callback,
+		Stdin:    nil,
+		Stdout:   stdoutStub,
+		Callback: callback,
 	}
 	errIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stderrStub,
-		ClientTag: tag,
-		Callback:  nil,
+		Stdin:    nil,
+		Stdout:   stderrStub,
+		Callback: nil,
 	}
 
 	cmd := &AttachCommand{
