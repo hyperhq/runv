@@ -107,6 +107,7 @@ type ContainerInfo struct {
 	Cmd        []string
 	Envs       map[string]string
 	Initialize bool // need to initialize container environment in start
+	ExitCode   uint8
 }
 
 type ContainerUnmounted struct {

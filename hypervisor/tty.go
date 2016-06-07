@@ -449,6 +449,9 @@ func TtyLiner(conn io.Reader, output chan string) {
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
+	// tag of container should be containerid+"-stdio"
+	tty.ClientTag = container + "-stdio"
+
 	cmd := &AttachCommand{
 		Streams:   tty,
 		Size:      size,
