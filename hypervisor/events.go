@@ -1,6 +1,7 @@
 package hypervisor
 
 import (
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -79,6 +80,17 @@ type CommandError CommandAck
 type WindowSizeCommand struct {
 	ClientTag string
 	Size      *WindowSize
+}
+
+type ExecInfo struct {
+	Container string
+	ExecId    string
+	ClientTag string
+	Command   string
+	Terminal  bool
+	Stdin     io.ReadCloser
+	Stdout    io.WriteCloser
+	ExitCode  uint8
 }
 
 type ContainerCreatedEvent struct {
