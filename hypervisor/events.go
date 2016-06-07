@@ -78,7 +78,8 @@ type CommandAck struct {
 type CommandError CommandAck
 
 type WindowSizeCommand struct {
-	ClientTag string
+	Container string
+	ExecId    string
 	Size      *WindowSize
 }
 

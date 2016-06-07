@@ -151,25 +151,48 @@ func (ctx *VmContext) updateInterface(index int, result chan<- error) {
 	}
 }
 
-func (ctx *VmContext) setWindowSize(tag string, size *WindowSize) {
-	if session, ok := ctx.ptys.ttySessions[tag]; ok {
-		if !ctx.ptys.isTty(session) {
-			ctx.reportBadRequest(fmt.Sprintf("the session is not a tty, doesn't support resize."))
+func (ctx *VmContext) setWindowSize(container, execId string, size *WindowSize) {
+	var session uint64
+	if execId != "" {
+		exec, ok := ctx.vmExec[execId]
+		if !ok {
+			glog.Infof("can not find exec %s", execId)
+			return
 		}
 
-		cmd := hyperstartapi.WindowSizeMessage{
-			Seq:    session,
-			Row:    size.Row,
-			Column: size.Column,
+		session = exec.Process.Stdio
+	} else if container != "" {
+		idx := ctx.Lookup(container)
+		if idx < 0 {
+			glog.Infof("can not find container %s", container)
+			return
 		}
-		ctx.vm <- &hyperstartCmd{
-			Code:    hyperstartapi.INIT_WINSIZE,
-			Message: cmd,
+
+		if idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
+			glog.Infof("tty is not configured for %s", container)
+			return
 		}
+
+		session = ctx.vmSpec.Containers[idx].Process.Stdio
 	} else {
-		msg := fmt.Sprintf("cannot resolve client tag %s", tag)
-		ctx.reportBadRequest(msg)
-		glog.Error(msg)
+		glog.Errorf("both container and exec is nil")
+		return
+	}
+
+	if !ctx.ptys.isTty(session) {
+		glog.Infof("the session %v is not a tty, doesn't support resize.", session)
+		return
+	}
+
+	cmd := hyperstartapi.WindowSizeMessage{
+		Seq:    session,
+		Row:    size.Row,
+		Column: size.Column,
+	}
+
+	ctx.vm <- &hyperstartCmd{
+		Code:    hyperstartapi.INIT_WINSIZE,
+		Message: cmd,
 	}
 }
 
@@ -179,13 +202,14 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	}
 }
 
-func (ctx *VmContext) execCmd(cmd *hyperstartapi.ExecCommand, tty *TtyIO, result chan<- error) {
+func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty *TtyIO, result chan<- error) {
 	cmd.Process.Stdio = ctx.ptys.nextAttachId()
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
+
+	ctx.vmExec[execId] = cmd
 	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, tty)
-	ctx.ptys.clientReg(tty.ClientTag, cmd.Process.Stdio)
 	if !cmd.Process.Terminal {
 		stderrIO := &TtyIO{
 			Stdin:     nil,
@@ -226,7 +250,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	}
 	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
 	if cmd.Size != nil {
-		ctx.setWindowSize(cmd.Streams.ClientTag, cmd.Size)
+		ctx.setWindowSize(cmd.Container, "", cmd.Size)
 	}
 
 	result <- nil
@@ -235,7 +259,6 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
 	session := process.Stdio
 	ctx.ptys.ptyConnect(true, process.Terminal, session, cmd.Streams)
-	ctx.ptys.clientReg(cmd.Streams.ClientTag, session)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 
 	//new stderr session
@@ -444,7 +467,7 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
-			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
+			ctx.setWindowSize(cmd.Container, cmd.ExecId, cmd.Size)
 		case COMMAND_RUN_POD, COMMAND_REPLACE_POD:
 			glog.Info("got spec, prepare devices")
 			if ok := ctx.prepareDevice(ev.(*RunPodCommand)); ok {
@@ -494,7 +517,7 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 			ctx.reportBusy("")
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
-			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
+			ctx.setWindowSize(cmd.Container, cmd.ExecId, cmd.Size)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[starting] got init ack to %d", ack.reply)
@@ -552,7 +575,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
-			ctx.setWindowSize(cmd.ClientTag, cmd.Size)
+			ctx.setWindowSize(cmd.Container, cmd.ExecId, cmd.Size)
 		case EVENT_POD_FINISH:
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)

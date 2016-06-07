@@ -51,7 +51,7 @@ func (p *Process) setupIO() error {
 	if p.Spec.Terminal {
 	}
 	p.stdio = &hypervisor.TtyIO{
-		ClientTag: p.inerId,
+		ClientTag: p.Id,
 		Stdin:     stdin,
 		Stdout:    stdout,
 		Callback:  make(chan *types.VmResponse, 1),
@@ -62,7 +62,7 @@ func (p *Process) setupIO() error {
 }
 
 func (p *Process) ttyResize(width, height int) error {
-	return p.ownerCont.ownerPod.vm.Tty(p.inerId, height, width)
+	return p.ownerCont.ownerPod.vm.Tty("", p.Id, height, width)
 }
 
 func (p *Process) closeStdin() error {

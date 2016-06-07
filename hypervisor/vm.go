@@ -497,7 +497,7 @@ func (vm *Vm) Exec(exec *ExecInfo) error {
 		return err
 	}
 
-	if err := vm.AddProcess(exec.Container, exec.Terminal, command, []string{}, "/", tty); err != nil {
+	if err := vm.AddProcess(exec.Container, exec.ExecId, exec.Terminal, command, []string{}, "/", tty); err != nil {
 		return err
 	}
 
@@ -505,7 +505,7 @@ func (vm *Vm) Exec(exec *ExecInfo) error {
 	return nil
 }
 
-func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
+func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
 	envs := []hyperstartapi.EnvironmentVar{}
 
 	for _, v := range env {
@@ -528,12 +528,17 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	}
 
 	err := vm.GenericOperation("AddProcess", func(ctx *VmContext, result chan<- error) {
-		ctx.execCmd(execCmd, tty, result)
+		ctx.execCmd(execId, execCmd, tty, result)
 	}, StateRunning)
 
 	if err != nil {
 		return fmt.Errorf("exec command %v failed: %v", args, err)
 	}
+
+	defer vm.GenericOperation("ProcessFinished", func(ctx *VmContext, result chan<- error) {
+		delete(ctx.vmExec, execId)
+		result <- nil
+	}, StateRunning)
 
 	vm.GenericOperation("StartStdin", func(ctx *VmContext, result chan<- error) {
 		ctx.ptys.startStdin(execCmd.Process.Stdio, true)
@@ -553,9 +558,10 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	return nil
 }
 
-func (vm *Vm) Tty(tag string, row, column int) error {
+func (vm *Vm) Tty(container, execId string, row, column int) error {
 	var ttySizeCommand = &WindowSizeCommand{
-		ClientTag: tag,
+		Container: container,
+		ExecId:    execId,
 		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
