@@ -84,6 +84,14 @@ func (mypod *PodStatus) SetContainerStatus(status uint32) {
 	}
 }
 
+func (mypod *PodStatus) SetOneContainerStatus(containerId string, status uint32) {
+	for _, c := range mypod.Containers {
+		if c.Id == containerId {
+			c.Status = status
+		}
+	}
+}
+
 func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []string, status uint32) {
 	container := &Container{
 		Id:     containerId,
