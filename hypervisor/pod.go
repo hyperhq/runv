@@ -105,6 +105,15 @@ func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []str
 	mypod.Containers = append(mypod.Containers, container)
 }
 
+func (mypod *PodStatus) DeleteContainer(containerId string) {
+	for i, c := range mypod.Containers {
+		if c.Id == containerId {
+			mypod.Containers = append(mypod.Containers[:i], mypod.Containers[i+1:]...)
+			return
+		}
+	}
+}
+
 func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	if mypod.Vm == "" {
 		return nil
