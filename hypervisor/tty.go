@@ -482,7 +482,9 @@ func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmRespons
 		Container: container,
 	}
 
-	vm.Hub <- cmd
+	vm.GenericOperation("Attach", func(ctx *VmContext, result chan<- error) {
+		ctx.attachCmd(cmd, result)
+	}, StateInit, StateStarting, StateRunning)
 
 	return stdout, stderr, nil
 }
