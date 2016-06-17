@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -46,6 +47,22 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		cli.StringFlag{
 			Name:  "bundle, b",
 			Usage: "path to the root of the bundle directory",
+		},
+		cli.StringFlag{
+			Name:  "console",
+			Usage: "specify the pty slave path for use with the container",
+		},
+		cli.StringFlag{
+			Name:  "pid-file",
+			Usage: "specify the file to write the process id to",
+		},
+		cli.BoolFlag{
+			Name:  "no-pivot",
+			Usage: "[ignore on runv] do not use pivot root to jail process inside rootfs.  This should be used whenever the rootfs is on top of a ramdisk",
+		},
+		cli.BoolFlag{
+			Name:  "detach, d",
+			Usage: "detach from the container's process",
 		},
 	},
 	Action: func(context *cli.Context) {
@@ -163,7 +180,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			address = filepath.Join(namespace, "namespaced.sock")
 		}
 
-		status := startContainer(bundle, container, address, spec)
+		status := startContainer(context, container, address, spec)
 		os.Exit(status)
 	},
 }
@@ -181,11 +198,11 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 // * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
 
-func startContainer(bundle, container, address string, config *specs.Spec) int {
+func startContainer(context *cli.Context, container, address string, config *specs.Spec) int {
 	pid := os.Getpid()
 	r := &types.CreateContainerRequest{
 		Id:         container,
-		BundlePath: bundle,
+		BundlePath: context.String("bundle"),
 		Stdin:      fmt.Sprintf("/proc/%d/fd/0", pid),
 		Stdout:     fmt.Sprintf("/proc/%d/fd/1", pid),
 		Stderr:     fmt.Sprintf("/proc/%d/fd/2", pid),
@@ -206,6 +223,43 @@ func startContainer(bundle, container, address string, config *specs.Spec) int {
 		defer term.RestoreTerminal(os.Stdin.Fd(), s)
 		monitorTtySize(c, container, "init")
 	}
+	if context.String("pid-file") != "" {
+		stateData, err := ioutil.ReadFile(filepath.Join(context.GlobalString("root"), container, stateJson))
+		if err != nil {
+			fmt.Printf("read state.json error %v\n", err)
+			return -1
+		}
+
+		var s specs.State
+		if err := json.Unmarshal(stateData, &s); err != nil {
+			fmt.Printf("unmarshal state.json error %v\n", err)
+			return -1
+		}
+		err = createPidFile(context.String("pid-file"), s.Pid)
+		if err != nil {
+			fmt.Printf("create pid-file error %v\n", err)
+		}
+	}
 	return waitForExit(c, timestamp, container, "init")
 
+}
+
+// createPidFile creates a file with the processes pid inside it atomically
+// it creates a temp file with the paths filename + '.' infront of it
+// then renames the file
+func createPidFile(path string, pid int) error {
+	var (
+		tmpDir  = filepath.Dir(path)
+		tmpName = filepath.Join(tmpDir, fmt.Sprintf(".%s", filepath.Base(path)))
+	)
+	f, err := os.OpenFile(tmpName, os.O_RDWR|os.O_CREATE|os.O_EXCL|os.O_SYNC, 0666)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(f, "%d", pid)
+	f.Close()
+	if err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
