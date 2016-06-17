@@ -16,6 +16,10 @@ import (
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
+const (
+	vmNoFileReadError = "Error: "
+)
+
 type Vm struct {
 	Id     string
 	Pod    *PodStatus
@@ -348,6 +352,11 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		cmd.result = result
 		ctx.vm <- &cmd
 	}, StateRunning)
+
+	// if we got a error with empty content, omit it: it's a container without service
+	if err != nil && err.Error() == vmNoFileReadError {
+		err = nil
+	}
 
 	return cmd.retMsg, err
 }
