@@ -57,6 +57,7 @@ type UserContainer struct {
 	Entrypoint    []string              `json:"entrypoint"`
 	Tty           bool                  `json:"tty,omitempty"`
 	Sysctl        map[string]string     `json:"sysctl,omitempty"`
+	Labels        map[string]string     `json:"labels"`
 	Ports         []UserContainerPort   `json:"ports"`
 	Envs          []UserEnvironmentVar  `json:"envs"`
 	Volumes       []UserVolumeReference `json:"volumes"`
