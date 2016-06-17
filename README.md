@@ -62,6 +62,36 @@ root         2  0.0  0.5   4448   632 pts/0    Ss   05:54   0:00 sh
 root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 ```
 
+### Run it with docker
+`runv` is a runtime implementation of [OCI](https://github.com/opencontainers/runtime-spec) and its commandline is partially compatible with the runc commandline. (it is compatible with the commandline of the docker-runc of the docker-1.1 currently, so official docker-1.1 binary works in the example)
+
+Note, runv project also provides [other way](https://github.com/hyperhq/runv/tree/master/containerd) to integrate with docker.
+Note, container tty is not working currently.
+
+```bash
+# in terminal #1
+docker-containerd --debug -l /var/run/docker/libcontainerd/docker-containerd.sock \
+  --runtime /path/to/runv --runtime-args --debug --runtime-args --driver=libvirt \
+  --runtime-args --kernel=/opt/hyperstart/build/kernel \
+  --runtime-args --initrd=/opt/hyperstart/build/hyper-initrd.img \
+  --start-timeout 2m
+# in terminal #2
+docker daemon -D -l debug --containerd=/var/run/docker/libcontainerd/docker-containerd.sock
+# in terminal #3 for trying it
+docker run  busybox ls
+bin
+dev
+etc
+home
+lib
+proc
+root
+sys
+tmp
+usr
+var
+```
+
 ### Example
 Please check the runC example to get the container rootfs.
 https://github.com/opencontainers/runc#examples

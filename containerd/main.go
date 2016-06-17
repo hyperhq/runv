@@ -16,6 +16,7 @@ import (
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/supervisor"
+	"github.com/hyperhq/runv/supervisor/proxy"
 	"google.golang.org/grpc"
 )
 
@@ -84,7 +85,7 @@ var daemonFlags = []cli.Flag{
 
 func main() {
 	if os.Args[0] == "containerd-nslistener" {
-		nsListenerDaemon()
+		proxy.NsListenerDaemon()
 		os.Exit(0)
 	}
 

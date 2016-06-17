@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"encoding/gob"
@@ -10,7 +10,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func nsListenerDaemon() {
+func NsListenerDaemon() {
 	/* create own netns */
 	if err := syscall.Unshare(syscall.CLONE_NEWNET); err != nil {
 		glog.Error(err)
