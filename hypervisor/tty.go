@@ -22,6 +22,7 @@ type WindowSize struct {
 type TtyIO struct {
 	Stdin     io.ReadCloser
 	Stdout    io.WriteCloser
+	Stderr    io.WriteCloser
 	ClientTag string
 	Callback  chan *types.VmResponse
 	ExitCode  uint8
@@ -238,6 +239,10 @@ func (tty *TtyIO) Close(code uint8) string {
 	if tty.Stdout != nil {
 		tty.Stdout.Close()
 	}
+	if tty.Stderr != nil {
+		tty.Stderr.Close()
+	}
+
 	if tty.Callback != nil {
 		tty.Callback <- &types.VmResponse{
 			Code:  types.E_EXEC_FINISH,
