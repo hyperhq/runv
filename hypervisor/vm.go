@@ -479,20 +479,32 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
-func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(exec *ExecInfo) error {
 	var command []string
 
-	if cmd == "" {
+	tty := &TtyIO{
+		Stdin:    exec.Stdin,
+		Stdout:   exec.Stdout,
+		Callback: make(chan *types.VmResponse, 1),
+	}
+
+	if exec.Command == "" {
 		return fmt.Errorf("'exec' without command")
 	}
 
-	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
+	if err := json.Unmarshal([]byte(exec.Command), &command); err != nil {
 		return err
 	}
-	return vm.AddProcess(container, terminal, command, []string{}, "/", tty)
+
+	if err := vm.AddProcess(exec.Container, exec.ExecId, exec.Terminal, command, []string{}, "/", tty); err != nil {
+		return err
+	}
+
+	exec.ExitCode = tty.ExitCode
+	return nil
 }
 
-func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
+func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
 	envs := []hyperstartapi.EnvironmentVar{}
 
 	for _, v := range env {
@@ -515,12 +527,17 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	}
 
 	err := vm.GenericOperation("AddProcess", func(ctx *VmContext, result chan<- error) {
-		ctx.execCmd(execCmd, tty, result)
+		ctx.execCmd(execId, execCmd, tty, result)
 	}, StateRunning)
 
 	if err != nil {
 		return fmt.Errorf("exec command %v failed: %v", args, err)
 	}
+
+	defer vm.GenericOperation("ProcessFinished", func(ctx *VmContext, result chan<- error) {
+		delete(ctx.vmExec, execId)
+		result <- nil
+	}, StateRunning)
 
 	vm.GenericOperation("StartStdin", func(ctx *VmContext, result chan<- error) {
 		ctx.ptys.startStdin(execCmd.Process.Stdio, true)
@@ -540,9 +557,10 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	return nil
 }
 
-func (vm *Vm) Tty(tag string, row, column int) error {
+func (vm *Vm) Tty(container, execId string, row, column int) error {
 	var ttySizeCommand = &WindowSizeCommand{
-		ClientTag: tag,
+		Container: container,
+		ExecId:    execId,
 		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 

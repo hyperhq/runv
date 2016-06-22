@@ -47,6 +47,7 @@ type VmContext struct {
 	// Specification
 	userSpec *pod.UserPod
 	vmSpec   *hyperstartapi.Pod
+	vmExec   map[string]*hyperstartapi.ExecCommand
 	devices  *deviceMap
 
 	progress *processingList
@@ -111,6 +112,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		current:         StateInit,
 		userSpec:        nil,
 		vmSpec:          nil,
+		vmExec:          make(map[string]*hyperstartapi.ExecCommand),
 		devices:         newDeviceMap(),
 		progress:        newProcessingList(),
 		lock:            &sync.Mutex{},

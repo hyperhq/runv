@@ -20,11 +20,10 @@ type WindowSize struct {
 }
 
 type TtyIO struct {
-	Stdin     io.ReadCloser
-	Stdout    io.WriteCloser
-	ClientTag string
-	Callback  chan *types.VmResponse
-	ExitCode  uint8
+	Stdin    io.ReadCloser
+	Stdout   io.WriteCloser
+	Callback chan *types.VmResponse
+	ExitCode uint8
 }
 
 func (tty *TtyIO) WaitForFinish() error {
@@ -57,7 +56,6 @@ type pseudoTtys struct {
 	attachId    uint64 //next available attachId for attached tty
 	channel     chan *hyperstartapi.TtyMessage
 	ttys        map[uint64]*ttyAttachments
-	ttySessions map[string]uint64
 	pendingTtys []*AttachCommand
 	lock        *sync.Mutex
 }
@@ -67,7 +65,6 @@ func newPts() *pseudoTtys {
 		attachId:    1,
 		channel:     make(chan *hyperstartapi.TtyMessage, 256),
 		ttys:        make(map[uint64]*ttyAttachments),
-		ttySessions: make(map[string]uint64),
 		pendingTtys: []*AttachCommand{},
 		lock:        &sync.Mutex{},
 	}
@@ -200,7 +197,7 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	at := []*TtyIO{}
 	detached := false
 	for _, t := range ta.attachments {
-		if tty.ClientTag != t.ClientTag {
+		if tty != t {
 			at = append(at, t)
 		} else {
 			detached = true
@@ -211,13 +208,11 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	}
 }
 
-func (ta *ttyAttachments) close(code uint8) []string {
-	tags := []string{}
+func (ta *ttyAttachments) close(code uint8) {
 	for _, t := range ta.attachments {
-		tags = append(tags, t.Close(code))
+		t.Close(code)
 	}
 	ta.attachments = []*TtyIO{}
-	return tags
 }
 
 func (ta *ttyAttachments) empty() bool {
@@ -228,9 +223,9 @@ func (ta *ttyAttachments) isTty() bool {
 	return ta.tty
 }
 
-func (tty *TtyIO) Close(code uint8) string {
+func (tty *TtyIO) Close(code uint8) {
 
-	glog.V(1).Info("Close tty ", tty.ClientTag)
+	glog.V(1).Info("Close tty")
 
 	if tty.Stdin != nil {
 		tty.Stdin.Close()
@@ -245,7 +240,7 @@ func (tty *TtyIO) Close(code uint8) string {
 			Data:  code,
 		}
 	}
-	return tty.ClientTag
+	return
 }
 
 func (pts *pseudoTtys) nextAttachId() uint64 {
@@ -263,23 +258,6 @@ func (pts *pseudoTtys) isTty(session uint64) bool {
 	return false
 }
 
-func (pts *pseudoTtys) clientReg(tag string, session uint64) {
-	pts.lock.Lock()
-	pts.ttySessions[tag] = session
-	pts.lock.Unlock()
-}
-
-func (pts *pseudoTtys) clientDereg(tag string) {
-	if tag == "" {
-		return
-	}
-	pts.lock.Lock()
-	if _, ok := pts.ttySessions[tag]; ok {
-		delete(pts.ttySessions, tag)
-	}
-	pts.lock.Unlock()
-}
-
 func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
@@ -288,19 +266,16 @@ func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 		if !ta.persistent && ta.empty() {
 			pts.Close(session, 0)
 		}
-		pts.clientDereg(tty.Close(0))
+		tty.Close(0)
 	}
 }
 
 func (pts *pseudoTtys) Close(session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
-		tags := ta.close(code)
+		ta.close(code)
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
-		for _, t := range tags {
-			pts.clientDereg(t)
-		}
 	}
 }
 
@@ -460,20 +435,18 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 	}, StateInit, StateStarting, StateRunning)
 }
 
-func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
+func (vm *Vm) GetLogOutput(container string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
 	stdout, stdoutStub := io.Pipe()
 	stderr, stderrStub := io.Pipe()
 	outIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stdoutStub,
-		ClientTag: tag,
-		Callback:  callback,
+		Stdin:    nil,
+		Stdout:   stdoutStub,
+		Callback: callback,
 	}
 	errIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stderrStub,
-		ClientTag: tag,
-		Callback:  nil,
+		Stdin:    nil,
+		Stdout:   stderrStub,
+		Callback: nil,
 	}
 
 	cmd := &AttachCommand{
