@@ -390,7 +390,7 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 		Stdout: stdout,
 		Stderr: stderr,
 		Spec:   &spec.Process,
-		ProcId: -1,
+		ProcId: c.ownerPod.getNsPid(),
 
 		inerId:    inerProcessId,
 		ownerCont: c,

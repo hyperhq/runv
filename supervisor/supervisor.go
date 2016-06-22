@@ -3,7 +3,8 @@ package supervisor
 import (
 	"fmt"
 	"os"
-	"strings"
+	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -141,23 +142,30 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 		return nil, fmt.Errorf("The container %s is already existing", container)
 	}
 	for _, ns := range spec.Linux.Namespaces {
-		if ns.Path != "" {
-			if strings.Contains(ns.Path, "/") {
-				return nil, fmt.Errorf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only")
-			}
+		if len(ns.Path) > 0 {
 			if ns.Type == "mount" {
 				// TODO support it!
 				return nil, fmt.Errorf("Runv doesn't support shared mount namespace currently")
 			}
-			shared := ns.Path
-			cnt, ok := sv.Containers[shared]
-			if !ok {
-				return nil, fmt.Errorf("The container %s is not existing to share with", shared)
+
+			pidexp := regexp.MustCompile(`/proc/(\d+)/ns/*`)
+			matches := pidexp.FindStringSubmatch(ns.Path)
+			if len(matches) != 2 {
+				return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
+			}
+			pid, _ := strconv.Atoi(matches[1])
+
+			for _, c := range sv.Containers {
+				if c.ownerPod != nil && pid == c.ownerPod.getNsPid() {
+					if hp != nil && hp != c.ownerPod {
+						return nil, fmt.Errorf("Conflict share")
+					}
+					hp = c.ownerPod
+					break
+				}
 			}
 			if hp == nil {
-				hp = cnt.ownerPod
-			} else if cnt.ownerPod != hp {
-				return nil, fmt.Errorf("conflict share")
+				return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
 			}
 		}
 	}
