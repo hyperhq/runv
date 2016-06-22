@@ -7,6 +7,9 @@ runv-containerd is a daemon to control hypercontainer and supports the same gRPC
  - You need to [build it from source](https://github.com/hyperhq/runv#build) at first.
  - Then you can combind it with [docker](https://github.com/docker/docker) or [containerd-ctr](https://github.com/docker/containerd/tree/master/ctr).
 
+### Dependencies
+ - If you want to enable network for container, Kernels newer than `Linux 4.1-rc1` or [this commit](https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/veth.c?id=a45253bf32bf49cdb2807bad212b84f5ab51ac26) are required.
+
 ### Try it with docker
 
 ```bash
