@@ -213,6 +213,16 @@ func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result ch
 	}
 }
 
+func (ctx *VmContext) stopCmd(container string, result chan<- error) {
+	ctx.vm <- &hyperstartCmd{
+		Code: hyperstartapi.INIT_STOPCONTAINER,
+		Message: hyperstartapi.StopCommand{
+			Container: container,
+		},
+		result: result,
+	}
+}
+
 func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
