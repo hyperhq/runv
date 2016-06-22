@@ -30,6 +30,10 @@ type TtyIO struct {
 func (tty *TtyIO) WaitForFinish() error {
 	tty.ExitCode = 255
 
+	if tty.Callback == nil {
+		return fmt.Errorf("cannot wait on this tty")
+	}
+
 	Response, ok := <-tty.Callback
 	if !ok {
 		return fmt.Errorf("get response failed")
@@ -41,7 +45,13 @@ func (tty *TtyIO) WaitForFinish() error {
 		glog.V(1).Infof("Exit code %d", tty.ExitCode)
 	}
 
-	close(tty.Callback)
+	if tty.Stdin != nil {
+		tty.Stdin.Close()
+	}
+	if tty.Stdout != nil {
+		tty.Stdout.Close()
+	}
+
 	return nil
 }
 
@@ -232,19 +242,23 @@ func (tty *TtyIO) Close(code uint8) string {
 
 	glog.V(1).Info("Close tty ", tty.ClientTag)
 
-	if tty.Stdin != nil {
-		tty.Stdin.Close()
-	}
-	if tty.Stdout != nil {
-		tty.Stdout.Close()
-	}
 	if tty.Callback != nil {
 		tty.Callback <- &types.VmResponse{
 			Code:  types.E_EXEC_FINISH,
 			Cause: "Command finished",
 			Data:  code,
 		}
+
+		close(tty.Callback)
+	} else {
+		if tty.Stdin != nil {
+			tty.Stdin.Close()
+		}
+		if tty.Stdout != nil {
+			tty.Stdout.Close()
+		}
 	}
+
 	return tty.ClientTag
 }
 
