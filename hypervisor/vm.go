@@ -158,24 +158,6 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
-func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
-	mypod *PodStatus, vm *Vm) bool {
-	if Response.Code == types.E_POD_FINISHED {
-		mypod.SetPodContainerStatus(Response.Data.([]uint32))
-		mypod.Vm = ""
-		vm.Status = types.S_VM_IDLE
-	} else if Response.Code == types.E_VM_SHUTDOWN {
-		if mypod.Status == types.S_POD_RUNNING {
-			mypod.Status = types.S_POD_SUCCEEDED
-			mypod.SetContainerStatus(types.S_POD_SUCCEEDED)
-		}
-		mypod.Vm = ""
-		return true
-	}
-
-	return false
-}
-
 func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
 
@@ -185,6 +167,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	}
 	defer vm.ReleaseResponseChan(Status)
 
+	exit := false
 	mypod.Wg.Add(1)
 	for {
 		Response, ok := <-Status
@@ -192,7 +175,24 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 			break
 		}
 
-		exit := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+		switch Response.Code {
+		case types.E_POD_FINISHED: // successfully exit
+			mypod.SetPodContainerStatus(Response.Data.([]uint32))
+			vm.Status = types.S_VM_IDLE
+		case types.E_VM_SHUTDOWN: // vm exited, sucessful or not
+			if mypod.Status == types.S_POD_RUNNING { // not received finished pod before
+				mypod.Status = types.S_POD_FAILED
+				mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
+				mypod.SetContainerStatus(types.S_POD_FAILED)
+			}
+			mypod.Vm = ""
+			exit = true
+		}
+
+		if mypod.Handler != nil {
+			mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+		}
+
 		if exit {
 			vm.clients = nil
 			break

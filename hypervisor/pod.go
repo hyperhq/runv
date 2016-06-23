@@ -28,7 +28,7 @@ type PodStatus struct {
 	Type          string
 	RestartPolicy string
 	Autoremove    bool
-	Handler       HandleEvent
+	Handler       *HandleEvent
 	StartedAt     string
 	FinishedAt    string
 	ResourcePath  string
@@ -139,7 +139,7 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	return ips
 }
 
-func NewPod(podId string, userPod *pod.UserPod) *PodStatus {
+func NewPod(podId string, userPod *pod.UserPod, handler *HandleEvent) *PodStatus {
 	return &PodStatus{
 		Id:            podId,
 		Name:          userPod.Name,
@@ -149,9 +149,6 @@ func NewPod(podId string, userPod *pod.UserPod) *PodStatus {
 		Type:          userPod.Type,
 		RestartPolicy: userPod.RestartPolicy,
 		Autoremove:    false,
-		Handler: HandleEvent{
-			Handle: defaultHandlePodEvent,
-			Data:   nil,
-		},
+		Handler:       handler,
 	}
 }

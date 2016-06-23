@@ -321,7 +321,7 @@ func chooseInitrd(spec *specs.Spec) (initrd string) {
 func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	userPod := pod.ConvertOCF2PureUserPod(spec)
-	podStatus := hypervisor.NewPod(podId, userPod)
+	podStatus := hypervisor.NewPod(podId, userPod, nil)
 
 	cpu := 1
 	if userPod.Resource.Vcpu > 0 {
