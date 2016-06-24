@@ -176,6 +176,12 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 		}
 
 		switch Response.Code {
+		case types.E_CONTAINER_FINISHED:
+			ps, ok := Response.Data.(*types.ProcessFinished)
+			if ok {
+				mypod.SetOneContainerStatus(ps.Id, ps.Code)
+				close(ps.Ack)
+			}
 		case types.E_POD_FINISHED: // successfully exit
 			mypod.SetPodContainerStatus(Response.Data.([]uint32))
 			vm.Status = types.S_VM_IDLE

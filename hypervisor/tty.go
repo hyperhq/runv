@@ -173,7 +173,7 @@ func waitPts(ctx *VmContext) {
 					code = uint8(res.Message[0])
 				}
 				glog.V(1).Infof("session %d, exit code %d", res.Session, code)
-				ctx.ptys.Close(res.Session, code)
+				ctx.ptys.Close(ctx, res.Session, code)
 			} else {
 				for _, tty := range ta.attachments {
 					if tty.Stdout != nil {
@@ -298,16 +298,25 @@ func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
 		ta.detach(tty)
-		pts.lock.Unlock()
 		if !ta.persistent && ta.empty() {
-			pts.Close(session, 0)
+			delete(pts.ttys, session)
 		}
+		pts.lock.Unlock()
+
 		pts.clientDereg(tty.Close(0))
 	}
 }
 
-func (pts *pseudoTtys) Close(session uint64, code uint8) {
+func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
+		ack := make(chan bool, 1)
+		if id := ctx.LookupBySession(session); id != "" {
+			ctx.reportProcessFinished(types.E_CONTAINER_FINISHED, &types.ProcessFinished{
+				Id: id, Code: code, Ack: ack})
+		}
+		// wait for pod handler setting up exitcode for container
+		<-ack
+
 		pts.lock.Lock()
 		tags := ta.close(code)
 		delete(pts.ttys, session)

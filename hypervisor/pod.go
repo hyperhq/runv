@@ -42,7 +42,7 @@ type ContainerStatus struct {
 	Cmds     []string
 	Logs     LogStatus
 	Status   uint32
-	ExitCode int
+	ExitCode uint8
 }
 
 type LogStatus struct {
@@ -68,7 +68,7 @@ func (mypod *PodStatus) SetPodContainerStatus(data []uint32) {
 		} else {
 			c.Status = types.S_POD_SUCCEEDED
 		}
-		c.ExitCode = int(data[i])
+		c.ExitCode = uint8(data[i])
 	}
 	if failure == 0 {
 		mypod.Status = types.S_POD_SUCCEEDED
@@ -84,10 +84,16 @@ func (mypod *PodStatus) SetContainerStatus(status uint32) {
 	}
 }
 
-func (mypod *PodStatus) SetOneContainerStatus(containerId string, status uint32) {
+func (mypod *PodStatus) SetOneContainerStatus(containerId string, code uint8) {
 	for _, c := range mypod.Containers {
 		if c.Id == containerId {
-			c.Status = status
+			c.ExitCode = code
+
+			if code == 0 {
+				c.Status = types.S_POD_SUCCEEDED
+			} else {
+				c.Status = types.S_POD_FAILED
+			}
 		}
 	}
 }

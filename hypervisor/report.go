@@ -58,6 +58,15 @@ func (ctx *VmContext) reportPodFinished(result *PodFinished) {
 	}
 }
 
+func (ctx *VmContext) reportProcessFinished(code int, result *types.ProcessFinished) {
+	ctx.client <- &types.VmResponse{
+		VmId:  ctx.Id,
+		Code:  code,
+		Cause: "container finished",
+		Data:  result,
+	}
+}
+
 func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,

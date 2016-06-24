@@ -167,6 +167,23 @@ func (ctx *VmContext) nextPciAddr() int {
 	return addr
 }
 
+func (ctx *VmContext) LookupBySession(session uint64) string {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	if ctx.vmSpec == nil {
+		return ""
+	}
+	for idx, c := range ctx.vmSpec.Containers {
+		if c.Process.Stdio == session {
+			glog.V(1).Infof("found container %s whose session is %v at %d", c.Id, session, idx)
+			return c.Id
+		}
+	}
+	glog.V(1).Infof("can not found container whose session is %s", session)
+	return ""
+}
+
 func (ctx *VmContext) Lookup(container string) int {
 	if container == "" || ctx.vmSpec == nil {
 		return -1
