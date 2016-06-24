@@ -23,7 +23,7 @@ type PodStatus struct {
 	Name          string
 	Vm            string
 	Wg            *sync.WaitGroup
-	Containers    []*Container
+	Containers    []*ContainerStatus
 	Status        uint
 	Type          string
 	RestartPolicy string
@@ -34,7 +34,7 @@ type PodStatus struct {
 	ResourcePath  string
 }
 
-type Container struct {
+type ContainerStatus struct {
 	Id       string
 	Name     string
 	PodId    string
@@ -93,7 +93,7 @@ func (mypod *PodStatus) SetOneContainerStatus(containerId string, status uint32)
 }
 
 func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []string, status uint32) {
-	container := &Container{
+	container := &ContainerStatus{
 		Id:     containerId,
 		Name:   name,
 		PodId:  mypod.Id,
