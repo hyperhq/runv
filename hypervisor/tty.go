@@ -40,7 +40,7 @@ func (tty *TtyIO) WaitForFinish() error {
 	}
 
 	glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-	if Response.Code == types.E_EXEC_FINISH {
+	if Response.Code == types.E_EXEC_FINISHED {
 		tty.ExitCode = Response.Data.(uint8)
 		glog.V(1).Infof("Exit code %d", tty.ExitCode)
 	}
@@ -244,7 +244,7 @@ func (tty *TtyIO) Close(code uint8) string {
 
 	if tty.Callback != nil {
 		tty.Callback <- &types.VmResponse{
-			Code:  types.E_EXEC_FINISH,
+			Code:  types.E_EXEC_FINISHED,
 			Cause: "Command finished",
 			Data:  code,
 		}
@@ -310,12 +310,24 @@ func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
 		ack := make(chan bool, 1)
-		if id := ctx.LookupBySession(session); id != "" {
-			ctx.reportProcessFinished(types.E_CONTAINER_FINISHED, &types.ProcessFinished{
-				Id: id, Code: code, Ack: ack})
+		kind := types.E_CONTAINER_FINISHED
+		id := ctx.LookupBySession(session)
+
+		if id == "" {
+			if id = ctx.LookupExecBySession(session); id != "" {
+				kind = types.E_EXEC_FINISHED
+				//remove exec automatically
+				ctx.DeleteExec(id)
+			}
 		}
-		// wait for pod handler setting up exitcode for container
-		<-ack
+
+		if id != "" {
+			ctx.reportProcessFinished(kind, &types.ProcessFinished{
+				Id: id, Code: code, Ack: ack,
+			})
+			// wait for pod handler setting up exitcode for container
+			<-ack
+		}
 
 		pts.lock.Lock()
 		tags := ta.close(code)

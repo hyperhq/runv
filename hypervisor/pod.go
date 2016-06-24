@@ -24,6 +24,7 @@ type PodStatus struct {
 	Vm            string
 	Wg            *sync.WaitGroup
 	Containers    []*ContainerStatus
+	Execs         map[string]*ExecStatus
 	Status        uint
 	Type          string
 	RestartPolicy string
@@ -43,6 +44,14 @@ type ContainerStatus struct {
 	Logs     LogStatus
 	Status   uint32
 	ExitCode uint8
+}
+
+type ExecStatus struct {
+	Id        string
+	Container string
+	Cmds      string
+	Terminal  bool
+	ExitCode  uint8
 }
 
 type LogStatus struct {
@@ -120,6 +129,31 @@ func (mypod *PodStatus) DeleteContainer(containerId string) {
 	}
 }
 
+func (mypod *PodStatus) SetExecStatus(execId string, code uint8) {
+	exec, ok := mypod.Execs[execId]
+	if ok {
+		exec.ExitCode = code
+	}
+}
+
+func (mypod *PodStatus) AddExec(containerId, execId, cmds string, terminal bool) {
+	mypod.Execs[execId] = &ExecStatus{
+		Container: containerId,
+		Id:        execId,
+		Cmds:      cmds,
+		Terminal:  terminal,
+		ExitCode:  255,
+	}
+}
+
+func (mypod *PodStatus) DeleteExec(execId string) {
+	delete(mypod.Execs, execId)
+}
+
+func (mypod *PodStatus) CleanupExec() {
+	mypod.Execs = make(map[string]*ExecStatus)
+}
+
 func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	if mypod.Vm == "" {
 		return nil
@@ -149,6 +183,7 @@ func NewPod(podId string, userPod *pod.UserPod, handler *HandleEvent) *PodStatus
 	return &PodStatus{
 		Id:            podId,
 		Name:          userPod.Name,
+		Execs:         make(map[string]*ExecStatus),
 		Vm:            "",
 		Wg:            new(sync.WaitGroup),
 		Status:        types.S_POD_CREATED,

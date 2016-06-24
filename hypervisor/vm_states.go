@@ -179,11 +179,12 @@ func (ctx *VmContext) onlineCpuMem(cmd *OnlineCpuMemCommand) {
 	}
 }
 
-func (ctx *VmContext) execCmd(cmd *hyperstartapi.ExecCommand, tty *TtyIO, result chan<- error) {
+func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty *TtyIO, result chan<- error) {
 	cmd.Process.Stdio = ctx.ptys.nextAttachId()
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
+	ctx.vmExec[execId] = cmd
 	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, tty)
 	ctx.ptys.clientReg(tty.ClientTag, cmd.Process.Stdio)
 	if !cmd.Process.Terminal {

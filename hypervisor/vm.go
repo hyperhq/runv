@@ -182,6 +182,12 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 				mypod.SetOneContainerStatus(ps.Id, ps.Code)
 				close(ps.Ack)
 			}
+		case types.E_EXEC_FINISHED:
+			ps, ok := Response.Data.(*types.ProcessFinished)
+			if ok {
+				mypod.SetExecStatus(ps.Id, ps.Code)
+				close(ps.Ack)
+			}
 		case types.E_POD_FINISHED: // successfully exit
 			mypod.SetPodContainerStatus(Response.Data.([]uint32))
 			vm.Status = types.S_VM_IDLE
@@ -485,7 +491,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
-func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
 	var command []string
 
 	if cmd == "" {
@@ -495,10 +501,10 @@ func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
 		return err
 	}
-	return vm.AddProcess(container, terminal, command, []string{}, "/", tty)
+	return vm.AddProcess(container, execId, terminal, command, []string{}, "/", tty)
 }
 
-func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
+func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
 	envs := []hyperstartapi.EnvironmentVar{}
 
 	for _, v := range env {
@@ -521,7 +527,7 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	}
 
 	err := vm.GenericOperation("AddProcess", func(ctx *VmContext, result chan<- error) {
-		ctx.execCmd(execCmd, tty, result)
+		ctx.execCmd(execId, execCmd, tty, result)
 	}, StateRunning)
 
 	if err != nil {
