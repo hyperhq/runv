@@ -24,27 +24,16 @@ type TtyIO struct {
 	Stdout    io.WriteCloser
 	ClientTag string
 	Callback  chan *types.VmResponse
-	ExitCode  uint8
 }
 
 func (tty *TtyIO) WaitForFinish() error {
-	tty.ExitCode = 255
-
 	if tty.Callback == nil {
 		return fmt.Errorf("cannot wait on this tty")
 	}
 
-	Response, ok := <-tty.Callback
-	if !ok {
-		return fmt.Errorf("get response failed")
-	}
+	<-tty.Callback
 
-	glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-	if Response.Code == types.E_EXEC_FINISHED {
-		tty.ExitCode = Response.Data.(uint8)
-		glog.V(1).Infof("Exit code %d", tty.ExitCode)
-	}
-
+	glog.V(1).Info("tty is closed")
 	if tty.Stdin != nil {
 		tty.Stdin.Close()
 	}
@@ -221,10 +210,10 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	}
 }
 
-func (ta *ttyAttachments) close(code uint8) []string {
+func (ta *ttyAttachments) close() []string {
 	tags := []string{}
 	for _, t := range ta.attachments {
-		tags = append(tags, t.Close(code))
+		tags = append(tags, t.Close())
 	}
 	ta.attachments = []*TtyIO{}
 	return tags
@@ -238,17 +227,10 @@ func (ta *ttyAttachments) isTty() bool {
 	return ta.tty
 }
 
-func (tty *TtyIO) Close(code uint8) string {
-
+func (tty *TtyIO) Close() string {
 	glog.V(1).Info("Close tty ", tty.ClientTag)
 
 	if tty.Callback != nil {
-		tty.Callback <- &types.VmResponse{
-			Code:  types.E_EXEC_FINISHED,
-			Cause: "Command finished",
-			Data:  code,
-		}
-
 		close(tty.Callback)
 	} else {
 		if tty.Stdin != nil {
@@ -303,7 +285,7 @@ func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 		}
 		pts.lock.Unlock()
 
-		pts.clientDereg(tty.Close(0))
+		pts.clientDereg(tty.Close())
 	}
 }
 
@@ -330,7 +312,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 		}
 
 		pts.lock.Lock()
-		tags := ta.close(code)
+		tags := ta.close()
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
 		for _, t := range tags {
@@ -446,7 +428,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 
 func (pts *pseudoTtys) closePendingTtys() {
 	for _, tty := range pts.pendingTtys {
-		tty.Streams.Close(255)
+		tty.Streams.Close()
 	}
 	pts.pendingTtys = []*AttachCommand{}
 }

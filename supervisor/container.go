@@ -53,7 +53,9 @@ func (c *Container) run(p *Process) {
 			Status:    -1,
 		}
 		if err == nil {
-			e.Status = int(p.stdio.ExitCode)
+			if cs := c.ownerPod.podStatus.GetContainer(c.Id); cs != nil {
+				e.Status = int(cs.ExitCode)
+			}
 		}
 		c.ownerPod.sv.Events.notifySubscribers(e)
 	}()
@@ -230,12 +232,14 @@ func (c *Container) addProcess(processId, stdin, stdout, stderr string, spec *sp
 			Type:      EventExit,
 			Timestamp: time.Now(),
 			PID:       processId,
+			Status:    -1,
 		}
 		if err != nil {
-			e.Status = -1
 			glog.V(1).Infof("get exit code failed %s\n", err.Error())
 		} else {
-			e.Status = int(p.stdio.ExitCode)
+			if es := c.ownerPod.podStatus.GetExec(processId); es != nil {
+				e.Status = int(es.ExitCode)
+			}
 		}
 		c.ownerPod.sv.Events.notifySubscribers(e)
 	}()

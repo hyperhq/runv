@@ -120,6 +120,16 @@ func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []str
 	mypod.Containers = append(mypod.Containers, container)
 }
 
+func (mypod *PodStatus) GetContainer(containerId string) *ContainerStatus {
+	for _, c := range mypod.Containers {
+		if c.Id == containerId {
+			return c
+		}
+	}
+
+	return nil
+}
+
 func (mypod *PodStatus) DeleteContainer(containerId string) {
 	for i, c := range mypod.Containers {
 		if c.Id == containerId {
@@ -152,6 +162,14 @@ func (mypod *PodStatus) DeleteExec(execId string) {
 
 func (mypod *PodStatus) CleanupExec() {
 	mypod.Execs = make(map[string]*ExecStatus)
+}
+
+func (mypod *PodStatus) GetExec(execId string) *ExecStatus {
+	if exec, ok := mypod.Execs[execId]; ok {
+		return exec
+	}
+
+	return nil
 }
 
 func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
