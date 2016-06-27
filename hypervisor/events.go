@@ -77,8 +77,9 @@ type CommandAck struct {
 type CommandError CommandAck
 
 type WindowSizeCommand struct {
-	ClientTag string
-	Size      *WindowSize
+	ContainerId string
+	ExecId      string
+	Size        *WindowSize
 }
 
 type ContainerCreatedEvent struct {

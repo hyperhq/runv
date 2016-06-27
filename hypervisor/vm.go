@@ -552,10 +552,11 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	return nil
 }
 
-func (vm *Vm) Tty(tag string, row, column int) error {
+func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	var ttySizeCommand = &WindowSizeCommand{
-		ClientTag: tag,
-		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
+		ContainerId: containerId,
+		ExecId:      execId,
+		Size:        &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
 	vm.Hub <- ttySizeCommand

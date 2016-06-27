@@ -61,8 +61,8 @@ func (p *Process) setupIO() error {
 	return nil
 }
 
-func (p *Process) ttyResize(width, height int) error {
-	return p.ownerCont.ownerPod.vm.Tty(p.inerId, height, width)
+func (p *Process) ttyResize(container string, width, height int) error {
+	return p.ownerCont.ownerPod.vm.Tty(container, p.inerId, height, width)
 }
 
 func (p *Process) closeStdin() error {

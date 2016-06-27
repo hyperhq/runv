@@ -54,7 +54,7 @@ func statePreparing(ctx *VmContext, ev VmEvent) {
 		ctx.Become(nil, StateNone)
 	case COMMAND_WINDOWSIZE:
 		cmd := ev.(*WindowSizeCommand)
-		ctx.setWindowSize(cmd.ClientTag, cmd.Size)
+		ctx.setWindowSize(cmd.ContainerId, cmd.ExecId, cmd.Size)
 	case COMMAND_RUN_POD, COMMAND_REPLACE_POD:
 		glog.Info("got spec, prepare devices")
 		if ok := ctx.lazyPrepareDevice(ev.(*RunPodCommand)); ok {

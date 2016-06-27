@@ -56,7 +56,6 @@ type pseudoTtys struct {
 	attachId    uint64 //next available attachId for attached tty
 	channel     chan *hyperstartapi.TtyMessage
 	ttys        map[uint64]*ttyAttachments
-	ttySessions map[string]uint64
 	pendingTtys []*AttachCommand
 	lock        *sync.Mutex
 }
@@ -66,7 +65,6 @@ func newPts() *pseudoTtys {
 		attachId:    1,
 		channel:     make(chan *hyperstartapi.TtyMessage, 256),
 		ttys:        make(map[uint64]*ttyAttachments),
-		ttySessions: make(map[string]uint64),
 		pendingTtys: []*AttachCommand{},
 		lock:        &sync.Mutex{},
 	}
@@ -259,23 +257,6 @@ func (pts *pseudoTtys) isTty(session uint64) bool {
 	return false
 }
 
-func (pts *pseudoTtys) clientReg(tag string, session uint64) {
-	pts.lock.Lock()
-	pts.ttySessions[tag] = session
-	pts.lock.Unlock()
-}
-
-func (pts *pseudoTtys) clientDereg(tag string) {
-	if tag == "" {
-		return
-	}
-	pts.lock.Lock()
-	if _, ok := pts.ttySessions[tag]; ok {
-		delete(pts.ttySessions, tag)
-	}
-	pts.lock.Unlock()
-}
-
 func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 	if ta, ok := pts.ttys[session]; ok {
 		pts.lock.Lock()
@@ -285,7 +266,7 @@ func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
 		}
 		pts.lock.Unlock()
 
-		pts.clientDereg(tty.Close())
+		tty.Close()
 	}
 }
 
@@ -312,12 +293,9 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 		}
 
 		pts.lock.Lock()
-		tags := ta.close()
+		ta.close()
 		delete(pts.ttys, session)
 		pts.lock.Unlock()
-		for _, t := range tags {
-			pts.clientDereg(t)
-		}
 	}
 }
 
