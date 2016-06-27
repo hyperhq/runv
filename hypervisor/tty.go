@@ -20,10 +20,9 @@ type WindowSize struct {
 }
 
 type TtyIO struct {
-	Stdin     io.ReadCloser
-	Stdout    io.WriteCloser
-	ClientTag string
-	Callback  chan *types.VmResponse
+	Stdin    io.ReadCloser
+	Stdout   io.WriteCloser
+	Callback chan *types.VmResponse
 }
 
 func (tty *TtyIO) WaitForFinish() error {
@@ -197,7 +196,7 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	at := []*TtyIO{}
 	detached := false
 	for _, t := range ta.attachments {
-		if tty.ClientTag != t.ClientTag {
+		if tty != t {
 			at = append(at, t)
 		} else {
 			detached = true
@@ -208,13 +207,11 @@ func (ta *ttyAttachments) detach(tty *TtyIO) {
 	}
 }
 
-func (ta *ttyAttachments) close() []string {
-	tags := []string{}
+func (ta *ttyAttachments) close() {
 	for _, t := range ta.attachments {
-		tags = append(tags, t.Close())
+		t.Close()
 	}
 	ta.attachments = []*TtyIO{}
-	return tags
 }
 
 func (ta *ttyAttachments) empty() bool {
@@ -225,8 +222,8 @@ func (ta *ttyAttachments) isTty() bool {
 	return ta.tty
 }
 
-func (tty *TtyIO) Close() string {
-	glog.V(1).Info("Close tty ", tty.ClientTag)
+func (tty *TtyIO) Close() {
+	glog.V(1).Info("Close tty ")
 
 	if tty.Callback != nil {
 		close(tty.Callback)
@@ -238,8 +235,6 @@ func (tty *TtyIO) Close() string {
 			tty.Stdout.Close()
 		}
 	}
-
-	return tty.ClientTag
 }
 
 func (pts *pseudoTtys) nextAttachId() uint64 {
@@ -455,20 +450,18 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 	}, StateInit, StateStarting, StateRunning)
 }
 
-func (vm *Vm) GetLogOutput(container, tag string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
+func (vm *Vm) GetLogOutput(container string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
 	stdout, stdoutStub := io.Pipe()
 	stderr, stderrStub := io.Pipe()
 	outIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stdoutStub,
-		ClientTag: tag,
-		Callback:  callback,
+		Stdin:    nil,
+		Stdout:   stdoutStub,
+		Callback: callback,
 	}
 	errIO := &TtyIO{
-		Stdin:     nil,
-		Stdout:    stderrStub,
-		ClientTag: tag,
-		Callback:  nil,
+		Stdin:    nil,
+		Stdout:   stderrStub,
+		Callback: nil,
 	}
 
 	cmd := &AttachCommand{

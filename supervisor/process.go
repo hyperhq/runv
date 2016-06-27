@@ -51,10 +51,9 @@ func (p *Process) setupIO() error {
 	if p.Spec.Terminal {
 	}
 	p.stdio = &hypervisor.TtyIO{
-		ClientTag: p.inerId,
-		Stdin:     stdin,
-		Stdout:    stdout,
-		Callback:  make(chan *types.VmResponse, 1),
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Callback: make(chan *types.VmResponse, 1),
 	}
 	glog.Infof("process setupIO() success")
 

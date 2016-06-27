@@ -72,10 +72,10 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 	for _, acmd := range pendings {
 		idx := ctx.Lookup(acmd.Container)
 		if idx >= 0 {
-			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			glog.Infof("attach pending client for %s", acmd.Container)
 			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
-			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			glog.Infof("not attach for %s", acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
@@ -111,10 +111,10 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.
 	ctx.ptys.pendingTtys = []*AttachCommand{}
 	for _, acmd := range pendings {
 		if idx == ctx.Lookup(acmd.Container) {
-			glog.Infof("attach pending client %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			glog.Infof("attach pending client for %s", acmd.Container)
 			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
 		} else {
-			glog.Infof("not attach %s for %s", acmd.Streams.ClientTag, acmd.Container)
+			glog.Infof("not attach for %s", acmd.Container)
 			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
 		}
 	}
@@ -206,10 +206,9 @@ func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty
 	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, tty)
 	if !cmd.Process.Terminal {
 		stderrIO := &TtyIO{
-			Stdin:     nil,
-			Stdout:    tty.Stdout,
-			ClientTag: tty.ClientTag,
-			Callback:  nil,
+			Stdin:    nil,
+			Stdout:   tty.Stdout,
+			Callback: nil,
 		}
 		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
 	}
@@ -235,7 +234,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	idx := ctx.Lookup(cmd.Container)
 	if cmd.Container != "" && idx < 0 {
 		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
-		glog.V(1).Infof("attachment %s is pending", cmd.Streams.ClientTag)
+		glog.V(1).Infof("attachment %s is pending", cmd.Container)
 		result <- nil
 		return
 	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
@@ -261,10 +260,9 @@ func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *A
 		stderrIO := cmd.Stderr
 		if stderrIO == nil {
 			stderrIO = &TtyIO{
-				Stdin:     nil,
-				Stdout:    cmd.Streams.Stdout,
-				ClientTag: cmd.Streams.ClientTag,
-				Callback:  nil,
+				Stdin:    nil,
+				Stdout:   cmd.Streams.Stdout,
+				Callback: nil,
 			}
 		}
 		ctx.ptys.ptyConnect(true, process.Terminal, session, stderrIO)
