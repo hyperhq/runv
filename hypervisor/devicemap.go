@@ -170,16 +170,25 @@ func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Conta
 	container.Initialize = info.Initialize
 
 	if info.Fstype == "dir" {
-		container.Image = info.Image
+		container.Image = info.Image.Source
 		container.Fstype = ""
 	} else {
 		container.Fstype = info.Fstype
-		ctx.devices.imageMap[info.Image] = &imageInfo{
+		ctx.devices.imageMap[info.Image.Source] = &imageInfo{
 			info: &BlockDescriptor{
-				Name: info.Image, Filename: info.Image, Format: "raw", Fstype: info.Fstype, DeviceName: ""},
+				Name:       info.Image.Source,
+				Filename:   info.Image.Source,
+				Format:     "raw",
+				Fstype:     info.Fstype,
+				DeviceName: "",
+				Options: map[string]string{
+					"user":     info.Image.Option.User,
+					"keyring":  info.Image.Option.Keyring,
+					"monitors": strings.Join(info.Image.Option.Monitors, ";"),
+				}},
 			pos: index,
 		}
-		ctx.progress.adding.blockdevs[info.Image] = true
+		ctx.progress.adding.blockdevs[info.Image.Source] = true
 	}
 }
 

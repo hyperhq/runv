@@ -122,7 +122,7 @@ func (c *Container) start(p *Process) error {
 	info := &hypervisor.ContainerInfo{
 		Id:     c.Id,
 		Rootfs: "rootfs",
-		Image:  c.Id,
+		Image:  pod.UserVolume{Source: c.Id},
 		Fstype: "dir",
 		Cmd:    u.Command,
 		Envs:   envs,
