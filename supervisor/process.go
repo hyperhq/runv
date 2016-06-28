@@ -51,18 +51,17 @@ func (p *Process) setupIO() error {
 	if p.Spec.Terminal {
 	}
 	p.stdio = &hypervisor.TtyIO{
-		ClientTag: p.inerId,
-		Stdin:     stdin,
-		Stdout:    stdout,
-		Callback:  make(chan *types.VmResponse, 1),
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Callback: make(chan *types.VmResponse, 1),
 	}
 	glog.Infof("process setupIO() success")
 
 	return nil
 }
 
-func (p *Process) ttyResize(width, height int) error {
-	return p.ownerCont.ownerPod.vm.Tty(p.inerId, height, width)
+func (p *Process) ttyResize(container string, width, height int) error {
+	return p.ownerCont.ownerPod.vm.Tty(container, p.inerId, height, width)
 }
 
 func (p *Process) closeStdin() error {

@@ -68,7 +68,7 @@ func (sv *Supervisor) TtyResize(container, processId string, width, height int) 
 	defer sv.RUnlock()
 	p := sv.getProcess(container, processId)
 	if p != nil {
-		return p.ttyResize(width, height)
+		return p.ttyResize(container, width, height)
 	}
 	return fmt.Errorf("The container %s or the process %s is not found", container, processId)
 }

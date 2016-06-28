@@ -158,24 +158,6 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
-func defaultHandlePodEvent(Response *types.VmResponse, data interface{},
-	mypod *PodStatus, vm *Vm) bool {
-	if Response.Code == types.E_POD_FINISHED {
-		mypod.SetPodContainerStatus(Response.Data.([]uint32))
-		mypod.Vm = ""
-		vm.Status = types.S_VM_IDLE
-	} else if Response.Code == types.E_VM_SHUTDOWN {
-		if mypod.Status == types.S_POD_RUNNING {
-			mypod.Status = types.S_POD_SUCCEEDED
-			mypod.SetContainerStatus(types.S_POD_SUCCEEDED)
-		}
-		mypod.Vm = ""
-		return true
-	}
-
-	return false
-}
-
 func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
 
@@ -185,6 +167,7 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	}
 	defer vm.ReleaseResponseChan(Status)
 
+	exit := false
 	mypod.Wg.Add(1)
 	for {
 		Response, ok := <-Status
@@ -192,7 +175,36 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 			break
 		}
 
-		exit := mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+		switch Response.Code {
+		case types.E_CONTAINER_FINISHED:
+			ps, ok := Response.Data.(*types.ProcessFinished)
+			if ok {
+				mypod.SetOneContainerStatus(ps.Id, ps.Code)
+				close(ps.Ack)
+			}
+		case types.E_EXEC_FINISHED:
+			ps, ok := Response.Data.(*types.ProcessFinished)
+			if ok {
+				mypod.SetExecStatus(ps.Id, ps.Code)
+				close(ps.Ack)
+			}
+		case types.E_POD_FINISHED: // successfully exit
+			mypod.SetPodContainerStatus(Response.Data.([]uint32))
+			vm.Status = types.S_VM_IDLE
+		case types.E_VM_SHUTDOWN: // vm exited, sucessful or not
+			if mypod.Status == types.S_POD_RUNNING { // not received finished pod before
+				mypod.Status = types.S_POD_FAILED
+				mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
+				mypod.SetContainerStatus(types.S_POD_FAILED)
+			}
+			mypod.Vm = ""
+			exit = true
+		}
+
+		if mypod.Handler != nil {
+			mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+		}
+
 		if exit {
 			vm.clients = nil
 			break
@@ -479,7 +491,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
-func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
 	var command []string
 
 	if cmd == "" {
@@ -489,10 +501,10 @@ func (vm *Vm) Exec(container, cmd string, terminal bool, tty *TtyIO) error {
 	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
 		return err
 	}
-	return vm.AddProcess(container, terminal, command, []string{}, "/", tty)
+	return vm.AddProcess(container, execId, terminal, command, []string{}, "/", tty)
 }
 
-func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
+func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {
 	envs := []hyperstartapi.EnvironmentVar{}
 
 	for _, v := range env {
@@ -515,7 +527,7 @@ func (vm *Vm) AddProcess(container string, terminal bool, args []string, env []s
 	}
 
 	err := vm.GenericOperation("AddProcess", func(ctx *VmContext, result chan<- error) {
-		ctx.execCmd(execCmd, tty, result)
+		ctx.execCmd(execId, execCmd, tty, result)
 	}, StateRunning)
 
 	if err != nil {
@@ -540,10 +552,11 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	return nil
 }
 
-func (vm *Vm) Tty(tag string, row, column int) error {
+func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	var ttySizeCommand = &WindowSizeCommand{
-		ClientTag: tag,
-		Size:      &WindowSize{Row: uint16(row), Column: uint16(column)},
+		ContainerId: containerId,
+		ExecId:      execId,
+		Size:        &WindowSize{Row: uint16(row), Column: uint16(column)},
 	}
 
 	vm.Hub <- ttySizeCommand

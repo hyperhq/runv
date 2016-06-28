@@ -9,7 +9,8 @@ const (
 	E_POD_FINISHED
 	E_BAD_REQUEST
 	E_FAILED
-	E_EXEC_FINISH
+	E_EXEC_FINISHED
+	E_CONTAINER_FINISHED
 	E_BUSY
 	E_NO_TTY
 	E_JSON_PARSE_FAIL
@@ -30,6 +31,12 @@ const (
 	S_VM_ASSOCIATED
 	S_VM_PAUSED
 )
+
+type ProcessFinished struct {
+	Id   string
+	Code uint8
+	Ack  chan bool
+}
 
 type VmResponse struct {
 	VmId  string
