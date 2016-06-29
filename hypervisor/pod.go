@@ -32,7 +32,6 @@ type PodStatus struct {
 	Handler       *HandleEvent
 	StartedAt     string
 	FinishedAt    string
-	ResourcePath  string
 }
 
 type ContainerStatus struct {
