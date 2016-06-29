@@ -203,15 +203,7 @@ func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
 	ctx.vmExec[execId] = cmd
-	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, tty)
-	if !cmd.Process.Terminal {
-		stderrIO := &TtyIO{
-			Stdin:    nil,
-			Stdout:   tty.Stdout,
-			Callback: nil,
-		}
-		ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stderr, stderrIO)
-	}
+	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.Process.Stderr, tty)
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: cmd,
@@ -251,22 +243,8 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 
 func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
 	session := process.Stdio
-	ctx.ptys.ptyConnect(true, process.Terminal, session, cmd.Streams)
+	ctx.ptys.ptyConnect(true, process.Terminal, session, process.Stderr, cmd.Streams)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
-
-	//new stderr session
-	session = process.Stderr
-	if session > 0 {
-		stderrIO := cmd.Stderr
-		if stderrIO == nil {
-			stderrIO = &TtyIO{
-				Stdin:    nil,
-				Stdout:   cmd.Streams.Stdout,
-				Callback: nil,
-			}
-		}
-		ctx.ptys.ptyConnect(true, process.Terminal, session, stderrIO)
-	}
 }
 
 func (ctx *VmContext) startPod() {

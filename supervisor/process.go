@@ -47,12 +47,15 @@ func (p *Process) setupIO() error {
 	if err != nil {
 		return err
 	}
-	// TODO: setup stderr
-	if p.Spec.Terminal {
+	stderr, err := os.OpenFile(p.Stderr, syscall.O_RDWR, 0)
+	if err != nil {
+		return err
 	}
+
 	p.stdio = &hypervisor.TtyIO{
 		Stdin:    stdin,
 		Stdout:   stdout,
+		Stderr:   stderr,
 		Callback: make(chan *types.VmResponse, 1),
 	}
 	glog.Infof("process setupIO() success")
