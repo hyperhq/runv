@@ -147,7 +147,7 @@ func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Conta
 	container.Id = info.Id
 	container.Rootfs = info.Rootfs
 
-	container.Process.Args = info.Cmd
+	container.Process.Args = append(info.Entrypoint, info.Cmd...)
 	container.Process.Envs = make([]hyperstartapi.EnvironmentVar, len(info.Envs))
 	i := 0
 	for e, v := range info.Envs {
