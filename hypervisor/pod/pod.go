@@ -78,9 +78,11 @@ type UserFile struct {
 }
 
 type UserVolumeOption struct {
-	Monitors []string `json:"monitors"`
-	User     string   `json:"user"`
-	Keyring  string   `json:"keyring"`
+	Monitors    []string `json:"monitors"`
+	User        string   `json:"user"`
+	Keyring     string   `json:"keyring"`
+	BytesPerSec int      `json:"bytespersec"`
+	Iops        int      `json:"iops"`
 }
 
 type UserVolume struct {

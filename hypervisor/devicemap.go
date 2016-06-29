@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -182,12 +183,15 @@ func (ctx *VmContext) setContainerInfo(index int, container *hyperstartapi.Conta
 				Fstype:     info.Fstype,
 				DeviceName: "",
 				Options: map[string]string{
-					"user":     info.Image.Option.User,
-					"keyring":  info.Image.Option.Keyring,
-					"monitors": strings.Join(info.Image.Option.Monitors, ";"),
+					"user":        info.Image.Option.User,
+					"keyring":     info.Image.Option.Keyring,
+					"monitors":    strings.Join(info.Image.Option.Monitors, ";"),
+					"bytespersec": strconv.Itoa(info.Image.Option.BytesPerSec),
+					"iops":        strconv.Itoa(info.Image.Option.Iops),
 				}},
 			pos: index,
 		}
+		glog.V(1).Infof("insert volume %s source %s fstype %s", info.Image.Source, info.Image.Source, info.Fstype)
 		ctx.progress.adding.blockdevs[info.Image.Source] = true
 	}
 }
@@ -240,6 +244,14 @@ func (ctx *VmContext) initVolumeMap(spec *pod.UserPod) {
 					"keyring":  vol.Option.Keyring,
 					"monitors": strings.Join(vol.Option.Monitors, ";"),
 				},
+			}
+			if vol.Option.BytesPerSec != 0 {
+				bytes := strconv.Itoa(vol.Option.BytesPerSec)
+				v.info.Options["bytespersec"] = bytes
+			}
+			if vol.Option.Iops != 0 {
+				iops := strconv.Itoa(vol.Option.Iops)
+				v.info.Options["iops"] = iops
 			}
 			ctx.devices.volumeMap[vol.Name] = v
 			ctx.progress.adding.blockdevs[vol.Name] = true

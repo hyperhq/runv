@@ -667,6 +667,11 @@ type disktgt struct {
 	Bus string `xml:"bus,attr"`
 }
 
+type iotune struct {
+	BytesPerSec int `xml:"total_bytes_sec,omitempty"`
+	Iops        int `xml:"total_iops_sec,omitempty"`
+}
+
 type disk struct {
 	XMLName xml.Name    `xml:"disk"`
 	Type    string      `xml:"type,attr"`
@@ -676,6 +681,7 @@ type disk struct {
 	Target  disktgt     `xml:"target"`
 	Address *address    `xml:"address"`
 	Auth    *cephauth   `xml:"auth,omitempty"`
+	Iotune  iotune      `xml:"iotune,omitempty"`
 }
 
 func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, error) {
@@ -730,6 +736,14 @@ func diskXml(blockInfo *hypervisor.BlockDescriptor, secretUUID string) (string, 
 				Name: hostport[0],
 				Port: hostport[1],
 			})
+		}
+
+		if limit, ok := blockInfo.Options["bytespersec"]; ok {
+			d.Iotune.BytesPerSec, _ = strconv.Atoi(limit)
+		}
+
+		if limit, ok := blockInfo.Options["iops"]; ok {
+			d.Iotune.Iops, _ = strconv.Atoi(limit)
 		}
 
 	} else {
