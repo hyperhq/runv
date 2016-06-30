@@ -22,6 +22,7 @@ type WindowSize struct {
 type TtyIO struct {
 	Stdin    io.ReadCloser
 	Stdout   io.WriteCloser
+	Stderr   io.WriteCloser
 	Callback chan *types.VmResponse
 }
 
@@ -39,6 +40,9 @@ func (tty *TtyIO) WaitForFinish() error {
 	if tty.Stdout != nil {
 		tty.Stdout.Close()
 	}
+	if tty.Stderr != nil {
+		tty.Stderr.Close()
+	}
 
 	return nil
 }
@@ -48,6 +52,8 @@ type ttyAttachments struct {
 	started     bool
 	closed      bool
 	tty         bool
+	stdioSeq    uint64
+	stderrSeq   uint64
 	attachments []*TtyIO
 }
 
@@ -162,11 +168,18 @@ func waitPts(ctx *VmContext) {
 				ctx.ptys.Close(ctx, res.Session, code)
 			} else {
 				for _, tty := range ta.attachments {
-					if tty.Stdout != nil {
+					if tty.Stdout != nil && res.Session == ta.stdioSeq {
 						_, err := tty.Stdout.Write(res.Message)
 						if err != nil {
 							glog.V(1).Infof("fail to write session %d, close pty attachment", res.Session)
-							ctx.ptys.Detach(res.Session, tty)
+							ctx.ptys.Detach(ta, tty)
+						}
+					}
+					if tty.Stderr != nil && res.Session == ta.stderrSeq {
+						_, err := tty.Stderr.Write(res.Message)
+						if err != nil {
+							glog.V(1).Infof("fail to write session %d, close pty attachment", res.Session)
+							ctx.ptys.Detach(ta, tty)
 						}
 					}
 				}
@@ -234,6 +247,9 @@ func (tty *TtyIO) Close() {
 		if tty.Stdout != nil {
 			tty.Stdout.Close()
 		}
+		if tty.Stderr != nil {
+			tty.Stderr.Close()
+		}
 	}
 }
 
@@ -252,17 +268,18 @@ func (pts *pseudoTtys) isTty(session uint64) bool {
 	return false
 }
 
-func (pts *pseudoTtys) Detach(session uint64, tty *TtyIO) {
-	if ta, ok := pts.ttys[session]; ok {
-		pts.lock.Lock()
-		ta.detach(tty)
-		if !ta.persistent && ta.empty() {
-			delete(pts.ttys, session)
+func (pts *pseudoTtys) Detach(ta *ttyAttachments, tty *TtyIO) {
+	pts.lock.Lock()
+	ta.detach(tty)
+	if !ta.persistent && ta.empty() {
+		delete(pts.ttys, ta.stdioSeq)
+		if ta.stderrSeq > 0 {
+			delete(pts.ttys, ta.stderrSeq)
 		}
-		pts.lock.Unlock()
-
-		tty.Close()
 	}
+	pts.lock.Unlock()
+
+	tty.Close()
 }
 
 func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
@@ -289,19 +306,28 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 
 		pts.lock.Lock()
 		ta.close()
-		delete(pts.ttys, session)
+		delete(pts.ttys, ta.stdioSeq)
+		if ta.stderrSeq > 0 {
+			delete(pts.ttys, ta.stderrSeq)
+		}
 		pts.lock.Unlock()
 	}
 }
 
-func (pts *pseudoTtys) ptyConnect(persist, isTty bool, session uint64, tty *TtyIO) {
+func (pts *pseudoTtys) ptyConnect(persist, isTty bool, stdioSeq, stderrSeq uint64, tty *TtyIO) {
 	pts.lock.Lock()
-	if ta, ok := pts.ttys[session]; ok {
+	if ta, ok := pts.ttys[stdioSeq]; ok {
 		ta.attach(tty)
 	} else {
-		pts.ttys[session] = newAttachmentsWithTty(persist, isTty, tty)
+		ta := newAttachmentsWithTty(persist, isTty, tty)
+		ta.stdioSeq = stdioSeq
+		ta.stderrSeq = stderrSeq
+		pts.ttys[stdioSeq] = ta
+		if stderrSeq > 0 {
+			pts.ttys[stderrSeq] = ta
+		}
 	}
-	pts.connectStdin(session, tty)
+	pts.connectStdin(stdioSeq, tty)
 	pts.lock.Unlock()
 }
 
@@ -315,10 +341,6 @@ func (pts *pseudoTtys) startStdin(session uint64, isTty bool) {
 				pts.connectStdin(session, tty)
 			}
 		}
-	} else {
-		ta = newAttachmentsWithTty(true, isTty, nil)
-		ta.started = true
-		pts.ttys[session] = ta
 	}
 	pts.lock.Unlock()
 }
@@ -362,7 +384,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 						}
 						if i == len(keys)-1 {
 							glog.Info("got stdin detach keys, exit term")
-							pts.Detach(session, tty)
+							pts.Detach(pts.ttys[session], tty)
 							return
 						}
 						nr, err = tty.Stdin.Read(buf)
@@ -379,7 +401,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 						}
 						// don't detach, we need the last output of the container
 					} else {
-						pts.Detach(session, tty)
+						pts.Detach(pts.ttys[session], tty)
 					}
 					return
 				}
@@ -456,17 +478,12 @@ func (vm *Vm) GetLogOutput(container string, callback chan *types.VmResponse) (i
 	outIO := &TtyIO{
 		Stdin:    nil,
 		Stdout:   stdoutStub,
+		Stderr:   stderrStub,
 		Callback: callback,
-	}
-	errIO := &TtyIO{
-		Stdin:    nil,
-		Stdout:   stderrStub,
-		Callback: nil,
 	}
 
 	cmd := &AttachCommand{
 		Streams:   outIO,
-		Stderr:    errIO,
 		Container: container,
 	}
 
