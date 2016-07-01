@@ -27,7 +27,6 @@ type PodStatus struct {
 	Execs         map[string]*ExecStatus
 	Status        uint
 	Type          string
-	RestartPolicy string
 	Autoremove    bool
 	Handler       *HandleEvent
 	StartedAt     string
@@ -205,7 +204,6 @@ func NewPod(podId string, userPod *pod.UserPod, handler *HandleEvent) *PodStatus
 		Wg:            new(sync.WaitGroup),
 		Status:        types.S_POD_CREATED,
 		Type:          userPod.Type,
-		RestartPolicy: userPod.RestartPolicy,
 		Autoremove:    false,
 		Handler:       handler,
 	}
