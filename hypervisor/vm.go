@@ -231,18 +231,7 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 		}
 		return response
 	}
-
-	if mypod.Type == "kubernetes" && mypod.Status != types.S_POD_CREATED {
-		err := fmt.Errorf("The pod(%s) is finished with kubernetes type, can not start it again",
-			mypod.Id)
-		response = &types.VmResponse{
-			Code:  -1,
-			Cause: err.Error(),
-			Data:  nil,
-		}
-		return response
-	}
-
+	
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return errorResponse(err.Error())
