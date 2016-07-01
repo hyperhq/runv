@@ -14,6 +14,7 @@ const (
 
 const (
 	QmpSockName = "qmp.sock"
+	QemuPidFile = "pidfile"
 
 	QMP_EVENT_SHUTDOWN = "SHUTDOWN"
 )
