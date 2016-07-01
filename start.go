@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/codegangsta/cli"
@@ -145,6 +146,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		}
 
 		var address string
+		var pid uint32
 		if sharedContainer != "" {
 			address = filepath.Join(root, container, "namespace/namespaced.sock")
 		} else {
@@ -172,7 +174,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			if context.GlobalBool("debug") {
 				args = append(args, "-v", "3", "--log_dir", context.GlobalString("log_dir"))
 			}
-			_, err = utils.ExecInDaemon(path, args)
+			pid, err = utils.ExecInDaemon(path, args)
 			if err != nil {
 				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
 				os.Exit(-1)
@@ -181,6 +183,9 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		}
 
 		status := startContainer(context, container, address, spec)
+		if status < 0 && sharedContainer == "" {
+			syscall.Kill(int(pid), syscall.SIGINT)
+		}
 		os.Exit(status)
 	},
 }
