@@ -1,8 +1,11 @@
 package qemu
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
@@ -63,13 +66,62 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	pid, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
+	_, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
 	if err != nil {
 		//fail to daemonize
 		glog.Errorf("%v", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "try to start qemu failed"}
 		return
 	}
+
+	var file *os.File
+	t := time.NewTimer(time.Second * 5)
+	// keep opening file until it exists or timeout
+	for {
+		select {
+		case <-t.C:
+			glog.Error("open pid file timeout")
+			ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "pid file not exist, timeout"}
+			return
+		default:
+		}
+
+		if file, err = os.OpenFile(qc.qemuPidFile, os.O_RDONLY, 0640); err != nil {
+			file.Close()
+			if os.IsNotExist(err) {
+				continue
+			}
+			glog.Errorf("open pid file failed: %v", err)
+			ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "open pid file failed"}
+			return
+		}
+		break
+	}
+
+	var pid uint32
+	t = time.NewTimer(time.Second * 5)
+	for {
+		select {
+		case <-t.C:
+			glog.Error("read pid file timeout")
+			ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "read pid file timeout"}
+			return
+		default:
+		}
+
+		file.Seek(0, os.SEEK_SET)
+		if _, err := fmt.Fscan(file, &pid); err != nil {
+			if err == io.EOF {
+				continue
+			}
+			glog.Errorf("read pid file failed: %v", err)
+			ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "read pid file failed"}
+			return
+		}
+		break
+	}
+
+	file.Close()
 
 	glog.V(1).Infof("starting daemon with pid: %d", pid)
 
