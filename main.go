@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	version    = "0.4.0"
+	version    = "0.6.0"
 	specConfig = "config.json"
 	stateJson  = "state.json"
 	usage      = `Open Container Initiative hypervisor-based runtime
