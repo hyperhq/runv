@@ -338,7 +338,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	}
 
 	return append(params,
-		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
+		"-daemonize", "-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
 		"-m", memParams, "-smp", cpuParams, "-pidfile", qc.qemuPidFile,
 		"-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),

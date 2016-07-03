@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/lib/utils"
 )
 
 func watchDog(qc *QemuContext, hub chan hypervisor.VmEvent) {
@@ -66,7 +66,8 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	_, err := utils.ExecInDaemon(qemu, append([]string{"qemu-system-x86_64"}, args...))
+	cmd := exec.Command("qemu-system-x86_64", args...)
+	err := cmd.Run()
 	if err != nil {
 		//fail to daemonize
 		glog.Errorf("%v", err)
