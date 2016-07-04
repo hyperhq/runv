@@ -996,11 +996,65 @@ func UpAndAddToBridge(name string) error {
 	return nil
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func GetTapFd(tapname, bridge string) (device string, tapFile *os.File, err error) {
 	var (
 		req   ifReq
 		errno syscall.Errno
 	)
+
+	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	if err != nil {
+		return "", nil, err
+	}
+
+	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
+	if tapname != "" {
+		copy(req.Name[:len(req.Name)-1], []byte(tapname))
+	}
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
+		uintptr(syscall.TUNSETIFF),
+		uintptr(unsafe.Pointer(&req)))
+	if errno != 0 {
+		err = fmt.Errorf("create tap device failed\n")
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	device = strings.Trim(string(req.Name[:]), "\x00")
+
+	tapIface, err := net.InterfaceByName(device)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed %s", device, err)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	bIface, err := net.InterfaceByName(bridge)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed", bridge)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	err = AddToBridge(tapIface, bIface)
+	if err != nil {
+		glog.Errorf("Add to bridge failed %s %s", bridge, device)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	err = NetworkLinkUp(tapIface)
+	if err != nil {
+		glog.Errorf("Link up device %s failed", device)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	return device, tapFile, nil
+
+}
+
+func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
@@ -1034,48 +1088,8 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		}, nil
 	}
 
-	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	device, tapFile, err := GetTapFd("", BridgeIface)
 	if err != nil {
-		return nil, err
-	}
-
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
-		uintptr(syscall.TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)))
-	if errno != 0 {
-		err = fmt.Errorf("create tap device failed\n")
-		tapFile.Close()
-		return nil, err
-	}
-
-	device := strings.Trim(string(req.Name[:]), "\x00")
-
-	tapIface, err := net.InterfaceByName(device)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed %s", device, err)
-		tapFile.Close()
-		return nil, err
-	}
-
-	bIface, err := net.InterfaceByName(BridgeIface)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", BridgeIface)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = AddToBridge(tapIface, bIface)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = NetworkLinkUp(tapIface)
-	if err != nil {
-		glog.Errorf("Link up device %s failed", device)
-		tapFile.Close()
 		return nil, err
 	}
 
@@ -1093,10 +1107,6 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 
 func Configure(vmId, requestedIP string, addrOnly bool,
 	maps []pod.UserContainerPort, config pod.UserInterface) (*Settings, error) {
-	var (
-		req   ifReq
-		errno syscall.Errno
-	)
 
 	ip, ipnet, err := net.ParseCIDR(config.Ip)
 	if err != nil {
@@ -1104,7 +1114,6 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		return nil, err
 	}
 
-	BridgeIface := config.Bridge
 	maskSize, _ := ipnet.Mask.Size()
 
 	err = SetupPortMaps(ip.String(), maps)
@@ -1135,51 +1144,8 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		}, nil
 	}
 
-	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	device, tapFile, err := GetTapFd(config.Ifname, config.Bridge)
 	if err != nil {
-		return nil, err
-	}
-
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	if config.Ifname != "" {
-		copy(req.Name[:len(req.Name)-1], []byte(config.Ifname))
-	}
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
-		uintptr(syscall.TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)))
-	if errno != 0 {
-		err = fmt.Errorf("create tap device failed\n")
-		tapFile.Close()
-		return nil, err
-	}
-
-	device := strings.Trim(string(req.Name[:]), "\x00")
-
-	tapIface, err := net.InterfaceByName(device)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed %s", device, err)
-		tapFile.Close()
-		return nil, err
-	}
-
-	bIface, err := net.InterfaceByName(BridgeIface)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", BridgeIface)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = AddToBridge(tapIface, bIface)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = NetworkLinkUp(tapIface)
-	if err != nil {
-		glog.Errorf("Link up device %s failed", device)
-		tapFile.Close()
 		return nil, err
 	}
 
@@ -1187,7 +1153,7 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		Mac:         mac,
 		IPAddress:   ip.String(),
 		Gateway:     config.Gw,
-		Bridge:      BridgeIface,
+		Bridge:      config.Bridge,
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
