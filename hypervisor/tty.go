@@ -400,8 +400,8 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 							Message: make([]byte, 0),
 						}
 						// don't detach, we need the last output of the container
-					} else {
-						pts.Detach(pts.ttys[session], tty)
+					} else if ta, ok := pts.ttys[session]; ok {
+						pts.Detach(ta, tty)
 					}
 					return
 				}
