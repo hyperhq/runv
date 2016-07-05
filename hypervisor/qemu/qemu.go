@@ -26,6 +26,7 @@ type QemuContext struct {
 	wdt         chan string
 	qmpSockName string
 	qemuPidFile string
+	qemuLogFile string
 	cpus        int
 	process     *os.Process
 }
@@ -46,12 +47,22 @@ func InitDriver() *QemuDriver {
 }
 
 func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
+	if _, err := os.Stat(QemuLogDir); os.IsNotExist(err) {
+		os.Mkdir(QemuLogDir, 0755)
+	}
+
+	qemuLogFile := QemuLogDir + "/" + homeDir[strings.Index(homeDir, "vm-"):len(homeDir)-1]
+	if _, err := os.Create(qemuLogFile); err != nil {
+		glog.Errorf("create qemu log file failed: %v", err)
+	}
+
 	return &QemuContext{
 		driver:      qd,
 		qmp:         make(chan QmpInteraction, 128),
 		wdt:         make(chan string, 16),
 		qmpSockName: homeDir + QmpSockName,
 		qemuPidFile: homeDir + QemuPidFile,
+		qemuLogFile: qemuLogFile,
 		process:     nil,
 	}
 }
@@ -340,7 +351,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	return append(params,
 		"-daemonize", "-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
-		"-m", memParams, "-smp", cpuParams, "-pidfile", qc.qemuPidFile,
+		"-m", memParams, "-smp", cpuParams, "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile,
 		"-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
 		"-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3",
 		"-chardev", fmt.Sprintf("socket,id=charch0,path=%s,server,nowait", ctx.HyperSockName),
