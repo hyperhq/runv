@@ -1,6 +1,7 @@
 package qemu
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -66,8 +67,21 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	cmd := exec.Command("qemu-system-x86_64", args...)
+	cmd := exec.Command(qemu, append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile)...)
+
+	stdout := bytes.NewBuffer([]byte{})
+	stderr := bytes.NewBuffer([]byte{})
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
 	err := cmd.Run()
+
+	if stdout.Len() != 0 {
+		glog.Info(stdout.String())
+	}
+	if stderr.Len() != 0 {
+		glog.Error(stderr.String())
+	}
 	if err != nil {
 		//fail to daemonize
 		glog.Errorf("%v", err)
