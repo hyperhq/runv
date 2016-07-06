@@ -420,7 +420,8 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 	} else {
 		switch ev.Event() {
 		case EVENT_VM_START_FAILED:
-			glog.Error("VM did not start up properly, go to cleaning up")
+			msg := ev.(*VmStartFailEvent)
+			glog.Errorf("VM start failed: %s, go to cleaning up", msg.Message)
 			ctx.reportVmFault("VM did not start up properly, go to cleaning up")
 			ctx.Close()
 		case EVENT_INIT_CONNECTED:
