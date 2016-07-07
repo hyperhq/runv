@@ -60,6 +60,7 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 		driver:      qd,
 		qmp:         make(chan QmpInteraction, 128),
 		wdt:         make(chan string, 16),
+		waitQmp:     make(chan int, 1),
 		qmpSockName: homeDir + QmpSockName,
 		qemuPidFile: homeDir + QemuPidFile,
 		qemuLogFile: qemuLogFile,
@@ -155,8 +156,7 @@ func (qc *QemuContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error)
 
 func (qc *QemuContext) Close() {
 	qc.wdt <- "quit"
-	_ = <-qc.waitQmp
-	close(qc.waitQmp)
+	<-qc.waitQmp
 	close(qc.qmp)
 	close(qc.wdt)
 }
