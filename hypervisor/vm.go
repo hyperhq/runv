@@ -441,6 +441,15 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 	}, StateRunning)
 }
 
+func (vm *Vm) DeleteNic(idx int) error {
+
+	vm.SendGenericOperation("NetDevRemovedEvent", func(ctx *VmContext, result chan<- error) {
+		ctx.removeInterfaceByLinkIndex(idx)
+	}, StateRunning)
+
+	return nil
+}
+
 // TODO: deprecated api, it will be removed after the hyper.git updated
 func (vm *Vm) AddCpu(totalCpu int) error {
 	return vm.SetCpus(totalCpu)

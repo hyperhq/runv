@@ -489,6 +489,28 @@ func (ctx *VmContext) releaseNetwork() {
 	}
 }
 
+func (ctx *VmContext) releaseNetworkByLinkIndex(index int) {
+	var maps []pod.UserContainerPort
+
+	for _, c := range ctx.userSpec.Containers {
+		for _, m := range c.Ports {
+			maps = append(maps, m)
+		}
+	}
+
+	nic, ok := ctx.devices.networkMap[index]
+	if !ok {
+		glog.Error("trying to remove an un exist card:", nic)
+		return
+	}
+
+	if ctx.progress.deleting.networks[index] == false {
+		glog.V(1).Infof("remove network card %d: %s", index, nic.IpAddr)
+		go ctx.ReleaseInterface(index, nic.IpAddr, nic.Fd, maps)
+		maps = nil
+	}
+}
+
 func (ctx *VmContext) removeInterface() {
 	var maps []pod.UserContainerPort
 
@@ -503,6 +525,20 @@ func (ctx *VmContext) removeInterface() {
 		ctx.progress.deleting.networks[idx] = true
 		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: idx})
 		maps = nil
+	}
+}
+
+func (ctx *VmContext) removeInterfaceByLinkIndex(index int) {
+	nic, ok := ctx.devices.networkMap[index]
+	if !ok {
+		glog.Error("trying to remove an un exist card:", nic)
+		return
+	}
+
+	if ctx.progress.deleting.networks[index] == false {
+		glog.V(1).Infof("remove network card %d: %s", index, nic.IpAddr)
+		ctx.progress.deleting.networks[index] = true
+		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: index})
 	}
 }
 

@@ -564,6 +564,9 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			}
 		case COMMAND_GET_POD_STATS:
 			ctx.reportPodStats(ev)
+		case EVENT_INTERFACE_EJECTED:
+			ctx.releaseNetworkByLinkIndex((ev.(*NetDevRemovedEvent)).Index)
+			glog.V(1).Info("releaseNetworkByLinkIndex:", (ev.(*NetDevRemovedEvent)).Index)
 		default:
 			unexpectedEventHandler(ctx, ev, "pod running")
 		}

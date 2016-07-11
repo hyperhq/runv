@@ -206,6 +206,12 @@ func (hp *HyperPod) nsListenerStrap() {
 			link := update.Veth
 			if link.Attrs().ParentIndex == 0 {
 				glog.Info("The deleted link :", link)
+				err = hp.vm.DeleteNic(link.Attrs().Index)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+
 			} else {
 				glog.Info("The changed link :", link)
 			}
@@ -219,7 +225,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			// the address change event which the link will be NIL since it has
 			// already been deleted before the address change event be triggered.
 			if link == nil {
-				glog.Info("Link seems has already been deleted, please check.")
+				glog.Info("Link for this address has already been deleted.")
 				continue
 			}
 
@@ -242,7 +248,7 @@ func (hp *HyperPod) nsListenerStrap() {
 				Ip:     update.Addr.LinkAddress.String(),
 			}
 
-			err = hp.vm.AddNic(update.Addr.LinkIndex, link.Attrs().Name, conf)
+			err = hp.vm.AddNic(update.Addr.LinkIndex, "eth1", conf)
 			if err != nil {
 				glog.Error(err)
 				continue
