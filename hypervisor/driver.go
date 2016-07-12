@@ -30,6 +30,7 @@ type BootConfig struct {
 }
 
 type HostNicInfo struct {
+	Id      string
 	Fd      uint64
 	Device  string
 	Mac     string
@@ -64,11 +65,11 @@ type DriverContext interface {
 	Associate(ctx *VmContext)
 	Dump() (map[string]interface{}, error)
 
-	AddDisk(ctx *VmContext, sourceType string, blockInfo *BlockDescriptor)
-	RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent)
+	AddDisk(ctx *VmContext, sourceType string, blockInfo *DiskDescriptor, result chan<- VmEvent)
+	RemoveDisk(ctx *VmContext, blockInfo *DiskDescriptor, callback VmEvent, result chan<- VmEvent)
 
 	AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo, result chan<- VmEvent)
-	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent)
+	RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent, result chan<- VmEvent)
 
 	SetCpus(ctx *VmContext, cpus int, result chan<- error)
 	AddMem(ctx *VmContext, slot, size int, result chan<- error)
@@ -133,9 +134,9 @@ func (ec *EmptyContext) Dump() (map[string]interface{}, error) {
 	return map[string]interface{}{"hypervisor": "empty"}, nil
 }
 
-func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *BlockDescriptor) {}
+func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *DiskDescriptor) {}
 
-func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *BlockDescriptor, callback VmEvent) {
+func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *DiskDescriptor, callback VmEvent) {
 }
 
 func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo, result chan<- VmEvent) {
