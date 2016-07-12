@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -540,6 +542,33 @@ func (ctx *VmContext) removeInterfaceByLinkIndex(index int) {
 		ctx.progress.deleting.networks[index] = true
 		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: index})
 	}
+}
+
+func (ctx *VmContext) GetNextNicName(result chan<- string) {
+	nameList := []string{}
+	for _, nic := range ctx.devices.networkMap {
+		nameList = append(nameList, nic.DeviceName)
+	}
+
+	if len(nameList) == 0 {
+		result <- "eth0"
+		return
+	}
+
+	// The list order was not guaranteed by looping Golang map, so we need to sort it.
+	sort.Strings(nameList)
+
+	lastName := nameList[len(nameList)-1]
+
+	var digitsRegexp = regexp.MustCompile(`eth(\d+)`)
+	idx := digitsRegexp.FindStringSubmatch(lastName)
+
+	num, err := strconv.Atoi(idx[len(idx)-1])
+	if err != nil {
+		result <- ""
+	}
+
+	result <- fmt.Sprintf("eth%d", num+1)
 }
 
 func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string) (*InterfaceCreated, error) {

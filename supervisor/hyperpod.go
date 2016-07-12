@@ -248,7 +248,13 @@ func (hp *HyperPod) nsListenerStrap() {
 				Ip:     update.Addr.LinkAddress.String(),
 			}
 
-			err = hp.vm.AddNic(update.Addr.LinkIndex, "eth1", conf)
+			nicName := hp.vm.GetNextNicNameInVM()
+			if nicName == "" {
+				glog.Errorf("Can not get proper nic name")
+				continue
+			}
+
+			err = hp.vm.AddNic(update.Addr.LinkIndex, nicName, conf)
 			if err != nil {
 				glog.Error(err)
 				continue
