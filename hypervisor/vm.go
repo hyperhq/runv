@@ -491,7 +491,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
-func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(container, execId, cmd string, env []string, terminal bool, tty *TtyIO) error {
 	var command []string
 
 	if cmd == "" {
@@ -501,7 +501,7 @@ func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) err
 	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
 		return err
 	}
-	return vm.AddProcess(container, execId, terminal, command, []string{}, "/", tty)
+	return vm.AddProcess(container, execId, terminal, command, env, "/", tty)
 }
 
 func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string, env []string, workdir string, tty *TtyIO) error {

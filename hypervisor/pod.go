@@ -40,6 +40,7 @@ type ContainerStatus struct {
 	PodId    string
 	Image    string
 	Cmds     []string
+	Envs     []string
 	Logs     LogStatus
 	Status   uint32
 	ExitCode uint8
@@ -106,13 +107,14 @@ func (mypod *PodStatus) SetOneContainerStatus(containerId string, code uint8) {
 	}
 }
 
-func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds []string, status uint32) {
+func (mypod *PodStatus) AddContainer(containerId, name, image string, cmds, envs []string, status uint32) {
 	container := &ContainerStatus{
 		Id:     containerId,
 		Name:   name,
 		PodId:  mypod.Id,
 		Image:  image,
 		Cmds:   cmds,
+		Envs:   envs,
 		Status: status,
 	}
 
