@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -489,6 +491,28 @@ func (ctx *VmContext) releaseNetwork() {
 	}
 }
 
+func (ctx *VmContext) releaseNetworkByLinkIndex(index int) {
+	var maps []pod.UserContainerPort
+
+	for _, c := range ctx.userSpec.Containers {
+		for _, m := range c.Ports {
+			maps = append(maps, m)
+		}
+	}
+
+	nic, ok := ctx.devices.networkMap[index]
+	if !ok {
+		glog.Error("trying to remove an un exist card:", nic)
+		return
+	}
+
+	if ctx.progress.deleting.networks[index] == false {
+		glog.V(1).Infof("remove network card %d: %s", index, nic.IpAddr)
+		go ctx.ReleaseInterface(index, nic.IpAddr, nic.Fd, maps)
+		maps = nil
+	}
+}
+
 func (ctx *VmContext) removeInterface() {
 	var maps []pod.UserContainerPort
 
@@ -504,6 +528,47 @@ func (ctx *VmContext) removeInterface() {
 		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: idx})
 		maps = nil
 	}
+}
+
+func (ctx *VmContext) removeInterfaceByLinkIndex(index int) {
+	nic, ok := ctx.devices.networkMap[index]
+	if !ok {
+		glog.Error("trying to remove an un exist card:", nic)
+		return
+	}
+
+	if ctx.progress.deleting.networks[index] == false {
+		glog.V(1).Infof("remove network card %d: %s", index, nic.IpAddr)
+		ctx.progress.deleting.networks[index] = true
+		ctx.DCtx.RemoveNic(ctx, nic, &NetDevRemovedEvent{Index: index})
+	}
+}
+
+func (ctx *VmContext) GetNextNicName(result chan<- string) {
+	nameList := []string{}
+	for _, nic := range ctx.devices.networkMap {
+		nameList = append(nameList, nic.DeviceName)
+	}
+
+	if len(nameList) == 0 {
+		result <- "eth0"
+		return
+	}
+
+	// The list order was not guaranteed by looping Golang map, so we need to sort it.
+	sort.Strings(nameList)
+
+	lastName := nameList[len(nameList)-1]
+
+	var digitsRegexp = regexp.MustCompile(`eth(\d+)`)
+	idx := digitsRegexp.FindStringSubmatch(lastName)
+
+	num, err := strconv.Atoi(idx[len(idx)-1])
+	if err != nil {
+		result <- ""
+	}
+
+	result <- fmt.Sprintf("eth%d", num+1)
 }
 
 func (ctx *VmContext) allocateInterface(index int, pciAddr int, name string) (*InterfaceCreated, error) {

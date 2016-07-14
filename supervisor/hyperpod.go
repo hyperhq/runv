@@ -18,6 +18,28 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+type NetlinkUpdateType string
+
+const (
+	UpdateTypeLink  NetlinkUpdateType = "link"
+	UpdateTypeAddr  NetlinkUpdateType = "addr"
+	UpdateTypeRoute NetlinkUpdateType = "route"
+)
+
+// NetlinkUpdate tracks the change of network namespace.
+type NetlinkUpdate struct {
+	// AddrUpdate is used to pass information back from AddrSubscribe()
+	Addr netlink.AddrUpdate
+	// RouteUpdate is used to pass information back from RouteSubscribe()
+	Route netlink.RouteUpdate
+	// Veth is used to pass information back from LinkSubscribe().
+	// We only support veth link at present.
+	Veth *netlink.Veth
+
+	// UpdateType indicates which part of the netlink infomation has been changed.
+	UpdateType NetlinkUpdateType
+}
+
 type HyperPod struct {
 	Containers map[string]*Container
 	Processes  map[string]*Process
@@ -102,6 +124,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 
 	/* send collect netns request to nsListener */
 	if err := listener.enc.Encode("init"); err != nil {
+		glog.Error("listener.dec.Decode init error:", err)
 		return err
 	}
 
@@ -109,12 +132,14 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 	/* read nic information of ns from pipe */
 	err := listener.dec.Decode(&infos)
 	if err != nil {
+		glog.Error("listener.dec.Decode infos error:", err)
 		return err
 	}
 
 	routes := []netlink.Route{}
 	err = listener.dec.Decode(&routes)
 	if err != nil {
+		glog.Error("listener.dec.Decode route error:", err)
 		return err
 	}
 
@@ -141,6 +166,9 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 			conf.Gw = gw_route.Gw.String()
 		}
 
+		// TODO(hukeping): the name here is alwasy eth1, 2, 3, 4, 5, etc.,
+		// which would not be the proper way to name device name, instead it
+		// should be the same as what we specified in the network namespace.
 		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
 		if err != nil {
 			glog.Error(err)
@@ -153,13 +181,89 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		glog.Error(err)
 		return err
 	}
-	/*
-		go func() {
-			// watching container network setting, update vm/hyperstart
-		}()
-	*/
+
+	go hp.nsListenerStrap()
 
 	return nil
+}
+
+func (hp *HyperPod) nsListenerStrap() {
+	listener := hp.nslistener
+
+	// Keep watching container network setting
+	// and then update vm/hyperstart
+	for {
+		update := NetlinkUpdate{}
+		err := listener.dec.Decode(&update)
+		if err != nil {
+			glog.Error("listener.dec.Decode NetlinkUpdate error:", err)
+			continue
+		}
+
+		glog.Info("network namespace information of ", update.UpdateType, " has been changed")
+		switch update.UpdateType {
+		case UpdateTypeLink:
+			link := update.Veth
+			if link.Attrs().ParentIndex == 0 {
+				glog.Info("The deleted link :", link)
+				err = hp.vm.DeleteNic(link.Attrs().Index)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+
+			} else {
+				glog.Info("The changed link :", link)
+			}
+
+		case UpdateTypeAddr:
+			glog.Info("The changed address :", update.Addr)
+
+			link := update.Veth
+
+			// If there is a delete operation upon an link, it will also trigger
+			// the address change event which the link will be NIL since it has
+			// already been deleted before the address change event be triggered.
+			if link == nil {
+				glog.Info("Link for this address has already been deleted.")
+				continue
+			}
+
+			// This is just a sanity check.
+			//
+			// The link should be the one which the address on it has been changed.
+			if link.Attrs().Index != update.Addr.LinkIndex {
+				glog.Errorf("Get the wrong link with ID %d, expect %d", link.Attrs().Index, update.Addr.LinkIndex)
+				continue
+			}
+
+			bridge, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+
+			conf := pod.UserInterface{
+				Bridge: bridge,
+				Ip:     update.Addr.LinkAddress.String(),
+			}
+
+			nicName := hp.vm.GetNextNicNameInVM()
+			if nicName == "" {
+				glog.Errorf("Can not get proper nic name")
+				continue
+			}
+
+			err = hp.vm.AddNic(update.Addr.LinkIndex, nicName, conf)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+
+		case UpdateTypeRoute:
+
+		}
+	}
 }
 
 func newPipe() (parent, child *os.File, err error) {
