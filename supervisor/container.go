@@ -148,7 +148,7 @@ func (c *Container) start(p *Process) error {
 		return err
 	}
 
-	c.ownerPod.podStatus.AddContainer(c.Id, c.ownerPod.podStatus.Id, "", []string{}, types.S_POD_CREATED)
+	c.ownerPod.podStatus.AddContainer(c.Id, c.ownerPod.podStatus.Id, "", []string{}, []string{}, types.S_POD_CREATED)
 	return c.ownerPod.vm.NewContainer(u, info)
 }
 
