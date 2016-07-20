@@ -98,7 +98,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 		go waitConsoleOutput(context)
 	}
 
-	context.Become(stateRunningOld, StateRunning)
+	context.Become(stateRunning, StateRunning)
 
 	//for _, c := range context.vmSpec.Containers {
 	//	context.ptys.ptyConnect(true, c.Process.Terminal, c.Process.Stdio, c.Process.Stderr, nil)

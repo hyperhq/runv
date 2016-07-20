@@ -143,7 +143,7 @@ func (dc *DiskContext) wait(id string, wg *sync.WaitGroup) {
 	}
 
 	dc.observers[id] = wg
-	if dc.inserted {
+	if dc.ready {
 		return
 	}
 	wg.Add(1)
