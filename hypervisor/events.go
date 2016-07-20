@@ -170,7 +170,7 @@ type NetDevInsertedEvent struct {
 	Address    int
 }
 
-func (ne *NetDevInsertedEvent) Id() string {
+func (ne *NetDevInsertedEvent) ResultId() string {
 	return ne.Id
 }
 
@@ -192,7 +192,7 @@ type DeviceFailed struct {
 }
 
 //Device Failed as api.Result
-func (df *DeviceFailed) Id() string {
+func (df *DeviceFailed) ResultId() string {
 	switch s := df.Session.(type) {
 	case *InterfaceCreated:
 		return s.Id

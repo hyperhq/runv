@@ -136,7 +136,7 @@ func (c *Container) start(p *Process) error {
 		envs[env.Env] = env.Value
 	}
 
-	info := &hypervisor.ContainerInfo{
+	_ = &hypervisor.ContainerInfo{
 		Id:     c.Id,
 		Rootfs: "rootfs",
 		Image:  pod.UserVolume{Source: c.Id},
@@ -164,7 +164,8 @@ func (c *Container) start(p *Process) error {
 	}
 
 	c.ownerPod.podStatus.AddContainer(c.Id, c.ownerPod.podStatus.Id, "", []string{}, types.S_POD_CREATED)
-	return c.ownerPod.vm.NewContainer(u, info)
+	//Todo: vm.AddContainer here
+	return c.ownerPod.vm.StartContainer(c.Id)
 }
 
 func (c *Container) wait(p *Process) error {

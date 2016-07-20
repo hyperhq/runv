@@ -48,11 +48,11 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		Status   = make(chan *types.VmResponse, 128)
 	)
 
-	if vm.Lazy {
-		go LazyVmLoop(vm.Id, PodEvent, Status, b)
-	} else {
+	//if vm.Lazy {
+	//	go LazyVmLoop(vm.Id, PodEvent, Status, b)
+	//} else {
 		go VmLoop(vm.Id, PodEvent, Status, b)
-	}
+	//}
 
 	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
@@ -387,7 +387,7 @@ func (vm *Vm) AddRoute(id string) error {
 
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_SETUPROUTE,
-			Message: hyperstartapi.Routes{Routes: inf.RouteTable},
+			Message: hyperstartapi.Routes{Routes: routes},
 			result:  result,
 		}
 	}, StateRunning)
@@ -562,8 +562,8 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 	return tty.WaitForFinish()
 }
 
-func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
-	var id = info.Id
+func (vm *Vm) StartContainer(id string) error {
+
 	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
 		ctx.newContainer(id, result)
 	}, StateInit, StateRunning)
@@ -571,7 +571,6 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 	if err != nil {
 		return fmt.Errorf("Create new container failed: %v", err)
 	}
-
 	vm.GenericOperation("StartNewContainerStdin", func(ctx *VmContext, result chan<- error) {
 		// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 		if cc, ok := ctx.containers[id]; ok {

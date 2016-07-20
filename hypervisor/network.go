@@ -33,12 +33,12 @@ func NewNetworkContext() *NetworkContext {
 	return &NetworkContext{
 		ports:    []*api.PortDescription{},
 		eth:      make(map[int]*InterfaceCreated),
-		lo:       make(map[int]*InterfaceCreated),
+		lo:       make(map[string]*InterfaceCreated),
 		slotLock: &sync.RWMutex{},
 	}
 }
 
-func (nc *NetworkContext) sandboxInfo() **hyperstartapi.Pod {
+func (nc *NetworkContext) sandboxInfo() *hyperstartapi.Pod {
 
 	vmSpec := NewVmSpec()
 
@@ -76,7 +76,7 @@ func (nc *NetworkContext) freeSlot(slot int) {
 	}
 }
 
-func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan *api.Result) {
+func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	if inf.Lo {
 		if inf.Ip == "" {
 			estr := fmt.Sprintf("creating an interface without an IP address: %#v", inf)
@@ -94,13 +94,13 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 		nc.idMap[inf.Id] = i
 
 		result <- &api.ResultBase{
-			ResultId: inf.Id,
+			Id: inf.Id,
 			Success:  true,
 		}
 		return
 	}
 
-	var devChan chan<- VmEvent = make(chan<- VmEvent, 1)
+	var devChan chan VmEvent = make(chan VmEvent, 1)
 
 	go func() {
 		nc.slotLock.Lock()
@@ -121,6 +121,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 	go func() {
 		ev, ok := <-devChan
 		if !ok {
+			nc.sandbox.Log(ERROR, "chan closed while waiting network inserted event: %#v", ev)
 			return
 		}
 		// ev might be DeviceInsert failed, or inserted
@@ -132,12 +133,19 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 				nc.netdevInsertFailed(inf.Index, inf.DeviceName)
 				nc.sandbox.Log(ERROR, "interface creation failed: %#v", inf)
 			}
+			result <- fe
+			return
+		} else if ni, ok := ev.(*NetDevInsertedEvent); ok {
+			nc.sandbox.Log(DEBUG, "nic insert success: ", ni.Id)
+			result <- ni
+			return
 		}
-		result <- ev
+		nc.sandbox.Log(ERROR, "got unknown event while waiting network inserted event: %#v", ev)
+		result <- NewDeviceError(inf.Id, "unknown event")
 	}()
 }
 
-func (nc *NetworkContext) removeInterface(id string, result chan *api.Result) {
+func (nc *NetworkContext) removeInterface(id string, result chan api.Result) {
 	if inf, ok := nc.idMap[id]; !ok {
 		nc.sandbox.Log(WARNING, "trying remove a non-exist interface %s", id)
 		result <- api.NewResultBase(id, true, "not exist")
@@ -154,11 +162,11 @@ func (nc *NetworkContext) removeInterface(id string, result chan *api.Result) {
 		if _, ok := nc.eth[inf.Index]; !ok {
 			delete(nc.idMap, id)
 			nc.sandbox.Log(INFO, "non-configured network device %d remove failed", inf.Index)
-			result <- api.NewResultBase{id, true, "not configured eth"}
+			result <- api.NewResultBase(id, true, "not configured eth")
 			return
 		}
 
-		var devChan chan<- VmEvent = make(chan<- VmEvent, 1)
+		var devChan chan VmEvent = make(chan VmEvent, 1)
 
 		nc.sandbox.Log(DEBUG, "remove network card %d: %s", inf.Index, inf.IpAddr)
 		nc.sandbox.DCtx.RemoveNic(nc.sandbox, inf, &NetDevRemovedEvent{Index: inf.Index}, devChan)
@@ -211,9 +219,9 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 
 	if HDriver.BuildinNetwork() {
 		/* VBox doesn't support join to bridge */
-		settings, err = nc.sandbox.DCtx.ConfigureNetwork(nc.sandbox.Id, "", []*api.PortDescription{}, inf)
+		settings, err = nc.sandbox.DCtx.ConfigureNetwork(nc.sandbox.Id, "", inf)
 	} else {
-		settings, err = network.Configure(nc.sandbox.Id, "", false, []*api.PortDescription{}, inf)
+		settings, err = network.Configure(nc.sandbox.Id, "", false, inf)
 	}
 
 	if err != nil {

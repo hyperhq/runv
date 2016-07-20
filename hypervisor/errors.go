@@ -3,6 +3,7 @@ package hypervisor
 const (
 	ET_SPEC string = "SPEC_ERROR"
 	ET_BUSY string = "RESOURSE_UNAVAILABLE"
+	ET_DEVICE string = "DEVICE_OPERATION_FAIL"
 )
 
 type Errors interface {
@@ -24,7 +25,7 @@ func (err *CommonError) Type() string {
 	return err.errType
 }
 
-func (err *CommonError) Id() string {
+func (err *CommonError) ResultId() string {
 	return err.contextId
 }
 
@@ -51,5 +52,13 @@ func NewBusyError(id, cause string) *CommonError {
 		errType: ET_BUSY,
 		contextId: id,
 		cause: "resouse unavailable: " + cause,
+	}
+}
+
+func NewDeviceError(id, cause string) *CommonError {
+	return &CommonError{
+		errType: ET_DEVICE,
+		contextId: id,
+		cause: "device operation error: " + cause,
 	}
 }

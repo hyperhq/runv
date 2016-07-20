@@ -53,10 +53,10 @@ type Container struct {
 	Fstype        string             `json:"fstype,omitempty"`
 	Image         string             `json:"image"`
 	Addr          string             `json:"addr,omitempty"`
-	Volumes       []VolumeDescriptor `json:"volumes,omitempty"`
-	Fsmap         []FsmapDescriptor  `json:"fsmap,omitempty"`
+	Volumes       []*VolumeDescriptor `json:"volumes,omitempty"`
+	Fsmap         []*FsmapDescriptor  `json:"fsmap,omitempty"`
 	Sysctl        map[string]string  `json:"sysctl,omitempty"`
-	Process       Process            `json:"process"`
+	Process       *Process            `json:"process"`
 	RestartPolicy string             `json:"restartPolicy"`
 	Initialize    bool               `json:"initialize"`
 	Ports         []Port             `json:"ports,omitempty"`  //deprecated
@@ -102,7 +102,7 @@ func (cr *Container) RoLookup(mpoint string) bool {
 func (cr *Container) mapLookup(mpoint string) *FsmapDescriptor {
 	for _, fs := range cr.Fsmap {
 		if fs.Path == mpoint {
-			return &fs
+			return fs
 		}
 	}
 	return nil
@@ -111,7 +111,7 @@ func (cr *Container) mapLookup(mpoint string) *FsmapDescriptor {
 func (cr *Container) volLookup(mpoint string) *VolumeDescriptor {
 	for _, vol := range cr.Volumes {
 		if vol.Mount == mpoint {
-			return &vol
+			return vol
 		}
 	}
 	return nil

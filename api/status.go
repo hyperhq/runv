@@ -1,27 +1,27 @@
 package api
 
 type Result interface {
-	Id() string
+	ResultId() string
 	IsSuccess() bool
 	Message() string
 }
 
 type ResultBase struct {
-	ResultId string
-	Success  bool
-	Message  string
+	Id            string
+	Success       bool
+	ResultMessage string
 }
 
 func NewResultBase(id string, success bool, message string) *ResultBase {
 	return &ResultBase{
-		ResultId: id,
-		Success:  success,
-		Message:  message,
+		Id:            id,
+		Success:       success,
+		ResultMessage: message,
 	}
 }
 
-func (r *ResultBase) Id() string {
-	return r.ResultId
+func (r *ResultBase) ResultId() string {
+	return r.Id
 }
 
 func (r *ResultBase) IsSuccess() bool {
@@ -29,5 +29,5 @@ func (r *ResultBase) IsSuccess() bool {
 }
 
 func (r *ResultBase) Message() string {
-	return r.Message
+	return r.ResultMessage
 }

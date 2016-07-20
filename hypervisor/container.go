@@ -106,7 +106,7 @@ func (cc *ContainerContext) configProcess() {
 	for e, v := range c.Envs {
 		envs = append(envs, hyperstartapi.EnvironmentVar{Env: e, Value: v})
 	}
-	cc.process = hyperstartapi.Process{
+	cc.process = &hyperstartapi.Process{
 		User:             c.UGI.User,
 		Group:            c.UGI.Group,
 		AdditionalGroups: c.UGI.AdditionalGroups,

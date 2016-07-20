@@ -114,7 +114,7 @@ func (dc *DiskContext) remove(result chan api.Result) {
 
 	go func() {
 		r := make(chan VmEvent, 4)
-		dc.sandbox.DCtx.RemoveDisk(dc.sandbox, dc.DiskDescriptor, &VolumeUnmounted{Name: dc.Name, Success: true}, result)
+		dc.sandbox.DCtx.RemoveDisk(dc.sandbox, dc.DiskDescriptor, &VolumeUnmounted{Name: dc.Name, Success: true}, r)
 
 		ev, ok := <-r
 		if !ok {

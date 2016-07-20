@@ -226,15 +226,6 @@ func (ctx *VmContext) Close() {
 	ctx.current = "None"
 }
 
-func (ctx *VmContext) tryClose() bool {
-	if ctx.deviceReady() {
-		ctx.Log(DEBUG, "no more device to release/remove/umount, quit")
-		ctx.Close()
-		return true
-	}
-	return false
-}
-
 func (ctx *VmContext) Become(handler stateHandler, desc string) {
 	orig := ctx.current
 	ctx.lock.Lock()
@@ -257,14 +248,14 @@ func (ctx *VmContext) AddPortmapping(ports []*api.PortDescription) {
 	defer ctx.lock.Unlock()
 }
 
-func (ctx *VmContext) AddInterface(inf *api.InterfaceDescription, result chan *api.Result) {
+func (ctx *VmContext) AddInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
 	ctx.networks.addInterface(inf, result)
 }
 
-func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan *api.Result) error {
+func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -280,8 +271,8 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan *api
 	}
 	cc := &ContainerContext{
 		ContainerDescription: c,
-		fsmap:                []hyperstartapi.FsmapDescriptor{},
-		vmVolumes:            []hyperstartapi.VolumeDescriptor{},
+		fsmap:                []*hyperstartapi.FsmapDescriptor{},
+		vmVolumes:            []*hyperstartapi.VolumeDescriptor{},
 		sandbox:              ctx,
 	}
 
@@ -319,10 +310,10 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan *api
 
 	go cc.add(wgDisk, result)
 
-	return nil
+	return
 }
 
-func (ctx *VmContext) RemoveContainer(id string, result chan *api.Result) {
+func (ctx *VmContext) RemoveContainer(id string, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -346,7 +337,7 @@ func (ctx *VmContext) RemoveContainer(id string, result chan *api.Result) {
 	cc.root.remove(result)
 }
 
-func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan *api.Result) {
+func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -370,7 +361,7 @@ func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan *api.Res
 	ctx.volumes[vol.Name] = dc
 }
 
-func (ctx *VmContext) RemoveVolume(name string, result chan *api.Result) {
+func (ctx *VmContext) RemoveVolume(name string, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 

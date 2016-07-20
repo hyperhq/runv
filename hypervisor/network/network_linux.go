@@ -1053,7 +1053,7 @@ func GetTapFd(tapname, bridge string) (device string, tapFile *os.File, err erro
 
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool, maps []*api.PortDescription) (*Settings, error) {
+func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
@@ -1068,11 +1068,12 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []*api.PortDescripti
 		return nil, err
 	}
 
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
+	//TODO: will move to a dedicate method
+	//err = SetupPortMaps(ip.String(), maps)
+	//if err != nil {
+	//	glog.Errorf("Setup Port Map failed %s", err)
+	//	return nil, err
+	//}
 
 	if addrOnly {
 		return &Settings{
@@ -1104,8 +1105,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []*api.PortDescripti
 	}, nil
 }
 
-func Configure(vmId, requestedIP string, addrOnly bool,
-	maps []*api.PortDescription, inf *api.InterfaceDescription) (*Settings, error) {
+func Configure(vmId, requestedIP string, addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
 
 	ip, ipnet, err := net.ParseCIDR(inf.Ip)
 	if err != nil {

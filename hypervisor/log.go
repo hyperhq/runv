@@ -16,9 +16,9 @@ func (ctx *VmContext) LogLevel(level uint) bool {
 	if level <= INFO {
 		return true
 	} else if level == DEBUG {
-		return glog.V(1)
+		return bool(glog.V(1))
 	} else if level == TRACE {
-		return glog.V(4)
+		return bool(glog.V(4))
 	}
 	return false
 }

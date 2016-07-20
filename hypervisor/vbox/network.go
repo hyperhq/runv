@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/lib/govbox"
@@ -113,8 +114,7 @@ func ReleasePortMaps(vmId string, containerip string, maps []pod.UserContainerPo
 	return nil
 }
 
-func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
-	maps []pod.UserContainerPort) (*network.Settings, error) {
+func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string) (*network.Settings, error) {
 	ip, err := network.IpAllocator.RequestIP(network.BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
 		return nil, err
@@ -122,11 +122,11 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
 
 	maskSize, _ := network.BridgeIPv4Net.Mask.Size()
 
-	err = SetupPortMaps(vmId, ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
+	//err = SetupPortMaps(vmId, ip.String(), maps)
+	//if err != nil {
+	//	glog.Errorf("Setup Port Map failed %s", err)
+	//	return nil, err
+	//}
 
 	return &network.Settings{
 		Mac:         "",
@@ -140,9 +140,7 @@ func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string,
 }
 
 func (vc *VBoxContext) ConfigureNetwork(vmId,
-	requestedIP string,
-	maps []pod.UserContainerPort,
-	config pod.UserInterface) (*network.Settings, error) {
+	requestedIP string, config *api.InterfaceDescription) (*network.Settings, error) {
 	ip, ipnet, err := net.ParseCIDR(config.Ip)
 	if err != nil {
 		glog.Errorf("Parse interface IP failed %s", err)
@@ -151,11 +149,11 @@ func (vc *VBoxContext) ConfigureNetwork(vmId,
 
 	maskSize, _ := ipnet.Mask.Size()
 
-	err = SetupPortMaps(vmId, ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
+	//err = SetupPortMaps(vmId, ip.String(), maps)
+	//if err != nil {
+	//	glog.Errorf("Setup Port Map failed %s", err)
+	//	return nil, err
+	//}
 
 	return &network.Settings{
 		Mac:         config.Mac,
