@@ -1,14 +1,13 @@
 package hypervisor
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"syscall"
 	"time"
 
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
 // states
@@ -45,110 +44,109 @@ func (ctx *VmContext) onVmExit(reclaim bool) bool {
 }
 
 func (ctx *VmContext) reclaimDevice() {
-	ctx.releaseNetwork()
+//	ctx.releaseAllNetwork()
+	ctx.networks.close()
 }
 
-func (ctx *VmContext) detachDevice() {
-	ctx.removeVolumeDrive()
-	ctx.removeImageDrive()
-	ctx.removeInterface()
-}
+//func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
+//	if len(cmd.Spec.Containers) != len(cmd.Containers) {
+//		ctx.reportBadRequest("Spec and Container Info mismatch")
+//		return false
+//	}
+//
+//	//TODO: should think about the wg
+//	ctx.InitDeviceContext(cmd.Spec, cmd.Wg, cmd.Containers, cmd.Volumes)
+//
+//	if glog.V(2) {
+//		res, _ := json.MarshalIndent(*ctx.vmSpec, "    ", "    ")
+//		glog.Info("initial vm spec: ", string(res))
+//	}
+//
+//	pendings := ctx.ptys.pendingTtys
+//	ctx.ptys.pendingTtys = []*AttachCommand{}
+//	for _, acmd := range pendings {
+//		idx := ctx.Lookup(acmd.Container)
+//		if idx >= 0 {
+//			glog.Infof("attach pending client for %s", acmd.Container)
+//			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
+//		} else {
+//			glog.Infof("not attach for %s", acmd.Container)
+//			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
+//		}
+//	}
+//
+//	ctx.allocateDevices()
+//
+//	return true
+//}
+//
+//func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.Container {
+//	ctx.lock.Lock()
+//
+//	idx := len(ctx.vmSpec.Containers)
+//	vmContainer := &hyperstartapi.Container{}
+//
+//	ctx.initContainerInfo(idx, vmContainer, cmd.container)
+//	ctx.setContainerInfo(idx, vmContainer, cmd.info)
+//
+//	vmContainer.Sysctl = cmd.container.Sysctl
+//	vmContainer.Process.Stdio = ctx.ptys.attachId
+//	ctx.ptys.attachId++
+//	if !cmd.container.Tty {
+//		vmContainer.Process.Stderr = ctx.ptys.attachId
+//		ctx.ptys.attachId++
+//	}
+//
+//	ctx.userSpec.Containers = append(ctx.userSpec.Containers, *cmd.container)
+//	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
+//
+//	ctx.lock.Unlock()
+//
+//	pendings := ctx.ptys.pendingTtys
+//	ctx.ptys.pendingTtys = []*AttachCommand{}
+//	for _, acmd := range pendings {
+//		if idx == ctx.Lookup(acmd.Container) {
+//			glog.Infof("attach pending client for %s", acmd.Container)
+//			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
+//		} else {
+//			glog.Infof("not attach for %s", acmd.Container)
+//			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
+//		}
+//	}
+//
+//	return vmContainer
+//}
 
-func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
-	if len(cmd.Spec.Containers) != len(cmd.Containers) {
-		ctx.reportBadRequest("Spec and Container Info mismatch")
-		return false
-	}
-
-	ctx.InitDeviceContext(cmd.Spec, cmd.Wg, cmd.Containers, cmd.Volumes)
-
-	if glog.V(2) {
-		res, _ := json.MarshalIndent(*ctx.vmSpec, "    ", "    ")
-		glog.Info("initial vm spec: ", string(res))
-	}
-
-	pendings := ctx.ptys.pendingTtys
-	ctx.ptys.pendingTtys = []*AttachCommand{}
-	for _, acmd := range pendings {
-		idx := ctx.Lookup(acmd.Container)
-		if idx >= 0 {
-			glog.Infof("attach pending client for %s", acmd.Container)
-			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
-		} else {
-			glog.Infof("not attach for %s", acmd.Container)
-			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
-		}
-	}
-
-	ctx.allocateDevices()
-
-	return true
-}
-
-func (ctx *VmContext) prepareContainer(spec *pod.UserContainer, info *ContainerInfo) *hyperstartapi.Container {
+func (ctx *VmContext) newContainer(id string) {
 	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
 
-	idx := len(ctx.vmSpec.Containers)
-	vmContainer := &hyperstartapi.Container{}
-
-	ctx.initContainerInfo(idx, vmContainer, spec)
-	ctx.setContainerInfo(idx, vmContainer, info)
-
-	vmContainer.Sysctl = spec.Sysctl
-	vmContainer.Process.Stdio = ctx.ptys.attachId
-	ctx.ptys.attachId++
-	if !spec.Tty {
-		vmContainer.Process.Stderr = ctx.ptys.attachId
-		ctx.ptys.attachId++
-	}
-
-	ctx.userSpec.Containers = append(ctx.userSpec.Containers, *spec)
-	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
-
-	ctx.lock.Unlock()
-
-	pendings := ctx.ptys.pendingTtys
-	ctx.ptys.pendingTtys = []*AttachCommand{}
-	for _, acmd := range pendings {
-		if idx == ctx.Lookup(acmd.Container) {
-			glog.Infof("attach pending client for %s", acmd.Container)
-			ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, acmd)
-		} else {
-			glog.Infof("not attach for %s", acmd.Container)
-			ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, acmd)
+	c, ok := ctx.containers[id]
+	if ok {
+		glog.Infof("start sending INIT_NEWCONTAINER")
+		ctx.vm <- &hyperstartCmd{
+			Code:    hyperstartapi.INIT_NEWCONTAINER,
+			Message: c.VmSpec(),
 		}
+		glog.Infof("sent INIT_NEWCONTAINER")
 	}
-
-	return vmContainer
+	//TODO: fail if container not exist
 }
 
-func (ctx *VmContext) newContainer(spec *pod.UserContainer, info *ContainerInfo, result chan<- error) {
-	c := ctx.prepareContainer(spec, info)
-	glog.Infof("start sending INIT_NEWCONTAINER")
-	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_NEWCONTAINER,
-		Message: c,
-		result:  result,
-	}
-	glog.Infof("sent INIT_NEWCONTAINER")
-}
-
-func (ctx *VmContext) updateInterface(index int, result chan<- error) {
-	if _, ok := ctx.devices.networkMap[index]; !ok {
-		result <- fmt.Errorf("can't find interface whose index is %d", index)
+func (ctx *VmContext) updateInterface(id string, result chan<- error) {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		result <- fmt.Errorf("can't find interface whose ID is %s", id)
 		return
-	}
-
-	inf := hyperstartapi.NetworkInf{
-		Device:    ctx.devices.networkMap[index].DeviceName,
-		IpAddress: ctx.devices.networkMap[index].IpAddr,
-		NetMask:   ctx.devices.networkMap[index].NetMask,
-	}
-
-	ctx.vm <- &hyperstartCmd{
-		Code:    hyperstartapi.INIT_SETUPINTERFACE,
-		Message: inf,
-		result:  result,
+	} else {
+		ctx.vm <- &hyperstartCmd{
+			Code:    hyperstartapi.INIT_SETUPINTERFACE,
+			Message: hyperstartapi.NetworkInf{
+				Device:    inf.DeviceName,
+				IpAddress: inf.IpAddr,
+				NetMask:   inf.NetMask,
+			},
+			result:  result,
+		}
 	}
 }
 
@@ -163,13 +161,16 @@ func (ctx *VmContext) setWindowSize(containerId, execId string, size *WindowSize
 
 		session = exec.Process.Stdio
 	} else if containerId != "" {
-		idx := ctx.Lookup(containerId)
-		if idx < 0 || idx > len(ctx.vmSpec.Containers) {
+		ctx.lock.Lock()
+		defer ctx.lock.Unlock()
+
+		c, ok := ctx.containers[containerId]
+		if !ok {
 			glog.Errorf("cannot find container %s", containerId)
 			return
 		}
 
-		session = ctx.vmSpec.Containers[idx].Process.Stdio
+		session = c.process.Stdio
 	} else {
 		glog.Error("no container or exec is specified")
 		return
@@ -224,17 +225,18 @@ func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result ch
 }
 
 func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
-	idx := ctx.Lookup(cmd.Container)
-	if cmd.Container != "" && idx < 0 {
-		ctx.ptys.pendingTtys = append(ctx.ptys.pendingTtys, cmd)
-		glog.V(1).Infof("attachment %s is pending", cmd.Container)
-		result <- nil
-		return
-	} else if idx < 0 || idx > len(ctx.vmSpec.Containers) || ctx.vmSpec.Containers[idx].Process.Stdio == 0 {
-		result <- fmt.Errorf("tty is not configured for %s", cmd.Container)
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	c, ok := ctx.containers[cmd.Container]
+	if !ok {
+		estr := fmt.Sprintf("cannot find container %s to attach", cmd.Container)
+		ctx.Log(ERROR, estr)
+		result <- errors.New(estr)
 		return
 	}
-	ctx.attachTty2Container(&ctx.vmSpec.Containers[idx].Process, cmd)
+
+	ctx.attachTty2Container(c.process, cmd)
 	if cmd.Size != nil {
 		ctx.setWindowSize(cmd.Container, "", cmd.Size)
 	}
@@ -251,7 +253,7 @@ func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *A
 func (ctx *VmContext) startPod() {
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_STARTPOD,
-		Message: ctx.vmSpec,
+		Message: ctx.networks.sandboxInfo(),
 	}
 }
 
@@ -325,57 +327,6 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 	return processed
 }
 
-func deviceInitHandler(ctx *VmContext, ev VmEvent) bool {
-	processed := true
-	switch ev.Event() {
-	case EVENT_BLOCK_INSERTED:
-		info := ev.(*BlockdevInsertedEvent)
-		ctx.blockdevInserted(info)
-	case EVENT_DEV_SKIP:
-	case EVENT_INTERFACE_ADD:
-		info := ev.(*InterfaceCreated)
-		ctx.interfaceCreated(info, false, ctx.Hub)
-	case EVENT_INTERFACE_INSERTED:
-		info := ev.(*NetDevInsertedEvent)
-		ctx.netdevInserted(info)
-	default:
-		processed = false
-	}
-	return processed
-}
-
-func deviceRemoveHandler(ctx *VmContext, ev VmEvent) (bool, bool) {
-	processed := true
-	success := true
-	switch ev.Event() {
-	case EVENT_CONTAINER_DELETE:
-		success = ctx.onContainerRemoved(ev.(*ContainerUnmounted))
-		glog.V(1).Info("Unplug container return with ", success)
-	case EVENT_INTERFACE_DELETE:
-		success = ctx.onInterfaceRemoved(ev.(*InterfaceReleased))
-		glog.V(1).Info("Unplug interface return with ", success)
-	case EVENT_BLOCK_EJECTED:
-		success = ctx.onVolumeRemoved(ev.(*VolumeUnmounted))
-		glog.V(1).Info("Unplug block device return with ", success)
-	case EVENT_INTERFACE_EJECTED:
-		n := ev.(*NetDevRemovedEvent)
-		nic := ctx.devices.networkMap[n.Index]
-		var maps []pod.UserContainerPort
-
-		for _, c := range ctx.userSpec.Containers {
-			for _, m := range c.Ports {
-				maps = append(maps, m)
-			}
-		}
-
-		glog.V(1).Infof("release %d interface: %s", n.Index, nic.IpAddr)
-		go ctx.ReleaseInterface(n.Index, nic.IpAddr, nic.Fd, maps)
-	default:
-		processed = false
-	}
-	return processed, success
-}
-
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
 	case COMMAND_RUN_POD,
@@ -395,12 +346,6 @@ func initFailureHandler(ctx *VmContext, ev VmEvent) bool {
 	switch ev.Event() {
 	case ERROR_INIT_FAIL: // VM connection Failure
 		reason := ev.(*InitFailedEvent).Reason
-		glog.Error(reason)
-	case ERROR_QMP_FAIL: // Device allocate and insert Failure
-		reason := "QMP protocol exception"
-		if ev.(*DeviceFailed).Session != nil {
-			reason = "QMP protocol exception: failed while waiting " + EventString(ev.(*DeviceFailed).Session.Event())
-		}
 		glog.Error(reason)
 	default:
 		processed = false
@@ -486,9 +431,9 @@ func stateStarting(ctx *VmContext, ev VmEvent) {
 						pinfo = buf
 					}
 				}
-				for _, c := range ctx.vmSpec.Containers {
-					ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-				}
+				//for _, c := range ctx.vmSpec.Containers {
+				//	ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
+				//}
 				ctx.reportSuccess("Start POD success", pinfo)
 				ctx.Become(stateRunning, StateRunning)
 				glog.Info("pod start success ", string(ack.msg))
@@ -556,6 +501,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 // TODO: remove this state
 func statePodStopping(ctx *VmContext, ev VmEvent) {
 	if processed := commonStateHandler(ctx, ev, true); processed {
+	} else if processed := initFailureHandler(ctx, ev); processed {
 	} else {
 		switch ev.Event() {
 		case COMMAND_RELEASE:
@@ -566,14 +512,12 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 			ctx.reportVmShutdown()
 		case EVENT_POD_FINISH:
 			glog.Info("POD stopped")
-			ctx.detachDevice()
 			ctx.Become(stateCleaning, StateCleaning)
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply.Code)
 			if ack.reply.Code == hyperstartapi.INIT_STOPPOD_DEPRECATED {
 				glog.Info("POD stopped ", string(ack.msg))
-				ctx.detachDevice()
 				ctx.Become(stateCleaning, StateCleaning)
 			}
 		case ERROR_CMD_FAIL:
@@ -596,6 +540,9 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 }
 
 func stateTerminating(ctx *VmContext, ev VmEvent) {
+	if processed := initFailureHandler(ctx, ev); processed {
+		return
+	}
 	switch ev.Event() {
 	case EVENT_VM_EXIT:
 		glog.Info("Got VM shutdown event while terminating, go to cleaning up")
@@ -687,6 +634,10 @@ func stateCleaning(ctx *VmContext, ev VmEvent) {
 
 func stateDestroying(ctx *VmContext, ev VmEvent) {
 	if processed, _ := deviceRemoveHandler(ctx, ev); processed {
+		if closed := ctx.tryClose(); closed {
+			glog.Info("resources reclaimed, quit...")
+		}
+	} else if processed := initFailureHandler(ctx, ev); processed {
 		if closed := ctx.tryClose(); closed {
 			glog.Info("resources reclaimed, quit...")
 		}

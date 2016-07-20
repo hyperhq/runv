@@ -139,6 +139,7 @@ type BlockdevInsertedEvent struct {
 type DevSkipEvent struct{}
 
 type InterfaceCreated struct {
+	Id         string //user specified in (ref api.InterfaceDescription: a user identifier of interface, user may use this to specify a nic, normally you can use IPAddr as an Id, however, in some driver (probably vbox?), user may not specify the IPAddr.)
 	Index      int
 	PCIAddr    int
 	Fd         *os.File
@@ -163,10 +164,24 @@ type RouteRule struct {
 }
 
 type NetDevInsertedEvent struct {
+	Id         string
 	Index      int
 	DeviceName string
 	Address    int
 }
+
+func (ne *NetDevInsertedEvent) Id() string {
+	return ne.Id
+}
+
+func (ne *NetDevInsertedEvent) IsSuccess() bool {
+	return true
+}
+
+func (ne *NetDevInsertedEvent) Message() string {
+	return "NIC inserted"
+}
+
 
 type NetDevRemovedEvent struct {
 	Index int
@@ -174,6 +189,26 @@ type NetDevRemovedEvent struct {
 
 type DeviceFailed struct {
 	Session VmEvent
+}
+
+//Device Failed as api.Result
+func (df *DeviceFailed) Id() string {
+	switch s := df.Session.(type) {
+	case *InterfaceCreated:
+		return s.Id
+	case *NetDevInsertedEvent:
+		return s.Id
+	default:
+		return ""
+	}
+}
+
+func (df *DeviceFailed) IsSuccess() bool {
+	return false
+}
+
+func (df *DeviceFailed) Message() string {
+	return "Device operation failed"
 }
 
 type Interrupted struct {

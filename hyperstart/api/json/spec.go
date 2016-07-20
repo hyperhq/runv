@@ -59,7 +59,7 @@ type Container struct {
 	Process       Process            `json:"process"`
 	RestartPolicy string             `json:"restartPolicy"`
 	Initialize    bool               `json:"initialize"`
-	Ports         []Port             `json:"ports,omitempty"`
+	Ports         []Port             `json:"ports,omitempty"`  //deprecated
 }
 
 type NetworkInf struct {
@@ -68,7 +68,7 @@ type NetworkInf struct {
 	NetMask   string `json:"netMask"`
 }
 
-type Route struct {
+type  Route struct {
 	Dest    string `json:"dest"`
 	Gateway string `json:"gateway,omitempty"`
 	Device  string `json:"device,omitempty"`
@@ -81,10 +81,10 @@ type PortmappingWhiteList struct {
 
 type Pod struct {
 	Hostname              string                `json:"hostname"`
-	Containers            []Container           `json:"containers"`
-	Interfaces            []NetworkInf          `json:"interfaces,omitempty"`
+	DeprecatedContainers  []Container           `json:"containers,omitempty"`
+	DeprecatedInterfaces  []NetworkInf          `json:"interfaces,omitempty"`
 	Dns                   []string              `json:"dns,omitempty"`
-	Routes                []Route               `json:"routes,omitempty"`
+	DeprecatedRoutes      []Route               `json:"routes,omitempty"`
 	ShareDir              string                `json:"shareDir"`
 	PortmappingWhiteLists *PortmappingWhiteList `json:"portmappingWhiteLists,omitempty"`
 }

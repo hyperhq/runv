@@ -48,8 +48,8 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	info := &PersistInfo{
 		Id:          ctx.Id,
 		DriverInfo:  dr,
-		UserSpec:    ctx.userSpec,
-		VmSpec:      ctx.vmSpec,
+		//UserSpec:    ctx.userSpec,
+		//VmSpec:      ctx.vmSpec,
 		HwStat:      ctx.dumpHwInfo(),
 		VolumeList:  make([]*PersistVolumeInfo, len(ctx.devices.imageMap)+len(ctx.devices.volumeMap)),
 		NetworkList: make([]*PersistNetworkInfo, len(ctx.devices.networkMap)),
@@ -102,7 +102,7 @@ func (ctx *VmContext) loadHwStatus(pinfo *PersistInfo) {
 	ctx.ptys.attachId = pinfo.HwStat.AttachId
 }
 
-func (blk *BlockDescriptor) dump() *PersistVolumeInfo {
+func (blk *DiskDescriptor) dump() *PersistVolumeInfo {
 	return &PersistVolumeInfo{
 		Name:       blk.Name,
 		Filename:   blk.Filename,
@@ -113,8 +113,8 @@ func (blk *BlockDescriptor) dump() *PersistVolumeInfo {
 	}
 }
 
-func (vol *PersistVolumeInfo) blockInfo() *BlockDescriptor {
-	return &BlockDescriptor{
+func (vol *PersistVolumeInfo) blockInfo() *DiskDescriptor {
+	return &DiskDescriptor{
 		Name:       vol.Name,
 		Filename:   vol.Filename,
 		Format:     vol.Format,

@@ -27,7 +27,6 @@ func (lc *LibvirtContext) AllocateNetwork(vmId, requestedIP string,
 	return network.Allocate(vmId, requestedIP, true, maps)
 }
 
-func (lc *LibvirtContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
-	file *os.File) error {
-	return network.Release(vmId, releasedIP, maps, nil)
+func (lc *LibvirtContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
+	return network.Release(vmId, releasedIP, nil)
 }

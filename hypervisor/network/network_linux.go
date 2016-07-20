@@ -17,9 +17,8 @@ import (
 	"unsafe"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
-	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -889,7 +888,7 @@ func Modprobe(module string) error {
 	return nil
 }
 
-func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
+func SetupPortMaps(containerip string, maps []*api.PortDescription) error {
 	if disableIptables || len(maps) == 0 {
 		return nil
 	}
@@ -937,7 +936,7 @@ func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
 	return nil
 }
 
-func ReleasePortMaps(containerip string, maps []pod.UserContainerPort) error {
+func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
 	if disableIptables || len(maps) == 0 {
 		return nil
 	}
@@ -1054,7 +1053,7 @@ func GetTapFd(tapname, bridge string) (device string, tapFile *os.File, err erro
 
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func Allocate(vmId, requestedIP string, addrOnly bool, maps []*api.PortDescription) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
@@ -1106,9 +1105,9 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 }
 
 func Configure(vmId, requestedIP string, addrOnly bool,
-	maps []pod.UserContainerPort, config pod.UserInterface) (*Settings, error) {
+	maps []*api.PortDescription, inf *api.InterfaceDescription) (*Settings, error) {
 
-	ip, ipnet, err := net.ParseCIDR(config.Ip)
+	ip, ipnet, err := net.ParseCIDR(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
 		return nil, err
@@ -1116,13 +1115,15 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 
 	maskSize, _ := ipnet.Mask.Size()
 
+	/* TODO: Move port maps out of the plugging procedure
 	err = SetupPortMaps(ip.String(), maps)
 	if err != nil {
 		glog.Errorf("Setup Port Map failed %s", err)
 		return nil, err
 	}
+	*/
 
-	mac := config.Mac
+	mac := inf.Mac
 	if mac == "" {
 		mac, err = GenRandomMac()
 		if err != nil {
@@ -1135,16 +1136,16 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		return &Settings{
 			Mac:         mac,
 			IPAddress:   ip.String(),
-			Gateway:     config.Gw,
-			Bridge:      config.Bridge,
+			Gateway:     inf.Gw,
+			Bridge:      inf.Bridge,
 			IPPrefixLen: maskSize,
-			Device:      config.Ifname,
+			Device:      inf.TapName,
 			File:        nil,
 			Automatic:   false,
 		}, nil
 	}
 
-	device, tapFile, err := GetTapFd(config.Ifname, config.Bridge)
+	device, tapFile, err := GetTapFd(inf.TapName, inf.Bridge)
 	if err != nil {
 		return nil, err
 	}
@@ -1152,8 +1153,8 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
-		Gateway:     config.Gw,
-		Bridge:      config.Bridge,
+		Gateway:     inf.Gw,
+		Bridge:      inf.Bridge,
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
@@ -1161,19 +1162,25 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 	}, nil
 }
 
-// Release an interface for a select ip
-func Release(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
+func Close(file *os.File) error {
 	if file != nil {
 		file.Close()
 	}
+	return nil
+}
+
+// Release an interface for a select ip
+func Release(vmId, releasedIP string) error {
 
 	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}
 
+	/* TODO: call this after release networks
 	if err := ReleasePortMaps(releasedIP, maps); err != nil {
 		glog.Errorf("fail to release port map %s", err)
 		return err
 	}
+	*/
 	return nil
 }

@@ -25,7 +25,6 @@ func (qc *QemuContext) AllocateNetwork(vmId, requestedIP string,
 	return nil, nil
 }
 
-func (qc *QemuContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
-	file *os.File) error {
+func (qc *QemuContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
 	return nil
 }

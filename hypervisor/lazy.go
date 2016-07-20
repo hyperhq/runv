@@ -105,8 +105,23 @@ func (ctx *VmContext) lazyAllocateNetworks() error {
 		if err != nil {
 			return err
 		}
-		ctx.interfaceCreated(nic, true, ctx.Hub)
+		h := &HostNicInfo{
+			Id:      nic.Id,
+			Fd:      uint64(nic.Fd.Fd()),
+			Device:  nic.HostDevice,
+			Mac:     nic.MacAddr,
+			Bridge:  nic.Bridge,
+			Gateway: nic.Bridge,
+		}
+		g := &GuestNicInfo{
+			Device:  nic.DeviceName,
+			Ipaddr:  nic.IpAddr,
+			Index:   nic.Index,
+			Busaddr: nic.PCIAddr,
+		}
+		ctx.DCtx.(LazyDriverContext).LazyAddNic(ctx, h, g)
 	}
+
 
 	return nil
 }

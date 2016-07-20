@@ -27,7 +27,6 @@ func (xc *XenContext) AllocateNetwork(vmId, requestedIP string,
 	return nil, nil
 }
 
-func (xc *XenContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
-	file *os.File) error {
+func (xc *XenContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
 	return nil
 }

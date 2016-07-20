@@ -169,14 +169,8 @@ func (vc *VBoxContext) ConfigureNetwork(vmId,
 }
 
 // Release an interface for a select ip
-func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, maps []pod.UserContainerPort,
-	file *os.File) error {
+func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
 	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
-		return err
-	}
-
-	if err := ReleasePortMaps(vmId, releasedIP, maps); err != nil {
-		glog.Errorf("fail to release port map %s", err)
 		return err
 	}
 

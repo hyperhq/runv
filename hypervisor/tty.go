@@ -317,6 +317,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 			ctx.reportProcessFinished(kind, &types.ProcessFinished{
 				Id: id, Code: code, Ack: ack,
 			})
+			// TODO: We should have a timeout here
 			// wait for pod handler setting up exitcode for container
 			<-ack
 		}

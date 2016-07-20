@@ -177,12 +177,8 @@ func (mypod *PodStatus) GetPodIP(vm *Vm) []string {
 	ips := []string{}
 
 	err := vm.GenericOperation("GetIP", func(ctx *VmContext, result chan<- error) {
-		for _, i := range ctx.vmSpec.Interfaces {
-			if i.Device == "lo" {
-				continue
-			}
-			ips = append(ips, i.IpAddress)
-		}
+		res := ctx.networks.getIpAddrs()
+		ips = append(ips, res...)
 
 		result <- nil
 	}, StateRunning)

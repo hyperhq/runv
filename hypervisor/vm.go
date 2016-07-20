@@ -14,11 +14,12 @@ import (
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/api"
 )
 
 type Vm struct {
 	Id     string
-	Pod    *PodStatus
+	//Pod    *PodStatus
 	Status uint
 	Cpu    int
 	Mem    int
@@ -117,7 +118,7 @@ func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
 	mypod.SetContainerStatus(types.S_POD_RUNNING)
 
 	vm.Status = types.S_VM_ASSOCIATED
-	vm.Pod = mypod
+	//vm.Pod = mypod
 
 	return nil
 }
@@ -215,12 +216,15 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	cList []*ContainerInfo, vList map[string]*VolumeInfo) *types.VmResponse {
-	mypod.Vm = vm.Id
+
 	var ok bool = false
-	vm.Pod = mypod
+	var response *types.VmResponse
+
+	mypod.Vm = vm.Id
+
+	//vm.Pod = mypod
 	vm.Status = types.S_VM_ASSOCIATED
 
-	var response *types.VmResponse
 
 	if mypod.Status == types.S_POD_RUNNING {
 		err := fmt.Errorf("The pod(%s) is running, can not start it", mypod.Id)
@@ -364,32 +368,41 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	}, StateRunning, StateTerminating, StateDestroying)
 }
 
-func (vm *Vm) AddRoute() error {
+func (vm *Vm) AddRoute(id string) error {
 	return vm.GenericOperation("AddRoute", func(ctx *VmContext, result chan<- error) {
-		if len(ctx.vmSpec.Routes) == 0 {
+		inf := ctx.networks.getInterface(id)
+		if inf == nil {
 			result <- nil
 			return
 		}
 
+		routes := []hyperstartapi.Route{}
+		for _, r := range inf.RouteTable {
+			routes = append(routes, hyperstartapi.Route{
+				Dest:    r.Destination,
+				Gateway: r.Gateway,
+				Device:  inf.DeviceName,
+			})
+		}
+
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_SETUPROUTE,
-			Message: hyperstartapi.Routes{Routes: ctx.vmSpec.Routes},
+			Message: hyperstartapi.Routes{Routes: inf.RouteTable},
 			result:  result,
 		}
 	}, StateRunning)
 }
 
-func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
+func (vm *Vm) AddNic(idx int, name string, info *api.InterfaceDescription) error {
 	var (
-		failEvent     *DeviceFailed
-		createdEvent  *InterfaceCreated
-		insertedEvent *NetDevInsertedEvent
+		//failEvent     *DeviceFailed
+		//createdEvent  *InterfaceCreated
+		//insertedEvent *NetDevInsertedEvent
 	)
 
-	client := make(chan VmEvent, 1)
+	client := make(chan api.Result, 1)
 	vm.SendGenericOperation("CreateInterface", func(ctx *VmContext, result chan<- error) {
-		addr := ctx.nextPciAddr()
-		go ctx.ConfigureInterface(idx, addr, name, info, client)
+		go ctx.AddInterface(info, client)
 	}, StateRunning)
 
 	ev, ok := <-client
@@ -397,41 +410,35 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 		return fmt.Errorf("internal error")
 	}
 
-	if failEvent, ok = ev.(*DeviceFailed); ok {
-		if failEvent.Session != nil {
-			return fmt.Errorf("failed while waiting %s",
-				EventString(failEvent.Session.Event()))
-		}
+	//if failEvent, ok = ev.(*DeviceFailed); ok {
+	//	if failEvent.Session != nil {
+	//		return fmt.Errorf("failed while waiting %s",
+	//			EventString(failEvent.Session.Event()))
+	//	}
+	//	return fmt.Errorf("allocate device failed")
+	//} else if createdEvent, ok = ev.(*InterfaceCreated); !ok {
+	//	return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
+	//}
+	//
+	//vm.SendGenericOperation("InterfaceCreated", func(ctx *VmContext, result chan<- error) {
+	//	ctx.interfaceCreated(createdEvent, false, client)
+	//}, StateRunning)
+	//
+	//ev, ok = <-client
+	//if !ok {
+	//	return fmt.Errorf("internal error")
+	//}
+
+	if !ev.IsSuccess() {
 		return fmt.Errorf("allocate device failed")
-	} else if createdEvent, ok = ev.(*InterfaceCreated); !ok {
-		return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
-	}
-
-	vm.SendGenericOperation("InterfaceCreated", func(ctx *VmContext, result chan<- error) {
-		ctx.interfaceCreated(createdEvent, false, client)
-	}, StateRunning)
-
-	ev, ok = <-client
-	if !ok {
-		return fmt.Errorf("internal error")
-	}
-
-	if failEvent, ok = ev.(*DeviceFailed); ok {
-		if failEvent.Session != nil {
-			return fmt.Errorf("failed while waiting %s",
-				EventString(failEvent.Session.Event()))
-		}
-		return fmt.Errorf("allocate device failed")
-	} else if insertedEvent, ok = ev.(*NetDevInsertedEvent); !ok {
-		return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
 	}
 
 	return vm.GenericOperation("InterfaceInserted", func(ctx *VmContext, result chan<- error) {
-		ctx.netdevInserted(insertedEvent)
-		glog.Infof("finial vmSpec.Interfaces is %v", ctx.vmSpec.Interfaces)
-		glog.Infof("finial vmSpec.Routes is %v", ctx.vmSpec.Routes)
+		if ctx.LogLevel(TRACE) {
+			glog.Infof("finial vmSpec.Interface is %#v", ctx.networks.getInterface(info.Id))
+		}
 
-		ctx.updateInterface(idx, result)
+		ctx.updateInterface(info.Id, result)
 	}, StateRunning)
 }
 
@@ -589,9 +596,9 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 func (vm *Vm) Stats() *types.VmResponse {
 	var response *types.VmResponse
 
-	if nil == vm.Pod || vm.Pod.Status != types.S_POD_RUNNING {
-		return errorResponse("The pod is not running, can not get stats for it")
-	}
+	//if nil == vm.Pod || vm.Pod.Status != types.S_POD_RUNNING {
+	//	return errorResponse("The pod is not running, can not get stats for it")
+	//}
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
@@ -695,7 +702,7 @@ func errorResponse(cause string) *types.VmResponse {
 func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 	return &Vm{
 		Id:     vmId,
-		Pod:    nil,
+		//Pod:    nil,
 		Lazy:   lazy,
 		Status: types.S_VM_IDLE,
 		Cpu:    cpu,
