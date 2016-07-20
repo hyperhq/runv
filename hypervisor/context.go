@@ -66,7 +66,6 @@ type VmContext struct {
 
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
-	wait bool
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)
@@ -114,7 +113,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		networks:        NewNetworkContext(),
 		vmExec:          make(map[string]*hyperstartapi.ExecCommand),
 		lock:            &sync.Mutex{},
-		wait:            false,
 	}
 	ctx.networks.sandbox = ctx
 
@@ -219,6 +217,7 @@ func (ctx *VmContext) Close() {
 	defer ctx.lock.Unlock()
 	ctx.ptys.closePendingTtys()
 	ctx.unsetTimeout()
+	ctx.networks.close()
 	ctx.DCtx.Close()
 	close(ctx.vm)
 	close(ctx.client)

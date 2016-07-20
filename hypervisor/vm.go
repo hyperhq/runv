@@ -563,8 +563,9 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 }
 
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
+	var id = info.Id
 	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
-		ctx.newContainer(c, info, result)
+		ctx.newContainer(id, result)
 	}, StateInit, StateRunning)
 
 	if err != nil {
@@ -573,10 +574,9 @@ func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
 
 	vm.GenericOperation("StartNewContainerStdin", func(ctx *VmContext, result chan<- error) {
 		// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
-		idx := len(ctx.vmSpec.Containers) - 1
-		c := ctx.vmSpec.Containers[idx]
-		ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-		result <- nil
+		if cc, ok := ctx.containers[id]; ok {
+			ctx.ptys.startStdin(cc.process.Stdio, cc.process.Terminal)
+		}
 	}, StateInit, StateRunning)
 
 	return nil

@@ -222,7 +222,7 @@ type GenericOperation struct {
 	Result chan<- error
 }
 
-func (qe *VmStartFailEvent) Event() int      { return EVENT_VM_START_FAILED }
+func (qe *VmStartFailEvent) Event() int      { return ERROR_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
 func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
