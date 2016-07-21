@@ -287,6 +287,24 @@ func (nc *NetworkContext) getIpAddrs() []string {
 	return res
 }
 
+func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
+	nc.slotLock.RLock()
+	nc.slotLock.RUnlock()
+	routes := []hyperstartapi.Route{}
+
+	for _, inf := range nc.idMap {
+		for _, r := range inf.RouteTable {
+			routes = append(routes, hyperstartapi.Route{
+				Dest:    r.Destination,
+				Gateway: r.Gateway,
+				Device:  inf.DeviceName,
+			})
+		}
+	}
+
+	return routes
+}
+
 func (nc *NetworkContext) close() {
 	nc.slotLock.Lock()
 	defer nc.slotLock.Unlock()

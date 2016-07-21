@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/vishvananda/netlink"
@@ -167,15 +167,20 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 	}
 
 	glog.Infof("interface configuration of pod ns is %v", infos)
-	for idx, info := range infos {
+	for _, info := range infos {
 		bridge, err := GetBridgeFromIndex(info.PeerIndex)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
-		conf := pod.UserInterface{
+
+		nicId := strconv.Itoa(info.Index)
+
+		conf := &api.InterfaceDescription{
+			Id: nicId, //ip as an id
+			Lo: false,
 			Bridge: bridge,
-			Ip:     info.Ip,
+			Ip: info.Ip,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -185,7 +190,8 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		// TODO(hukeping): the name here is always eth1, 2, 3, 4, 5, etc.,
 		// which would not be the proper way to name device name, instead it
 		// should be the same as what we specified in the network namespace.
-		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
+		//err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
+		err = hp.vm.AddNic(conf)
 		if err != nil {
 			glog.Error(err)
 			return err

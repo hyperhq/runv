@@ -450,22 +450,9 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	}, StateRunning, StateTerminating, StateDestroying)
 }
 
-func (vm *Vm) AddRoute(id string) error {
+func (vm *Vm) AddRoute() error {
 	return vm.GenericOperation("AddRoute", func(ctx *VmContext, result chan<- error) {
-		inf := ctx.networks.getInterface(id)
-		if inf == nil {
-			result <- nil
-			return
-		}
-
-		routes := []hyperstartapi.Route{}
-		for _, r := range inf.RouteTable {
-			routes = append(routes, hyperstartapi.Route{
-				Dest:    r.Destination,
-				Gateway: r.Gateway,
-				Device:  inf.DeviceName,
-			})
-		}
+		routes := ctx.networks.getRoutes()
 
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_SETUPROUTE,
@@ -475,13 +462,7 @@ func (vm *Vm) AddRoute(id string) error {
 	}, StateRunning)
 }
 
-func (vm *Vm) AddNic(idx int, name string, info *api.InterfaceDescription) error {
-	var (
-	//failEvent     *DeviceFailed
-	//createdEvent  *InterfaceCreated
-	//insertedEvent *NetDevInsertedEvent
-	)
-
+func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	client := make(chan api.Result, 1)
 	vm.SendGenericOperation("CreateInterface", func(ctx *VmContext, result chan<- error) {
 		go ctx.AddInterface(info, client)
@@ -491,25 +472,6 @@ func (vm *Vm) AddNic(idx int, name string, info *api.InterfaceDescription) error
 	if !ok {
 		return fmt.Errorf("internal error")
 	}
-
-	//if failEvent, ok = ev.(*DeviceFailed); ok {
-	//	if failEvent.Session != nil {
-	//		return fmt.Errorf("failed while waiting %s",
-	//			EventString(failEvent.Session.Event()))
-	//	}
-	//	return fmt.Errorf("allocate device failed")
-	//} else if createdEvent, ok = ev.(*InterfaceCreated); !ok {
-	//	return fmt.Errorf("get unexpected event %s", EventString(ev.Event()))
-	//}
-	//
-	//vm.SendGenericOperation("InterfaceCreated", func(ctx *VmContext, result chan<- error) {
-	//	ctx.interfaceCreated(createdEvent, false, client)
-	//}, StateRunning)
-	//
-	//ev, ok = <-client
-	//if !ok {
-	//	return fmt.Errorf("internal error")
-	//}
 
 	if !ev.IsSuccess() {
 		return fmt.Errorf("allocate device failed")
