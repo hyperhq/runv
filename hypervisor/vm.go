@@ -73,7 +73,7 @@ func (vm *Vm) Kill() (int, string, error) {
 	for !stop {
 		var ok bool
 		Response, ok = <-Status
-		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN {
+		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN || Response.Code == types.E_FAILED {
 			vm.ReleaseResponseChan(Status)
 			vm.clients = nil
 			stop = true
@@ -701,7 +701,12 @@ func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (vm *Vm, err erro
 		defer vm.ReleaseResponseChan(Status)
 		for {
 			vmResponse, ok := <-Status
-			if !ok || vmResponse.Code == types.E_VM_RUNNING {
+			if !ok || vmResponse.Code == types.E_FAILED {
+				vm.Kill()
+				return nil, err
+			}
+
+			if vmResponse.Code == types.E_VM_RUNNING {
 				break
 			}
 		}

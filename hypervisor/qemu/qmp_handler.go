@@ -141,7 +141,7 @@ func qmpReceiver(qmp chan QmpInteraction, wait chan int, decoder *json.Decoder) 
 			glog.Info("QMP exit as got error: ", err.Error())
 			qmp <- &QmpInternalError{cause: err.Error()}
 			/* After Error report, send wait notification to close qmp channel */
-			wait <- 1
+			close(wait)
 			return
 		}
 
@@ -359,12 +359,12 @@ func qmpHandler(ctx *hypervisor.VmContext) {
 				}
 				handler = nil
 				glog.Error("QMP initialize failed")
+				close(qc.waitQmp)
 			}
 		case QMP_TIMEOUT:
 			ctx.Hub <- &hypervisor.InitFailedEvent{
 				Reason: "QMP Init timeout",
 			}
-			handler = nil
 			glog.Error("QMP initialize timeout")
 		case QMP_SESSION:
 			glog.Info("got new session during initializing")
