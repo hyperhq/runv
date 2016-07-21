@@ -53,6 +53,56 @@ func (qc *QemuContext) watchPid(pid int, hub chan hypervisor.VmEvent) error {
 	return nil
 }
 
+func watchLogFile(logFile string) {
+	buf := make([]byte, 1024)
+	res := []byte{}
+	offset := 0
+
+	file, err := os.Open(logFile)
+	defer file.Close()
+	if err != nil {
+		glog.Errorf("open log file %s failed: %v", logFile, err)
+		return
+	}
+
+	for {
+		n, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			glog.Errorf("read log file %s failed: %v", logFile, err)
+			return
+		}
+
+		if n > 1 {
+			if n != len(buf) {
+				n--
+			}
+
+			res = append(res, buf[:n]...)
+			pos := bytes.LastIndex(res, []byte("\n"))
+			if pos != -1 {
+				logs := bytes.Split(res[:pos], []byte("\n"))
+				for _, log := range logs {
+					glog.Infof("qemu log: %s", string(log))
+				}
+				res = res[pos+1:]
+			}
+
+			offset += n
+		}
+
+		if n != len(buf) {
+			time.Sleep(1 * time.Second)
+			file.Close()
+			file, err = os.Open(logFile)
+			if err != nil {
+				glog.Errorf("open log file %s failed: %v", logFile, err)
+				return
+			}
+			file.Seek(int64(offset), 0)
+		}
+	}
+}
+
 // launchQemu run qemu and wait it's quit, includes
 func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	qemu := qc.driver.executable
@@ -139,6 +189,8 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	file.Close()
 
 	glog.V(1).Infof("starting daemon with pid: %d", pid)
+
+	go watchLogFile(qc.qemuLogFile)
 
 	err = ctx.DCtx.(*QemuContext).watchPid(int(pid), ctx.Hub)
 	if err != nil {
