@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/vishvananda/netlink"
-	"github.com/hyperhq/runv/api"
 )
 
 type NetlinkUpdateType string

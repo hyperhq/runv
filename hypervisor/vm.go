@@ -1,14 +1,13 @@
 package hypervisor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"syscall"
 	"time"
-
-	"encoding/json"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
@@ -23,7 +22,7 @@ type Vm struct {
 	ctx *VmContext
 
 	//Pod    *PodStatus
-	Status uint
+	//Status uint
 	Cpu    int
 	Mem    int
 	Lazy   bool
@@ -76,68 +75,35 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 	return nil
 }
 
-func (vm *Vm) Kill() (int, string, error) {
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return -1, "", err
-	}
-
-	var Response *types.VmResponse
-	shutdownPodEvent := &ShutdownCommand{Wait: false}
-	vm.Hub <- shutdownPodEvent
-	// wait for the VM response
-	stop := false
-	for !stop {
-		var ok bool
-		Response, ok = <-Status
-		if !ok || Response == nil || Response.Code == types.E_VM_SHUTDOWN || Response.Code == types.E_FAILED {
-			vm.ReleaseResponseChan(Status)
-			vm.clients = nil
-			stop = true
-		}
-		if Response != nil {
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		} else {
-			glog.V(1).Infof("Nil response from status chan")
-		}
-	}
-
-	if Response == nil {
-		return types.E_VM_SHUTDOWN, "", nil
-	}
-
-	return Response.Code, Response.Cause, nil
-}
-
 // This function will only be invoked during daemon start
-func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
-	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
-	var (
-		PodEvent = make(chan VmEvent, 128)
-		Status   = make(chan *types.VmResponse, 128)
-	)
-
-	VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
-
-	ass := <-Status
-	if ass.Code != types.E_OK {
-		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", mypod.Vm, ass.Code, ass.Cause)
-		return errors.New("load vm status failed")
-	}
-	go vm.handlePodEvent(mypod)
-
-	vm.Hub = PodEvent
-	vm.clients = CreateFanout(Status, 128, false)
-
-	mypod.Status = types.S_POD_RUNNING
-	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-	mypod.SetContainerStatus(types.S_POD_RUNNING)
-
-	vm.Status = types.S_VM_ASSOCIATED
-	//vm.Pod = mypod
-
-	return nil
-}
+//func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
+//	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
+//	var (
+//		PodEvent = make(chan VmEvent, 128)
+//		Status   = make(chan *types.VmResponse, 128)
+//	)
+//
+//	VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
+//
+//	ass := <-Status
+//	if ass.Code != types.E_OK {
+//		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", mypod.Vm, ass.Code, ass.Cause)
+//		return errors.New("load vm status failed")
+//	}
+//	go vm.handlePodEvent(mypod)
+//
+//	vm.Hub = PodEvent
+//	vm.clients = CreateFanout(Status, 128, false)
+//
+//	mypod.Status = types.S_POD_RUNNING
+//	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
+//	mypod.SetContainerStatus(types.S_POD_RUNNING)
+//
+//	//vm.Status = types.S_VM_ASSOCIATED
+//	//vm.Pod = mypod
+//
+//	return nil
+//}
 
 func (vm *Vm) ReleaseVm() (int, error) {
 	var Response *types.VmResponse
@@ -148,16 +114,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	if vm.Status == types.S_VM_IDLE {
-		shutdownPodEvent := &ShutdownCommand{Wait: false}
-		vm.Hub <- shutdownPodEvent
-		for {
-			Response = <-Status
-			if Response.Code == types.E_VM_SHUTDOWN {
-				break
-			}
-		}
-	} else {
+	if vm.ctx.current == StateRunning {
 		releasePodEvent := &ReleaseVMCommand{}
 		vm.Hub <- releasePodEvent
 		for {
@@ -175,60 +132,113 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
-func (vm *Vm) handlePodEvent(mypod *PodStatus) {
-	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
+func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) map[string]*api.ProcessExit {
+	var (
+		waiting = make(map[string]struct{})
+		result = make(map[string]*api.ProcessExit)
+		timeoutChan <-chan time.Time
+		waitEvent = types.E_CONTAINER_FINISHED
+	)
+
+	if !isContainer {
+		waitEvent = types.E_EXEC_FINISHED
+	}
+
+	for _, id := range ids {
+		waiting[id] = struct{}{}
+	}
+
+	if timeout >= 0 {
+		timeoutChan = time.After(time.Duration(timeout) * time.Second)
+	} else {
+		timeoutChan = make(chan time.Time, 1)
+
+	}
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
-		return
+		return result
 	}
 	defer vm.ReleaseResponseChan(Status)
 
-	exit := false
-	mypod.Wg.Add(1)
-	for {
-		Response, ok := <-Status
-		if !ok {
-			break
-		}
-
-		switch Response.Code {
-		case types.E_CONTAINER_FINISHED:
-			ps, ok := Response.Data.(*types.ProcessFinished)
-			if ok {
-				mypod.SetOneContainerStatus(ps.Id, ps.Code)
-				close(ps.Ack)
+	for len(waiting) > 0 {
+		select {
+		case response, ok := <-Status:
+			if !ok {
+				vm.ctx.Log(WARNING, "status chan broken during waiting containers: %#v", waiting)
+				return result
 			}
-		case types.E_EXEC_FINISHED:
-			ps, ok := Response.Data.(*types.ProcessFinished)
-			if ok {
-				mypod.SetExecStatus(ps.Id, ps.Code)
-				close(ps.Ack)
+			if response.Code == waitEvent {
+				ps, _ := response.Data.(*types.ProcessFinished)
+				if _, ok := waiting[ps.Id]; ok {
+					result[ps.Id] = &api.ProcessExit{
+						Code: int(ps.Code),
+						FinishedAt: time.Now().UTC(),
+					}
+				}
 			}
-		case types.E_POD_FINISHED: // successfully exit
-			mypod.SetPodContainerStatus(Response.Data.([]uint32))
-			vm.Status = types.S_VM_IDLE
-		case types.E_VM_SHUTDOWN: // vm exited, successful or not
-			if mypod.Status == types.S_POD_RUNNING { // not received finished pod before
-				mypod.Status = types.S_POD_FAILED
-				mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
-				mypod.SetContainerStatus(types.S_POD_FAILED)
-			}
-			mypod.Vm = ""
-			exit = true
-		}
-
-		if mypod.Handler != nil {
-			mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
-		}
-
-		if exit {
-			vm.clients = nil
-			break
+		case <-timeoutChan:
+			vm.ctx.Log(WARNING, "timeout while waiting result of containers: %#v", waiting)
+			return result
 		}
 	}
-	mypod.Wg.Done()
+	return result
 }
+
+//func (vm *Vm) handlePodEvent(mypod *PodStatus) {
+//	glog.V(1).Infof("hyperHandlePodEvent pod %s, vm %s", mypod.Id, vm.Id)
+//
+//	Status, err := vm.GetResponseChan()
+//	if err != nil {
+//		return
+//	}
+//	defer vm.ReleaseResponseChan(Status)
+//
+//	exit := false
+//	mypod.Wg.Add(1)
+//	for {
+//		Response, ok := <-Status
+//		if !ok {
+//			break
+//		}
+//
+//		switch Response.Code {
+//		case types.E_CONTAINER_FINISHED:
+//			ps, ok := Response.Data.(*types.ProcessFinished)
+//			if ok {
+//				mypod.SetOneContainerStatus(ps.Id, ps.Code)
+//				close(ps.Ack)
+//			}
+//		case types.E_EXEC_FINISHED:
+//			ps, ok := Response.Data.(*types.ProcessFinished)
+//			if ok {
+//				mypod.SetExecStatus(ps.Id, ps.Code)
+//				close(ps.Ack)
+//			}
+//		case types.E_POD_FINISHED: // successfully exit
+//			mypod.SetPodContainerStatus(Response.Data.([]uint32))
+//			//vm.Status = types.S_VM_IDLE
+//		case types.E_VM_SHUTDOWN: // vm exited, sucessful or not
+//			if mypod.Status == types.S_POD_RUNNING { // not received finished pod before
+//				mypod.Status = types.S_POD_FAILED
+//				mypod.FinishedAt = time.Now().Format("2006-01-02T15:04:05Z")
+//				mypod.SetContainerStatus(types.S_POD_FAILED)
+//			}
+//			mypod.Vm = ""
+//			exit = true
+//		}
+//
+//		if mypod.Handler != nil {
+//			mypod.Handler.Handle(Response, mypod.Handler.Data, mypod, vm)
+//		}
+//
+//		if exit {
+//			vm.clients = nil
+//			break
+//		}
+//	}
+//	mypod.Wg.Done()
+//}
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig, result chan<- api.Result) {
 	if vm.ctx == nil {
@@ -270,75 +280,6 @@ func (vm *Vm) InitSandbox(config *api.SandboxConfig, result chan<- api.Result) {
 
 }
 
-func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
-	cList []*ContainerInfo, vList map[string]*VolumeInfo) *types.VmResponse {
-
-	var ok bool = false
-	var response *types.VmResponse
-
-	mypod.Vm = vm.Id
-
-	//vm.Pod = mypod
-	vm.Status = types.S_VM_ASSOCIATED
-
-	if mypod.Status == types.S_POD_RUNNING {
-		err := fmt.Errorf("The pod(%s) is running, can not start it", mypod.Id)
-		response = &types.VmResponse{
-			Code:  -1,
-			Cause: err.Error(),
-			Data:  nil,
-		}
-		return response
-	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return errorResponse(err.Error())
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	go vm.handlePodEvent(mypod)
-
-	runPodEvent := &RunPodCommand{
-		Spec:       userPod,
-		Containers: cList,
-		Volumes:    vList,
-		Wg:         mypod.Wg,
-	}
-
-	vm.Hub <- runPodEvent
-
-	// wait for the VM response
-	for {
-		response, ok = <-Status
-		if !ok {
-			response = &types.VmResponse{
-				Code:  -1,
-				Cause: "Start pod failed",
-				Data:  nil,
-			}
-			glog.V(1).Infof("return response %v", response)
-			break
-		}
-		glog.V(1).Infof("Get the response from VM, VM id is %s!", response.VmId)
-		if response.Code == types.E_VM_RUNNING {
-			continue
-		}
-		if response.VmId == vm.Id {
-			break
-		}
-	}
-
-	if response.Data != nil {
-		mypod.Status = types.S_POD_RUNNING
-		mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-		// Set the container status to online
-		mypod.SetContainerStatus(types.S_POD_RUNNING)
-	}
-
-	return response
-}
-
 func (vm *Vm) Shutdown(result chan<- api.Result) {
 	if vm.ctx.current != StateRunning {
 		result <- api.NewResultBase(vm.Id, false, "not in running state")
@@ -366,38 +307,10 @@ func (vm *Vm) Shutdown(result chan<- api.Result) {
 	}
 }
 
-func (vm *Vm) StopPod(mypod *PodStatus) *types.VmResponse {
-	var Response *types.VmResponse
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return errorResponse(err.Error())
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	if mypod.Status != types.S_POD_RUNNING {
-		return errorResponse("The POD has already stoppod")
-	}
-
-	mypod.Wg.Add(1)
-	shutdownPodEvent := &ShutdownCommand{Wait: true}
-	vm.Hub <- shutdownPodEvent
-	// wait for the VM response
-	for {
-		Response = <-Status
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_VM_SHUTDOWN {
-			mypod.Vm = ""
-			break
-		}
-	}
-	// wait for goroutines exit
-	mypod.Wg.Wait()
-
-	mypod.Status = types.S_POD_FAILED
-	mypod.SetContainerStatus(types.S_POD_FAILED)
-
-	return Response
+// TODO: should we provide a method to force kill vm
+func (vm *Vm) Kill() {
+	ignore := make(chan api.Result, 4)
+	vm.Shutdown(ignore)
 }
 
 func (vm *Vm) WriteFile(container, target string, data []byte) error {
@@ -606,6 +519,24 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 	return tty.WaitForFinish()
 }
 
+func (vm *Vm) AddVolume(vol *api.VolumeDescription, result chan api.Result) {
+	if vm.ctx == nil || vm.ctx.current != StateRunning {
+		glog.Errorf("VM is not ready for insert volume %#v", vol)
+		result <- NewNotReadyError(vm.Id)
+		return
+	}
+
+	vm.ctx.AddVolume(vol, result)
+}
+
+func (vm *Vm) AddContainer(c *api.ContainerDescription, result chan api.Result) {
+	if vm.ctx == nil || vm.ctx.current != StateRunning {
+		result <- NewNotReadyError(vm.Id)
+		return
+	}
+	vm.ctx.AddContainer(c, result)
+}
+
 func (vm *Vm) StartContainer(id string) error {
 
 	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
@@ -747,7 +678,6 @@ func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 		Id: vmId,
 		//Pod:    nil,
 		Lazy:   lazy,
-		Status: types.S_VM_IDLE,
 		Cpu:    cpu,
 		Mem:    memory,
 	}

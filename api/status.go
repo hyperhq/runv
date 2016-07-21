@@ -1,5 +1,7 @@
 package api
 
+import "time"
+
 type Result interface {
 	ResultId() string
 	IsSuccess() bool
@@ -10,6 +12,11 @@ type ResultBase struct {
 	Id            string
 	Success       bool
 	ResultMessage string
+}
+
+type ProcessExit struct {
+	Code       int
+	FinishedAt time.Time
 }
 
 func NewResultBase(id string, success bool, message string) *ResultBase {
