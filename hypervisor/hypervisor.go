@@ -31,22 +31,13 @@ func (ctx *VmContext) loop() {
 	}
 }
 
-func VmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *BootConfig) {
-	context, err := InitContext(vmId, hub, client, nil, boot)
-	if err != nil {
-		client <- &types.VmResponse{
-			VmId:  vmId,
-			Code:  types.E_BAD_REQUEST,
-			Cause: err.Error(),
-		}
-		return
-	}
+func (ctx *VmContext) Launch() {
 
 	//launch routines
-	context.startSocks()
-	context.DCtx.Launch(context)
+	ctx.startSocks()
+	ctx.DCtx.Launch(ctx)
 
-	context.loop()
+	ctx.loop()
 }
 
 func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,

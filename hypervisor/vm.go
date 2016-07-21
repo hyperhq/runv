@@ -11,14 +11,17 @@ import (
 	"encoding/json"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/api"
 )
 
 type Vm struct {
-	Id     string
+	Id string
+
+	ctx *VmContext
+
 	//Pod    *PodStatus
 	Status uint
 	Cpu    int
@@ -44,17 +47,30 @@ func (vm *Vm) ReleaseResponseChan(ch chan *types.VmResponse) {
 
 func (vm *Vm) Launch(b *BootConfig) (err error) {
 	var (
-		PodEvent = make(chan VmEvent, 128)
-		Status   = make(chan *types.VmResponse, 128)
+		vmEvent = make(chan VmEvent, 128)
+		Status  = make(chan *types.VmResponse, 128)
+		ctx     *VmContext
 	)
 
 	//if vm.Lazy {
 	//	go LazyVmLoop(vm.Id, PodEvent, Status, b)
 	//} else {
-		go VmLoop(vm.Id, PodEvent, Status, b)
+	ctx, err = InitContext(vm.Id, vmEvent, Status, nil, b)
+	if err != nil {
+		Status <- &types.VmResponse{
+			VmId:  vm.Id,
+			Code:  types.E_BAD_REQUEST,
+			Cause: err.Error(),
+		}
+		return err
+
+	}
+
+	go ctx.Launch()
+	vm.ctx = ctx
 	//}
 
-	vm.Hub = PodEvent
+	vm.Hub = vmEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
 	return nil
@@ -214,6 +230,46 @@ func (vm *Vm) handlePodEvent(mypod *PodStatus) {
 	mypod.Wg.Done()
 }
 
+func (vm *Vm) InitSandbox(config *api.SandboxConfig, result chan<- api.Result) {
+	if vm.ctx == nil {
+		result <- NewNotReadyError(vm.Id)
+		return
+	}
+
+	vm.ctx.SetNetworkEnvironment(config)
+	vm.ctx.startPod()
+
+	go func() {
+		Status, err := vm.GetResponseChan()
+		if err != nil {
+			vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
+			result <- api.NewResultBase(vm.Id, false, err.Error())
+			return
+		}
+		defer vm.ReleaseResponseChan(Status)
+
+		for {
+			s, ok := <-Status
+			if !ok {
+				result <- api.NewResultBase(vm.Id, false, "status channel broken")
+				return
+			}
+
+			switch s.Code {
+			case types.E_OK:
+				result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
+				return
+			case types.E_FAILED, types.E_VM_SHUTDOWN:
+				result <- api.NewResultBase(vm.Id, false, "set sandbox config failed")
+				return
+			default:
+				vm.ctx.Log(DEBUG, "got message %#v while waiting start pod command finish")
+			}
+		}
+	}()
+
+}
+
 func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	cList []*ContainerInfo, vList map[string]*VolumeInfo) *types.VmResponse {
 
@@ -225,7 +281,6 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	//vm.Pod = mypod
 	vm.Status = types.S_VM_ASSOCIATED
 
-
 	if mypod.Status == types.S_POD_RUNNING {
 		err := fmt.Errorf("The pod(%s) is running, can not start it", mypod.Id)
 		response = &types.VmResponse{
@@ -235,7 +290,7 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 		}
 		return response
 	}
-	
+
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		return errorResponse(err.Error())
@@ -282,6 +337,33 @@ func (vm *Vm) StartPod(mypod *PodStatus, userPod *pod.UserPod,
 	}
 
 	return response
+}
+
+func (vm *Vm) Shutdown(result chan<- api.Result) {
+	if vm.ctx.current != StateRunning {
+		result <- api.NewResultBase(vm.Id, false, "not in running state")
+		return
+	}
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		result <- api.NewResultBase(vm.Id, false, "fail to get response chan")
+		return
+	}
+	defer vm.ReleaseResponseChan(Status)
+
+	vm.Hub <- &ShutdownCommand{}
+	for {
+		Response, ok := <-Status
+		if !ok {
+			result <- api.NewResultBase(vm.Id, false, "status channel broken")
+			return
+		}
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_VM_SHUTDOWN {
+			result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
+			return
+		}
+	}
 }
 
 func (vm *Vm) StopPod(mypod *PodStatus) *types.VmResponse {
@@ -395,9 +477,9 @@ func (vm *Vm) AddRoute(id string) error {
 
 func (vm *Vm) AddNic(idx int, name string, info *api.InterfaceDescription) error {
 	var (
-		//failEvent     *DeviceFailed
-		//createdEvent  *InterfaceCreated
-		//insertedEvent *NetDevInsertedEvent
+	//failEvent     *DeviceFailed
+	//createdEvent  *InterfaceCreated
+	//insertedEvent *NetDevInsertedEvent
 	)
 
 	client := make(chan api.Result, 1)
@@ -700,7 +782,7 @@ func errorResponse(cause string) *types.VmResponse {
 
 func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 	return &Vm{
-		Id:     vmId,
+		Id: vmId,
 		//Pod:    nil,
 		Lazy:   lazy,
 		Status: types.S_VM_IDLE,

@@ -1,5 +1,9 @@
 package api
 
+import (
+	"github.com/opencontainers/runtime-spec/specs-go"
+)
+
 type ContainerDescription struct {
 
 	Id string
@@ -101,3 +105,10 @@ type UserGroupInfo struct {
 func (v *VolumeDescription) IsDir() bool {
 	return v.Format == "vfs"
 }
+
+func SandboxInfoFromOCF(s *specs.Spec) *SandboxConfig {
+	return &SandboxConfig{
+		Hostname: s.Hostname,
+	}
+}
+
