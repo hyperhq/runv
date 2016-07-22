@@ -148,13 +148,18 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 }
 
 func UGIFromOCF(u *specs.User) *UserGroupInfo {
-	ugi := &UserGroupInfo{
-		User: strconv.FormatUint(uint64(u.UID), 10),
-		Group: strconv.FormatUint(uint64(u.GID), 10),
-		AdditionalGroups: []string{},
+	ugi := &UserGroupInfo{}
+	if u.UID != 0 {
+		ugi.User = strconv.FormatUint(uint64(u.UID), 10)
 	}
-	for _, gid := range u.AdditionalGids{
-		ugi.AdditionalGroups = append(ugi.AdditionalGroups, strconv.FormatUint(uint64(gid), 10))
+	if u.GID != 0 {
+		ugi.Group = strconv.FormatUint(uint64(u.GID), 10)
+	}
+	if len(u.AdditionalGids) > 0 {
+		ugi.AdditionalGroups = []string{}
+		for _, gid := range u.AdditionalGids{
+			ugi.AdditionalGroups = append(ugi.AdditionalGroups, strconv.FormatUint(uint64(gid), 10))
+		}
 	}
 	return ugi
 }
