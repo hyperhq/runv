@@ -25,8 +25,12 @@ func (ctx *VmContext) LogLevel(level uint) bool {
 
 func (ctx *VmContext) Log(level uint, format string, args ...interface{}) {
 	var (
-		logf func(string, ...interface{})
+		logf   func(string, ...interface{})
+		prefix string
 	)
+	if ctx != nil {
+		prefix = ctx.Id
+	}
 	switch level {
 	case ERROR:
 		logf = glog.Errorf
@@ -42,7 +46,7 @@ func (ctx *VmContext) Log(level uint, format string, args ...interface{}) {
 		return
 	}
 
-	logf(ctx.Id+": "+format, args)
+	logf(prefix+": "+format, args)
 }
 
 func (cc *ContainerContext) Log(level uint, format string, args ...interface{}) {

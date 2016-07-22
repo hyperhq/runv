@@ -132,10 +132,10 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
-func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) map[string]*api.ProcessExit {
+func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
 	var (
 		waiting = make(map[string]struct{})
-		result = make(map[string]*api.ProcessExit)
+		result = make(chan *api.ProcessExit, len(ids))
 		timeoutChan <-chan time.Time
 		waitEvent = types.E_CONTAINER_FINISHED
 	)
@@ -157,31 +157,39 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) map[strin
 
 	Status, err := vm.GetResponseChan()
 	if err != nil {
-		return result
+		vm.ctx.Log(ERROR, "fail to get response channel: %v", err)
+		return nil
 	}
-	defer vm.ReleaseResponseChan(Status)
 
-	for len(waiting) > 0 {
-		select {
-		case response, ok := <-Status:
-			if !ok {
-				vm.ctx.Log(WARNING, "status chan broken during waiting containers: %#v", waiting)
-				return result
-			}
-			if response.Code == waitEvent {
-				ps, _ := response.Data.(*types.ProcessFinished)
-				if _, ok := waiting[ps.Id]; ok {
-					result[ps.Id] = &api.ProcessExit{
-						Code: int(ps.Code),
-						FinishedAt: time.Now().UTC(),
+	go func() {
+		defer vm.ReleaseResponseChan(Status)
+		for len(waiting) > 0 {
+			select {
+			case response, ok := <-Status:
+				if !ok {
+					vm.ctx.Log(WARNING, "status chan broken during waiting containers: %#v", waiting)
+					close(result)
+					return
+				}
+				if response.Code == waitEvent {
+					ps, _ := response.Data.(*types.ProcessFinished)
+					if _, ok := waiting[ps.Id]; ok {
+						result <- &api.ProcessExit{
+							Id:   ps.Id,
+							Code: int(ps.Code),
+							FinishedAt: time.Now().UTC(),
+						}
 					}
 				}
+			case <-timeoutChan:
+				vm.ctx.Log(WARNING, "timeout while waiting result of containers: %#v", waiting)
+				close(result)
+				return
 			}
-		case <-timeoutChan:
-			vm.ctx.Log(WARNING, "timeout while waiting result of containers: %#v", waiting)
-			return result
 		}
-	}
+		close(result)
+	}()
+
 	return result
 }
 

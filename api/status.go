@@ -15,6 +15,7 @@ type ResultBase struct {
 }
 
 type ProcessExit struct {
+	Id         string
 	Code       int
 	FinishedAt time.Time
 }

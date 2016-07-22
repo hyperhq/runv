@@ -1,6 +1,9 @@
 package api
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -43,7 +46,7 @@ type VolumeDescription struct {
 	Options      *VolumeOption
 
 	Fstype       string //"xfs", "ext4" etc. for block dev, or "dir" for dir path
-	Format       string //"raw" (or "qcow2") for volume, no meaning for dir path
+	Format       string //"raw" (or "qcow2" later) for volume, "vfs" for dir path
 	DockerVolume bool
 }
 
@@ -65,14 +68,6 @@ type SandboxConfig struct {
 	Hostname   string
 	Neighbors  *NeighborNetworks
 	Dns        []string
-}
-
-// TODO: I think the ExecDescription is not essential
-type ExecDescription struct {
-	Id        string
-	Container string
-	Cmds      string
-	Tty       bool
 }
 
 type InterfaceDescription struct {
@@ -112,3 +107,54 @@ func SandboxInfoFromOCF(s *specs.Spec) *SandboxConfig {
 	}
 }
 
+func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription {
+	container := &ContainerDescription{
+		Id: id,
+		Name: s.Hostname,
+		Image: "",
+		Labels: make(map[string]string),
+		Tty: s.Process.Terminal,
+		RestartPolicy: "never",
+		RootVolume: nil,
+		MountId: "",
+		RootPath: "rootfs",
+		UGI: UGIFromOCF(&s.Process.User),
+		Envs: make(map[string]string),
+		Workdir:       s.Process.Cwd,
+		Path: s.Process.Args[0],
+		Args: nil,
+		Sysctl:        s.Linux.Sysctl,
+	}
+
+	for _, value := range s.Process.Env {
+		values := strings.SplitN(value, "=", 2)
+		container.Envs[values[0]] = values[1]
+	}
+	if len(s.Process.Args) > 1 {
+		container.Args = s.Process.Args[1:]
+	} else {
+		container.Args = []string{}
+	}
+
+	rootfs := &VolumeDescription{
+		Name: id,
+		Source: id,
+		Fstype: "dir",
+		Format: "vfs",
+	}
+	container.RootVolume = rootfs
+
+	return container
+}
+
+func UGIFromOCF(u *specs.User) *UserGroupInfo {
+	ugi := &UserGroupInfo{
+		User: strconv.FormatUint(uint64(u.UID), 10),
+		Group: strconv.FormatUint(uint64(u.GID), 10),
+		AdditionalGroups: []string{},
+	}
+	for _, gid := range u.AdditionalGids{
+		ugi.AdditionalGroups = append(ugi.AdditionalGroups, strconv.FormatUint(uint64(gid), 10))
+	}
+	return ugi
+}
