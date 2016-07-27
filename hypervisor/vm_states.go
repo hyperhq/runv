@@ -298,12 +298,10 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	switch ev.Event() {
 	case EVENT_VM_EXIT:
 		glog.Info("Got VM shutdown event while terminating, go to cleaning up")
-		ctx.unsetTimeout()
 		ctx.reportVmShutdown()
 		ctx.Close()
 	case EVENT_VM_KILL:
 		glog.Info("Got VM force killed message, go to cleaning up")
-		ctx.unsetTimeout()
 		ctx.reportVmShutdown()
 		ctx.Close()
 	case COMMAND_RELEASE:
