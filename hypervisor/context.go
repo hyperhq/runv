@@ -296,6 +296,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		}
 
 		entry.wait(c.Id, wgDisk)
+		added = append(added, v.Name)
 	}
 
 	//prepare runtime environment
