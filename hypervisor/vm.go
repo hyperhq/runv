@@ -255,15 +255,15 @@ func (vm *Vm) InitSandbox(config *api.SandboxConfig, result chan<- api.Result) {
 	}
 
 	vm.ctx.SetNetworkEnvironment(config)
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
+		result <- api.NewResultBase(vm.Id, false, err.Error())
+		return
+	}
 	vm.ctx.startPod()
 
 	go func() {
-		Status, err := vm.GetResponseChan()
-		if err != nil {
-			vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
-			result <- api.NewResultBase(vm.Id, false, err.Error())
-			return
-		}
 		defer vm.ReleaseResponseChan(Status)
 
 		for {
@@ -298,21 +298,25 @@ func (vm *Vm) Shutdown(result chan<- api.Result) {
 		result <- api.NewResultBase(vm.Id, false, "fail to get response chan")
 		return
 	}
-	defer vm.ReleaseResponseChan(Status)
 
-	vm.Hub <- &ShutdownCommand{}
-	for {
-		Response, ok := <-Status
-		if !ok {
-			result <- api.NewResultBase(vm.Id, false, "status channel broken")
-			return
+	go func() {
+		defer vm.ReleaseResponseChan(Status)
+
+		vm.Hub <- &ShutdownCommand{}
+		for {
+			Response, ok := <-Status
+			if !ok {
+				result <- api.NewResultBase(vm.Id, false, "status channel broken")
+				return
+			}
+			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+			if Response.Code == types.E_VM_SHUTDOWN {
+				result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
+				return
+			}
 		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_VM_SHUTDOWN {
-			result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
-			return
-		}
-	}
+
+	}()
 }
 
 // TODO: should we provide a method to force kill vm
