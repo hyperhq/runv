@@ -122,18 +122,13 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 		Envs: make(map[string]string),
 		Workdir:       s.Process.Cwd,
 		Path: s.Process.Args[0],
-		Args: nil,
+		Args: s.Process.Args[1:],
 		Sysctl:        s.Linux.Sysctl,
 	}
 
 	for _, value := range s.Process.Env {
 		values := strings.SplitN(value, "=", 2)
 		container.Envs[values[0]] = values[1]
-	}
-	if len(s.Process.Args) > 1 {
-		container.Args = s.Process.Args[1:]
-	} else {
-		container.Args = []string{}
 	}
 
 	rootfs := &VolumeDescription{
@@ -148,6 +143,11 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 }
 
 func UGIFromOCF(u *specs.User) *UserGroupInfo {
+
+	if u == nil || (u.UID == 0 && u.GID == 0 && len(u.AdditionalGids) == 0) {
+		return nil
+	}
+
 	ugi := &UserGroupInfo{}
 	if u.UID != 0 {
 		ugi.User = strconv.FormatUint(uint64(u.UID), 10)
@@ -161,5 +161,6 @@ func UGIFromOCF(u *specs.User) *UserGroupInfo {
 			ugi.AdditionalGroups = append(ugi.AdditionalGroups, strconv.FormatUint(uint64(gid), 10))
 		}
 	}
+
 	return ugi
 }
