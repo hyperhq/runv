@@ -132,7 +132,7 @@ func waitInitReady(ctx *VmContext) {
 
 	if ctx.Boot.BootFromTemplate {
 		glog.Info("boot from template")
-		ctx.Paused = true
+		ctx.PauseState = PauseStatePaused
 		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
 		go waitCmdToInit(ctx, conn.(*net.UnixConn))
 		return
@@ -306,7 +306,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 			if timeout && pongTimer == nil {
 				glog.V(1).Info("message sent, set pong timer")
 				pongTimer = time.AfterFunc(30*time.Second, func() {
-					if !ctx.Paused {
+					if ctx.PauseState == PauseStateUnpaused {
 						ctx.Hub <- &Interrupted{Reason: "init not reply ping mesg"}
 					}
 				})

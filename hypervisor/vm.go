@@ -620,19 +620,43 @@ func (vm *Vm) Stats() *types.VmResponse {
 
 func (vm *Vm) Pause(pause bool) error {
 	command := "Pause"
+	pauseState := PauseStatePaused
+	oldPauseState := PauseStateUnpaused
 	if !pause {
+		pauseState = PauseStateUnpaused
 		command = "Unpause"
 	}
 
-	return vm.GenericOperation(command, func(ctx *VmContext, result chan<- error) {
+	err := vm.GenericOperation(command, func(ctx *VmContext, result chan<- error) {
+		oldPauseState = ctx.PauseState
+		if ctx.PauseState == PauseStateBusy {
+			result <- fmt.Errorf("%s fails: earlier Pause or Unpause operation has not finished", command)
+			return
+		} else if ctx.PauseState == pauseState {
+			result <- nil
+			return
+		}
+		ctx.PauseState = PauseStateBusy
 		/* FIXME: only support pause whole vm now */
 		ctx.DCtx.Pause(ctx, pause, result)
 	}, StateInit, StateRunning)
+
+	if oldPauseState == pauseState {
+		return nil
+	}
+	if err != nil {
+		pauseState = oldPauseState // recover the state
+	}
+	vm.GenericOperation(command+" result", func(ctx *VmContext, result chan<- error) {
+		ctx.PauseState = pauseState
+		result <- nil
+	}, StateInit, StateRunning)
+	return err
 }
 
 func (vm *Vm) Save(path string) error {
 	return vm.GenericOperation("Save", func(ctx *VmContext, result chan<- error) {
-		if ctx.Paused {
+		if ctx.PauseState == PauseStatePaused {
 			ctx.DCtx.Save(ctx, path, result)
 		} else {
 			result <- fmt.Errorf("the vm should paused on non-live Save()")
