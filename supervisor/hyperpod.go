@@ -491,14 +491,12 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 		glog.V(3).Infof("Creating VM with specific kernel config")
 	}
 
-	result := make(chan api.Result, 8)
 	sandbox := api.SandboxInfoFromOCF(spec)
-	vm.InitSandbox(sandbox, result)
+	rsp := vm.InitSandbox(sandbox)
 
-	rsp, ok := <-result
-	if !ok || !rsp.IsSuccess() {
+	if !rsp.IsSuccess() {
 		vm.Kill()
-		glog.V(1).Infof("StartPod fail: chan: %v, response: %v", ok, rsp)
+		glog.V(1).Infof("StartPod fail, response: %v", rsp)
 		return nil, fmt.Errorf("StartPod fail")
 	}
 	glog.V(1).Infof("%s init sandbox successfully", rsp.ResultId())
@@ -520,8 +518,10 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 }
 
 func (hp *HyperPod) reap() {
-	result := make(chan api.Result, 8)
-	hp.vm.Shutdown(result)
+	result := make(chan api.Result, 1)
+	go func() {
+		result<- hp.vm.Shutdown()
+	}()
 	select {
 	case rsp, ok := <-result :
 		if !ok || !rsp.IsSuccess() {

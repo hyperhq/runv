@@ -110,13 +110,8 @@ func (c *Container) create(p *Process) error {
 		}
 	}
 
-	result := make(chan api.Result, 1)
-	c.ownerPod.vm.AddContainer(config, result)
-
-	r,ok := <-result
-	if !ok {
-		return fmt.Errorf("add container %s interrupt", c.Id)
-	} else if !r.IsSuccess() {
+	r := c.ownerPod.vm.AddContainer(config)
+	if !r.IsSuccess() {
 		return fmt.Errorf("add container %s failed: %s", c.Id, r.Message())
 	}
 

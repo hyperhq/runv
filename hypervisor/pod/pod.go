@@ -3,16 +3,9 @@ package pod
 import (
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
-	"reflect"
-	"regexp"
-	"strings"
-
-	"github.com/hyperhq/runv/lib/utils"
 )
 
 // Pod Data Structure

@@ -248,81 +248,65 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 //	mypod.Wg.Done()
 //}
 
-func (vm *Vm) InitSandbox(config *api.SandboxConfig, result chan<- api.Result) {
+func (vm *Vm) InitSandbox(config *api.SandboxConfig) api.Result {
 	if vm.ctx == nil {
-		result <- NewNotReadyError(vm.Id)
-		return
+		return NewNotReadyError(vm.Id)
 	}
 
 	vm.ctx.SetNetworkEnvironment(config)
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
-		result <- api.NewResultBase(vm.Id, false, err.Error())
-		return
+		return api.NewResultBase(vm.Id, false, err.Error())
 	}
+	defer vm.ReleaseResponseChan(Status)
+
 	vm.ctx.startPod()
 
-	go func() {
-		defer vm.ReleaseResponseChan(Status)
-
-		for {
-			s, ok := <-Status
-			if !ok {
-				result <- api.NewResultBase(vm.Id, false, "status channel broken")
-				return
-			}
-
-			switch s.Code {
-			case types.E_OK:
-				result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
-				return
-			case types.E_FAILED, types.E_VM_SHUTDOWN:
-				result <- api.NewResultBase(vm.Id, false, "set sandbox config failed")
-				return
-			default:
-				vm.ctx.Log(DEBUG, "got message %#v while waiting start pod command finish")
-			}
+	for {
+		s, ok := <-Status
+		if !ok {
+			return api.NewResultBase(vm.Id, false, "status channel broken")
 		}
-	}()
+
+		switch s.Code {
+		case types.E_OK:
+			return api.NewResultBase(vm.Id, true, "set sandbox config successfully")
+		case types.E_FAILED, types.E_VM_SHUTDOWN:
+			return api.NewResultBase(vm.Id, false, "set sandbox config failed")
+		default:
+			vm.ctx.Log(DEBUG, "got message %#v while waiting start pod command finish")
+		}
+	}
 
 }
 
-func (vm *Vm) Shutdown(result chan<- api.Result) {
+func (vm *Vm) Shutdown() api.Result {
 	if vm.ctx.current != StateRunning {
-		result <- api.NewResultBase(vm.Id, false, "not in running state")
-		return
+		return api.NewResultBase(vm.Id, false, "not in running state")
 	}
 	Status, err := vm.GetResponseChan()
 	if err != nil {
-		result <- api.NewResultBase(vm.Id, false, "fail to get response chan")
-		return
+		return api.NewResultBase(vm.Id, false, "fail to get response chan")
 	}
+	defer vm.ReleaseResponseChan(Status)
 
-	go func() {
-		defer vm.ReleaseResponseChan(Status)
-
-		vm.Hub <- &ShutdownCommand{}
-		for {
-			Response, ok := <-Status
-			if !ok {
-				result <- api.NewResultBase(vm.Id, false, "status channel broken")
-				return
-			}
-			glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-			if Response.Code == types.E_VM_SHUTDOWN {
-				result <- api.NewResultBase(vm.Id, true, "set sandbox config successfully")
-				return
-			}
+	vm.Hub <- &ShutdownCommand{}
+	for {
+		Response, ok := <-Status
+		if !ok {
+			return api.NewResultBase(vm.Id, false, "status channel broken")
 		}
-
-	}()
+		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
+		if Response.Code == types.E_VM_SHUTDOWN {
+			return api.NewResultBase(vm.Id, true, "set sandbox config successfully")
+		}
+	}
 }
 
 // TODO: should we provide a method to force kill vm
 func (vm *Vm) Kill() {
-	ignore := make(chan api.Result, 4)
-	vm.Shutdown(ignore)
+	go vm.Shutdown()
 }
 
 func (vm *Vm) WriteFile(container, target string, data []byte) error {
@@ -531,22 +515,25 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 	return tty.WaitForFinish()
 }
 
-func (vm *Vm) AddVolume(vol *api.VolumeDescription, result chan api.Result) {
+func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
 	if vm.ctx == nil || vm.ctx.current != StateRunning {
 		glog.Errorf("VM is not ready for insert volume %#v", vol)
-		result <- NewNotReadyError(vm.Id)
-		return
+		return NewNotReadyError(vm.Id)
 	}
 
+	result := make(chan api.Result, 1)
 	vm.ctx.AddVolume(vol, result)
+	return <-result
 }
 
-func (vm *Vm) AddContainer(c *api.ContainerDescription, result chan api.Result) {
+func (vm *Vm) AddContainer(c *api.ContainerDescription) api.Result {
 	if vm.ctx == nil || vm.ctx.current != StateRunning {
-		result <- NewNotReadyError(vm.Id)
-		return
+		return NewNotReadyError(vm.Id)
 	}
+
+	result := make(chan api.Result, 1)
 	vm.ctx.AddContainer(c, result)
+	return <-result
 }
 
 func (vm *Vm) StartContainer(id string) error {
