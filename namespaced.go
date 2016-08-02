@@ -91,9 +91,9 @@ func namespaceShare(sv *supervisor.Supervisor, namespace, state string, server *
 		} else if e.Type == supervisor.EventExit && e.PID == "init" {
 			containerCount--
 			if containerCount == 0 {
-				server.Stop()
 				os.RemoveAll(namespace)
-				time.Sleep(time.Second)
+				time.Sleep(3 * time.Second)
+				server.Stop()
 				os.Exit(0)
 			}
 		}
