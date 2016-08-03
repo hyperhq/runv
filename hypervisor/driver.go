@@ -9,14 +9,18 @@ import (
 )
 
 type BootConfig struct {
-	CPU          int
-	Memory       int
-	HotAddCpuMem bool
-	Kernel       string
-	Initrd       string
-	Bios         string
-	Cbfs         string
-	Vbox         string
+	CPU              int
+	Memory           int
+	HotAddCpuMem     bool
+	BootToBeTemplate bool
+	BootFromTemplate bool
+	MemoryPath       string
+	DevicesStatePath string
+	Kernel           string
+	Initrd           string
+	Bios             string
+	Cbfs             string
+	Vbox             string
 }
 
 type HostNicInfo struct {

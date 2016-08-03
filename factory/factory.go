@@ -1,6 +1,6 @@
 // package factory defines the full function factory interface
 // package base defines the base factory interface
-// package cache and direct implement base.Factory
+// package cache direct and template implement base.Factory
 // package single and multi implement fatory.Factory
 package factory
 
@@ -12,6 +12,7 @@ import (
 	"github.com/hyperhq/runv/factory/direct"
 	"github.com/hyperhq/runv/factory/multi"
 	"github.com/hyperhq/runv/factory/single"
+	"github.com/hyperhq/runv/factory/template"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
@@ -21,16 +22,21 @@ type Factory interface {
 }
 
 type FactoryConfig struct {
-	Cache  int `json:"cache"`
-	Cpu    int `json:"cpu"`
-	Memory int `json:"memory"`
+	Cache    int  `json:"cache"`
+	Template bool `json:"template"`
+	Cpu      int  `json:"cpu"`
+	Memory   int  `json:"memory"`
 }
 
 func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
 	bases := make([]base.Factory, len(configs))
 	for i, c := range configs {
 		var b base.Factory
-		b = direct.New(c.Cpu, c.Memory, kernel, initrd)
+		if c.Template {
+			b = template.New(hypervisor.BaseDir+"/template", c.Cpu, c.Memory, kernel, initrd)
+		} else {
+			b = direct.New(c.Cpu, c.Memory, kernel, initrd)
+		}
 		bases[i] = cache.New(c.Cache, b)
 	}
 
@@ -45,7 +51,7 @@ func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
 }
 
 // vmFactoryPolicy = [FactoryConfig,]*FactoryConfig
-// FactoryConfig   = {["cache":NUMBER,]"cpu":NUMBER,"memory":NUMBER}
+// FactoryConfig   = {["cache":NUMBER,]["template":true|false,]"cpu":NUMBER,"memory":NUMBER}
 func NewFromPolicy(kernel, initrd string, policy string) Factory {
 	var configs []FactoryConfig
 	jsonString := "[" + policy + "]"

@@ -18,11 +18,17 @@ type VmHwStatus struct {
 	AttachId uint64 //next available attachId for attached tty
 }
 
+const (
+	PauseStateUnpaused = iota
+	PauseStateBusy
+	PauseStatePaused
+)
+
 type VmContext struct {
 	Id string
 
-	Paused bool
-	Boot   *BootConfig
+	PauseState int
+	Boot       *BootConfig
 
 	// Communication Context
 	Hub    chan VmEvent
@@ -93,7 +99,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	return &VmContext{
 		Id:              id,
 		Boot:            boot,
-		Paused:          false,
+		PauseState:      PauseStateUnpaused,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
 		Hub:             hub,

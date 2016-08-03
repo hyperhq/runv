@@ -5,8 +5,10 @@ package libvirt
 import (
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -170,6 +172,57 @@ func (ld *LibvirtDriver) secretSetValue(uuid, value string) error {
 	}
 
 	return nil
+}
+
+func CreateTemplateQemuWrapper(execPath, qemuPath string, boot *hypervisor.BootConfig) error {
+	templateQemuWrapper := `#!/bin/bash
+
+# qemu wrapper for libvirt driver for templating
+# Do NOT modify
+
+memsize="%d"          # template memory size
+mempath="%s"          # template MemoryPath
+maxcpuid="%d"         # MaxCpus-1
+statepath="%s"        # template DevicesStatePath
+qemupath="%s"         # qemu real path, exec.LookPath("qemu-system-x86_64")
+
+argv=()
+
+while true
+do
+	arg="$1"
+	shift || break
+
+	# wrap qemu after we see the -numa argument
+	if [ "x${arg}" = "x-numa" ]; then
+		if [ "next_arg=$1" != "next_arg=node,nodeid=0,cpus=0-${maxcpuid},mem=${memsize}" ]; then
+			echo "unexpected numa argument: $1" >&2
+			exit 1
+		fi
+
+		if [ -e "${statepath}" ]; then
+			argv+=("-incoming" "exec:cat $statepath")
+			share=off
+		else
+			share=on
+		fi
+
+		#argv+=(-global kvm-pit.lost_tick_policy=discard)
+		argv+=("-object" "memory-backend-file,id=hyper-template-memory,size=${memsize}M,mem-path=${mempath},share=${share}")
+		argv+=("-numa" "node,nodeid=0,cpus=0-${maxcpuid},memdev=hyper-template-memory")
+		shift # skip next arg
+	else
+		argv+=("${arg}")
+	fi
+done
+
+exec "${qemupath}" "${argv[@]}"
+`
+
+	data := []byte(fmt.Sprintf(templateQemuWrapper, boot.Memory, boot.MemoryPath,
+		hypervisor.DefaultMaxCpus-1, boot.DevicesStatePath, qemuPath))
+
+	return ioutil.WriteFile(execPath, data, 0700)
 }
 
 type memory struct {
@@ -396,6 +449,18 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	}
 	dom.Devices.Emulator = cmd
 
+	qemuTemplateWrapper := filepath.Join(filepath.Dir(boot.MemoryPath), "libvirt-qemu-template-wrapper.sh")
+	if boot.BootToBeTemplate {
+		err := CreateTemplateQemuWrapper(qemuTemplateWrapper, cmd, boot)
+		if err != nil {
+			return "", err
+		}
+		dom.Devices.Emulator = qemuTemplateWrapper
+	} else if boot.BootFromTemplate {
+		// the wrapper was created when the template was created
+		dom.Devices.Emulator = qemuTemplateWrapper
+	}
+
 	dom.OnPowerOff = "destroy"
 	dom.OnReboot = "destroy"
 	dom.OnCrash = "destroy"
@@ -539,8 +604,12 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		return
 	}
 	glog.V(3).Infof("domainXML: %v", domainXml)
-
-	domain, err := lc.driver.domainCreateXML(domainXml)
+	var domain libvirtgo.VirDomain
+	if ctx.Boot.BootFromTemplate {
+		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_START_PAUSED)
+	} else {
+		domain, err = lc.driver.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
+	}
 	if err != nil {
 		glog.Error("Fail to launch domain ", err)
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
