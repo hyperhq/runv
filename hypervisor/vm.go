@@ -132,6 +132,52 @@ func (vm *Vm) ReleaseVm() (int, error) {
 	return types.E_OK, nil
 }
 
+func (vm *Vm) WaitVm(timeout int) <-chan bool {
+	var (
+		result = make(chan bool)
+		timeoutChan <-chan time.Time
+	)
+
+	if timeout >= 0 {
+		timeoutChan = time.After(time.Duration(timeout) * time.Second)
+	} else {
+		timeoutChan = make(chan time.Time, 1)
+	}
+
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		vm.ctx.Log(ERROR, "fail to get response channel: %v", err)
+		return nil
+	}
+
+	go func() {
+		defer vm.ReleaseResponseChan(Status)
+		for {
+			select {
+			case response, ok := <-Status:
+				if !ok {
+					vm.ctx.Log(WARNING, "status chan broken during waiting vm, it should be closed")
+					result <- false
+					return
+				}
+				if response.Code == types.E_VM_SHUTDOWN {
+					vm.ctx.Log(INFO, "wait vm: vm exited")
+					result <- true
+					return
+
+				}
+			case <-timeoutChan:
+				vm.ctx.Log(WARNING, "timeout while waiting vm")
+				close(result)
+				return
+			}
+		}
+
+	}()
+
+	return result
+}
+
 func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
 	var (
 		waiting = make(map[string]struct{})
@@ -152,7 +198,6 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 		timeoutChan = time.After(time.Duration(timeout) * time.Second)
 	} else {
 		timeoutChan = make(chan time.Time, 1)
-
 	}
 
 	Status, err := vm.GetResponseChan()
