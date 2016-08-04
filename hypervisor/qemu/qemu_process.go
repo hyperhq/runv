@@ -1,6 +1,7 @@
 package qemu
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -12,6 +13,47 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 )
+
+// implement io.Reader interface
+type qemuLogReader struct {
+	logFile string
+	offset  int64
+}
+
+func (f *qemuLogReader) Read(p []byte) (n int, err error) {
+	reader, err := os.Open(f.logFile)
+	defer reader.Close()
+	if err != nil {
+		return 0, err
+	}
+	reader.Seek(f.offset, 0)
+
+	n, err = reader.Read(p)
+
+	if err == io.EOF {
+		time.Sleep(1 * time.Second)
+	}
+	f.offset += int64(n)
+
+	return n, err
+}
+
+func watchLogFile(logFile string) {
+	file := &qemuLogReader{logFile, 0}
+	br := bufio.NewReader(file)
+
+	for {
+		log, _, err := br.ReadLine()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			glog.Errorf("read log file %s failed: %v", logFile, err)
+			return
+		}
+		glog.Infof("qemu log: %s", string(log))
+	}
+}
 
 func watchDog(qc *QemuContext, hub chan hypervisor.VmEvent) {
 	wdt := qc.wdt
@@ -139,6 +181,8 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	file.Close()
 
 	glog.V(1).Infof("starting daemon with pid: %d", pid)
+
+	go watchLogFile(qc.qemuLogFile)
 
 	err = ctx.DCtx.(*QemuContext).watchPid(int(pid), ctx.Hub)
 	if err != nil {
