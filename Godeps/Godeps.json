@@ -1,10 +1,11 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.5",
-	"GodepVersion": "v63",
+	"GodepVersion": "v74",
 	"Packages": [
 		"github.com/hyperhq/runv",
-		"github.com/hyperhq/runv/containerd"
+		"github.com/hyperhq/runv/containerd",
+		"github.com/hyperhq/runv/integration-test"
 	],
 	"Deps": [
 		{
@@ -34,38 +35,47 @@
 		},
 		{
 			"ImportPath": "github.com/docker/docker/daemon/logger",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/integration/checker",
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/jsonlog",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/longpath",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/mount",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/symlink",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/pkg/system",
-			"Comment": "v1.4.1-11540-g2bcb6d6",
-			"Rev": "2bcb6d694f9c8a7d4ce1b2b2a5d8a32ae5ea6085"
+			"Comment": "v1.4.1-13728-g8a766b8",
+			"Rev": "8a766b859ff2be52119087d55cdd4895326646ec"
 		},
 		{
 			"ImportPath": "github.com/docker/go-units",
 			"Comment": "v0.3.0",
 			"Rev": "5d2041e26a699eaca682e2ea41c8f891e1060444"
+		},
+		{
+			"ImportPath": "github.com/go-check/check",
+			"Rev": "4f90aeace3a26ad7021961c297b22c42160c7b25"
 		},
 		{
 			"ImportPath": "github.com/golang/glog",
@@ -90,7 +100,16 @@
 			"Rev": "4aa5670b506d439aa71231db2d53bfb4f908fe6f"
 		},
 		{
+			"ImportPath": "github.com/vdemeester/shakers",
+			"Comment": "v0.1.0",
+			"Rev": "24d7f1d6a71aa5d9cbe7390e4afb66b7eef9e1b3"
+		},
+		{
 			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "f9bc7a684edbe780a09b87689db6cb1706bf327f"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink/nl",
 			"Rev": "f9bc7a684edbe780a09b87689db6cb1706bf327f"
 		},
 		{
