@@ -23,8 +23,7 @@ var LibvirtdAddress = "qemu:///system"
 
 type LibvirtDriver struct {
 	sync.Mutex
-	conn    libvirtgo.VirConnection
-	domains map[string]*hypervisor.VmContext
+	conn libvirtgo.VirConnection
 }
 
 type LibvirtContext struct {
@@ -42,8 +41,7 @@ func InitDriver() *LibvirtDriver {
 	}
 
 	return &LibvirtDriver{
-		conn:    conn,
-		domains: make(map[string]*hypervisor.VmContext),
+		conn: conn,
 	}
 }
 
@@ -616,17 +614,10 @@ func (lc *LibvirtContext) Launch(ctx *hypervisor.VmContext) {
 		return
 	}
 	lc.domain = &domain
-	name, err := lc.domain.GetName()
-	if err != nil {
-		glog.Error("Fail to get domain name ", err)
-		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: err.Error()}
-		return
-	}
 	err = lc.domain.SetMemoryStatsPeriod(1, 0)
 	if err != nil {
-		glog.Errorf("SetMemoryStatsPeriod failed for domain %v", name)
+		glog.Errorf("SetMemoryStatsPeriod failed for domain %v", ctx.Id)
 	}
-	lc.driver.domains[name] = ctx
 }
 
 func (lc *LibvirtContext) Associate(ctx *hypervisor.VmContext) {
@@ -635,7 +626,10 @@ func (lc *LibvirtContext) Associate(ctx *hypervisor.VmContext) {
 		glog.Error("Fail to get domain name ", err)
 		return
 	}
-	lc.driver.domains[name] = ctx
+
+	if name != ctx.Id {
+		glog.Errorf("domain name %s is not equal to context id %s", name, ctx.Id)
+	}
 }
 
 func (lc *LibvirtContext) Dump() (map[string]interface{}, error) {
@@ -660,12 +654,7 @@ func (lc *LibvirtContext) Shutdown(ctx *hypervisor.VmContext) {
 			ctx.Hub <- &hypervisor.VmExit{}
 			return
 		}
-		name, err := lc.domain.GetName()
-		if err != nil {
-			return
-		}
 		lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
-		delete(lc.driver.domains, name)
 		ctx.Hub <- &hypervisor.VmExit{}
 	}()
 }
@@ -676,12 +665,7 @@ func (lc *LibvirtContext) Kill(ctx *hypervisor.VmContext) {
 			ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 			return
 		}
-		name, err := lc.domain.GetName()
-		if err != nil {
-			return
-		}
 		lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
-		delete(lc.driver.domains, name)
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 	}()
 }
