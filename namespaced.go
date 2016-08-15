@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/containerd/osutils"
+	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/server"
 	"github.com/hyperhq/runv/driverloader"
@@ -19,6 +20,10 @@ import (
 	"github.com/hyperhq/runv/supervisor"
 	"google.golang.org/grpc"
 )
+
+func init() {
+	reexec.Register("runv-namespaced", runvNamespaceDaemon)
+}
 
 func runvNamespaceDaemon() {
 	var (
