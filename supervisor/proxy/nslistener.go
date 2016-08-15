@@ -17,10 +17,6 @@ func init() {
 	reexec.Register("containerd-nslistener", setupNsListener)
 }
 
-func NsListenerDaemon() {
-	setupNsListener()
-}
-
 func setupNsListener() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

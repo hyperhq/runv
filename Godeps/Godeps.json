@@ -4,7 +4,6 @@
 	"GodepVersion": "v74",
 	"Packages": [
 		"github.com/hyperhq/runv",
-		"github.com/hyperhq/runv/containerd",
 		"github.com/hyperhq/runv/integration-test"
 	],
 	"Deps": [

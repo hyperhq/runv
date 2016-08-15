@@ -12,6 +12,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/reexec"
+	"github.com/hyperhq/runv/containerd"
 	_ "github.com/hyperhq/runv/supervisor/proxy" // for proxy.init()
 	netcontext "golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -106,6 +107,7 @@ func main() {
 		killCommand,
 		listCommand,
 		stateCommand,
+		containerd.ContainerdCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
