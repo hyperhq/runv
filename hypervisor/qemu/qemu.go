@@ -26,7 +26,7 @@ type QemuContext struct {
 	wdt         chan string
 	qmpSockName string
 	qemuPidFile string
-	qemuLogFile string
+	qemuLogFile *QemuLogFile
 	cpus        int
 	process     *os.Process
 }
@@ -51,9 +51,13 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 		os.Mkdir(QemuLogDir, 0755)
 	}
 
-	qemuLogFile := QemuLogDir + "/" + homeDir[strings.Index(homeDir, "vm-"):len(homeDir)-1] + ".log"
-	if _, err := os.Create(qemuLogFile); err != nil {
+	logFile := QemuLogDir + "/" + homeDir[strings.Index(homeDir, "vm-"):len(homeDir)-1] + ".log"
+	if _, err := os.Create(logFile); err != nil {
 		glog.Errorf("create qemu log file failed: %v", err)
+	}
+	qemuLogFile := &QemuLogFile{
+		Name:   logFile,
+		Offset: 0,
 	}
 
 	return &QemuContext{
@@ -74,6 +78,7 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 	}
 
 	var sock string
+	var log QemuLogFile
 	var proc *os.Process = nil
 	var err error
 
@@ -104,12 +109,25 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 		}
 	}
 
+	l, ok := persisted["log"]
+	if !ok {
+		return nil, errors.New("cannot read the qemu log filename info from persist info")
+	} else {
+		switch l.(type) {
+		case QemuLogFile:
+			log = l.(QemuLogFile)
+		default:
+			return nil, errors.New("wrong qemu log filename type in persist info")
+		}
+	}
+
 	return &QemuContext{
 		driver:      qd,
 		qmp:         make(chan QmpInteraction, 128),
 		wdt:         make(chan string, 16),
 		waitQmp:     make(chan int, 1),
 		qmpSockName: sock,
+		qemuLogFile: &log,
 		process:     proc,
 	}, nil
 }
@@ -132,6 +150,7 @@ func (qc *QemuContext) Dump() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"hypervisor": "qemu",
 		"qmpSock":    qc.qmpSockName,
+		"log":        *qc.qemuLogFile,
 		"pid":        qc.process.Pid,
 	}, nil
 }
@@ -157,6 +176,7 @@ func (qc *QemuContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error)
 func (qc *QemuContext) Close() {
 	qc.wdt <- "quit"
 	<-qc.waitQmp
+	qc.qemuLogFile.Close()
 	close(qc.qmp)
 	close(qc.wdt)
 }

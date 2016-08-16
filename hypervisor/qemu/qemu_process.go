@@ -1,6 +1,7 @@
 package qemu
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -12,6 +13,68 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 )
+
+type QemuLogFile struct {
+	Name   string `json:"name"`
+	Offset int64  `json:"offset"`
+	eof    bool
+}
+
+func (f *QemuLogFile) Read(p []byte) (n int, err error) {
+	reader, err := os.Open(f.Name)
+	if err != nil {
+		return 0, err
+	}
+	reader.Seek(f.Offset, os.SEEK_SET)
+
+	for {
+		n, err = reader.Read(p)
+		f.Offset += int64(n)
+
+		if err == io.EOF {
+			if f.eof {
+				reader.Close()
+				return
+			}
+
+			time.Sleep(1 * time.Second)
+			reader.Close()
+			reader, err = os.Open(f.Name)
+			if err != nil {
+				reader.Close()
+				return
+			}
+			reader.Seek(f.Offset, os.SEEK_SET)
+		}
+		if err != nil || n != 0 {
+			reader.Close()
+			return
+		}
+	}
+}
+
+func (f *QemuLogFile) Close() error {
+	f.eof = true
+	return nil
+}
+
+func (f *QemuLogFile) Watch() {
+	br := bufio.NewReader(f)
+
+	for {
+		log, _, err := br.ReadLine()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			glog.Errorf("read log file %s failed: %v", f.Name, err)
+			return
+		}
+		if len(log) != 0 {
+			glog.Info("qemu log: ", string(log))
+		}
+	}
+}
 
 func watchDog(qc *QemuContext, hub chan hypervisor.VmEvent) {
 	wdt := qc.wdt
@@ -67,7 +130,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		glog.Info("cmdline arguments: ", strings.Join(args, " "))
 	}
 
-	cmd := exec.Command(qemu, append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile)...)
+	cmd := exec.Command(qemu, append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile.Name)...)
 
 	stdout := bytes.NewBuffer([]byte{})
 	stderr := bytes.NewBuffer([]byte{})
@@ -140,6 +203,8 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 
 	glog.V(1).Infof("starting daemon with pid: %d", pid)
 
+	go qc.qemuLogFile.Watch()
+
 	err = ctx.DCtx.(*QemuContext).watchPid(int(pid), ctx.Hub)
 	if err != nil {
 		glog.Error("watch qemu process failed")
@@ -149,5 +214,6 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 }
 
 func associateQemu(ctx *hypervisor.VmContext) {
+	go ctx.DCtx.(*QemuContext).qemuLogFile.Watch()
 	go watchDog(ctx.DCtx.(*QemuContext), ctx.Hub)
 }
