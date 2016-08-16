@@ -302,13 +302,27 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result 
 }
 
 func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
-	commands := make([]*QmpCommand, 1)
+	commands := make([]*QmpCommand, 2)
 
 	commands[0] = &QmpCommand{
+		Execute: "migrate-set-capabilities",
+		Arguments: map[string]interface{}{
+			"capabilities": []map[string]interface{}{
+				{
+					"capability": "bypass-shared-memory",
+					"state":      true,
+				},
+			},
+		},
+	}
+	commands[1] = &QmpCommand{
 		Execute: "migrate",
 		Arguments: map[string]interface{}{
 			"uri": fmt.Sprintf("exec:cat>%s", path),
 		},
+	}
+	if !ctx.Boot.BootToBeTemplate {
+		commands = commands[1:]
 	}
 
 	// TODO: use query-migrate to query until completed
