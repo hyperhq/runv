@@ -12,16 +12,13 @@ LIBVIRT_BUILD_TAG=
 endif
 
 HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
-all-local: build-runv build-containerd
+all-local: build-runv
 clean-local:
-	-rm -f runv runv-containerd
+	-rm -f runv
 install-exec-local: 
 	$(INSTALL_PROGRAM) runv $(bindir)
-	$(INSTALL_PROGRAM) runv-containerd $(bindir)
 
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
-build-containerd:
-	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv-containerd ./containerd/
 test-integration:
 	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} .

@@ -7,13 +7,14 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/supervisor"
 	"github.com/vishvananda/netlink"
 )
 
-func NsListenerDaemon() {
-	setupNsListener()
+func init() {
+	reexec.Register("containerd-nslistener", setupNsListener)
 }
 
 func setupNsListener() {

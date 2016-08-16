@@ -11,7 +11,9 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
-	"github.com/hyperhq/runv/supervisor/proxy"
+	"github.com/docker/docker/pkg/reexec"
+	"github.com/hyperhq/runv/containerd"
+	_ "github.com/hyperhq/runv/supervisor/proxy" // for proxy.init()
 	netcontext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -49,14 +51,8 @@ If not specified, the default value for the 'bundle' is the current directory.
 )
 
 func main() {
-	if os.Args[0] == "runv-namespaced" {
-		runvNamespaceDaemon()
-		os.Exit(0)
-	}
-
-	if os.Args[0] == "containerd-nslistener" {
-		proxy.NsListenerDaemon()
-		os.Exit(0)
+	if reexec.Init() {
+		return
 	}
 
 	app := cli.NewApp()
@@ -111,6 +107,7 @@ func main() {
 		killCommand,
 		listCommand,
 		stateCommand,
+		containerd.ContainerdCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

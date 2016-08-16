@@ -1,4 +1,4 @@
-package main
+package containerd
 
 import (
 	"flag"
@@ -16,7 +16,6 @@ import (
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/supervisor"
-	"github.com/hyperhq/runv/supervisor/proxy"
 	"google.golang.org/grpc"
 )
 
@@ -27,88 +26,35 @@ const (
 	defaultGRPCEndpoint = "/run/runv-containerd/containerd.sock"
 )
 
-var daemonFlags = []cli.Flag{
-	cli.BoolFlag{
-		Name:  "debug",
-		Usage: "enable debug output in the logs",
+var ContainerdCommand = cli.Command{
+	Name:  "containerd",
+	Usage: usage,
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "state-dir",
+			Value: defaultStateDir,
+			Usage: "runtime state directory",
+		},
+		cli.StringFlag{
+			Name:  "listen,l",
+			Value: defaultGRPCEndpoint,
+			Usage: "Address on which GRPC API will listen",
+		},
 	},
-	cli.StringFlag{
-		Name:  "log_dir",
-		Value: "/var/log/hyper",
-		Usage: "the directory for the logging (glog style)",
-	},
-	cli.StringFlag{
-		Name:  "state-dir",
-		Value: defaultStateDir,
-		Usage: "runtime state directory",
-	},
-	cli.DurationFlag{
-		Name:  "metrics-interval",
-		Usage: "[ignore] interval for flushing metrics to the store",
-	},
-	cli.StringFlag{
-		Name:  "listen,l",
-		Value: defaultGRPCEndpoint,
-		Usage: "Address on which GRPC API will listen",
-	},
-	cli.StringFlag{
-		Name:  "runtime,r",
-		Value: "runv",
-		Usage: "[ignore] name of the OCI compliant runtime to use when executing containers",
-	},
-	cli.StringSliceFlag{
-		Name:  "runtime-args",
-		Usage: "[ignore] specify additional runtime args",
-	},
-	cli.StringFlag{
-		Name:  "pprof-address",
-		Usage: "[ignore] http address to listen for pprof events",
-	},
-	cli.DurationFlag{
-		Name:  "start-timeout",
-		Usage: "[ignore] timeout duration for waiting on a container to start before it is killed",
-	},
-	cli.StringFlag{
-		Name:  "kernel",
-		Usage: "kernel for the container",
-	},
-	cli.StringFlag{
-		Name:  "initrd",
-		Usage: "runv-compatible initrd for the container",
-	},
-	cli.StringFlag{
-		Name:  "driver",
-		Value: "qemu",
-		Usage: "hypervisor driver",
-	},
-}
-
-func main() {
-	if os.Args[0] == "containerd-nslistener" {
-		proxy.NsListenerDaemon()
-		os.Exit(0)
-	}
-
-	app := cli.NewApp()
-	app.Name = "runv-containerd"
-	app.Version = "0.01"
-	app.Usage = usage
-	app.Flags = daemonFlags
-
-	app.Action = func(context *cli.Context) {
-		if context.Bool("debug") {
-			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", context.String("log_dir"), "--alsologtostderr"})
+	Action: func(context *cli.Context) {
+		if context.GlobalBool("debug") {
+			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", context.GlobalString("log_dir"), "--alsologtostderr"})
 		} else {
-			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", context.String("log_dir")})
+			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", context.GlobalString("log_dir")})
 		}
 
-		if context.String("kernel") == "" || context.String("initrd") == "" {
+		if context.GlobalString("kernel") == "" || context.GlobalString("initrd") == "" {
 			glog.Infof("argument kernel and initrd must be set")
 			os.Exit(1)
 		}
 		hypervisor.InterfaceCount = 0
 		var err error
-		if hypervisor.HDriver, err = driverloader.Probe(context.String("driver")); err != nil {
+		if hypervisor.HDriver, err = driverloader.Probe(context.GlobalString("driver")); err != nil {
 			glog.V(1).Infof("%s\n", err.Error())
 			os.Exit(1)
 		}
@@ -116,17 +62,13 @@ func main() {
 		if err = daemon(
 			context.String("listen"),
 			context.String("state-dir"),
-			context.String("kernel"),
-			context.String("initrd"),
+			context.GlobalString("kernel"),
+			context.GlobalString("initrd"),
 		); err != nil {
 			glog.Infof("%v", err)
 			os.Exit(1)
 		}
-	}
-	if err := app.Run(os.Args); err != nil {
-		glog.Infof("%v", err)
-		os.Exit(1)
-	}
+	},
 }
 
 func daemon(address, stateDir, kernel, initrd string) error {

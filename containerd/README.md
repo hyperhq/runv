@@ -14,7 +14,7 @@ runv-containerd is a daemon to control hypercontainer and supports the same gRPC
 
 ```bash
 # in terminal #1
-runv-containerd --debug --driver libvirt --kernel /opt/hyperstart/build/kernel --initrd /opt/hyperstart/build/hyper-initrd.img
+runv --debug --driver libvirt --kernel /opt/hyperstart/build/kernel --initrd /opt/hyperstart/build/hyper-initrd.img containerd
 # in terminal #2
 docker daemon -D -l debug --containerd=/run/runv-containerd/containerd.sock
 # in terminal #3 for trying it
