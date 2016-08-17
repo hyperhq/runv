@@ -1091,6 +1091,14 @@ func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, resu
 func (lc *LibvirtContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
 	glog.V(3).Infof("save domain to: %s", path)
 
+	if ctx.Boot.BootToBeTemplate {
+		err := exec.Command("virsh", "-c", LibvirtdAddress, "qemu-monitor-command", ctx.Id, "--hmp", "migrate_set_capability bypass-shared-memory on").Run()
+		if err != nil {
+			result <- err
+			return
+		}
+	}
+
 	// lc.domain.Save(path) will have libvirt header and will destroy the vm
 	// TODO: use virsh qemu-monitor-event to query until completed
 	err := exec.Command("virsh", "-c", LibvirtdAddress, "qemu-monitor-command", ctx.Id, "--hmp", fmt.Sprintf("migrate exec:cat>%s", path)).Run()
