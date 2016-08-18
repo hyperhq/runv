@@ -36,6 +36,11 @@ var ContainerdCommand = cli.Command{
 			Usage: "runtime state directory",
 		},
 		cli.StringFlag{
+			Name:  "containerd-dir",
+			Value: defaultStateDir,
+			Usage: "containerd daemon state directory",
+		},
+		cli.StringFlag{
 			Name:  "listen,l",
 			Value: defaultGRPCEndpoint,
 			Usage: "Address on which GRPC API will listen",
@@ -45,6 +50,10 @@ var ContainerdCommand = cli.Command{
 		kernel := context.GlobalString("kernel")
 		initrd := context.GlobalString("initrd")
 		stateDir := context.String("state-dir")
+		containerdDir := context.String("containerd-dir")
+		if containerdDir == "" {
+			containerdDir = stateDir
+		}
 
 		if context.GlobalBool("debug") {
 			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", context.GlobalString("log_dir"), "--alsologtostderr"})
@@ -64,7 +73,7 @@ var ContainerdCommand = cli.Command{
 		}
 
 		f := factory.NewFromConfigs(kernel, initrd, nil)
-		sv, err := supervisor.New(stateDir, stateDir, f)
+		sv, err := supervisor.New(stateDir, containerdDir, f)
 		if err != nil {
 			glog.Infof("%v", err)
 			os.Exit(1)
