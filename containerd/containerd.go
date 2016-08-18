@@ -42,13 +42,17 @@ var ContainerdCommand = cli.Command{
 		},
 	},
 	Action: func(context *cli.Context) {
+		kernel := context.GlobalString("kernel")
+		initrd := context.GlobalString("initrd")
+		stateDir := context.String("state-dir")
+
 		if context.GlobalBool("debug") {
 			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", context.GlobalString("log_dir"), "--alsologtostderr"})
 		} else {
 			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", context.GlobalString("log_dir")})
 		}
 
-		if context.GlobalString("kernel") == "" || context.GlobalString("initrd") == "" {
+		if kernel == "" || initrd == "" {
 			glog.Infof("argument kernel and initrd must be set")
 			os.Exit(1)
 		}
@@ -59,28 +63,25 @@ var ContainerdCommand = cli.Command{
 			os.Exit(1)
 		}
 
-		if err = daemon(
-			context.String("listen"),
-			context.String("state-dir"),
-			context.GlobalString("kernel"),
-			context.GlobalString("initrd"),
-		); err != nil {
+		f := factory.NewFromConfigs(kernel, initrd, nil)
+		sv, err := supervisor.New(stateDir, stateDir, f)
+		if err != nil {
+			glog.Infof("%v", err)
+			os.Exit(1)
+		}
+
+		if err = daemon(sv, context.String("listen")); err != nil {
 			glog.Infof("%v", err)
 			os.Exit(1)
 		}
 	},
 }
 
-func daemon(address, stateDir, kernel, initrd string) error {
+func daemon(sv *supervisor.Supervisor, address string) error {
 	// setup a standard reaper so that we don't leave any zombies if we are still alive
 	// this is just good practice because we are spawning new processes
 	s := make(chan os.Signal, 2048)
 	signal.Notify(s, syscall.SIGCHLD, syscall.SIGTERM, syscall.SIGINT)
-	f := factory.NewFromConfigs(kernel, initrd, nil)
-	sv, err := supervisor.New(stateDir, stateDir, f)
-	if err != nil {
-		return err
-	}
 
 	server, err := startServer(address, sv)
 	if err != nil {
