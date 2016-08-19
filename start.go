@@ -164,16 +164,20 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			}
 
 			args := []string{
-				"runv-namespaced",
-				"--namespace", namespace,
-				"--state", root,
+				"runv",
 				"--driver", driver,
 				"--kernel", kernel,
 				"--initrd", initrd,
 			}
 			if context.GlobalBool("debug") {
-				args = append(args, "-v", "3", "--log_dir", context.GlobalString("log_dir"))
+				args = append(args, "--debug", "--log_dir", context.GlobalString("log_dir"))
 			}
+			args = append(args,
+				"containerd", "--solo-namespaced",
+				"--containerd-dir", namespace,
+				"--state-dir", root,
+				"--listen", filepath.Join(namespace, "namespaced.sock"),
+			)
 			pid, err = utils.ExecInDaemon(path, args)
 			if err != nil {
 				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
