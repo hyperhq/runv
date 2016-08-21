@@ -5,7 +5,9 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
@@ -36,19 +38,36 @@ var ContainerdCommand = cli.Command{
 			Usage: "runtime state directory",
 		},
 		cli.StringFlag{
+			Name:  "containerd-dir",
+			Value: defaultStateDir,
+			Usage: "containerd daemon state directory",
+		},
+		cli.StringFlag{
 			Name:  "listen,l",
 			Value: defaultGRPCEndpoint,
 			Usage: "Address on which GRPC API will listen",
 		},
+		cli.BoolFlag{
+			Name:  "solo-namespaced",
+			Usage: "launch as a solo namespaced for shared containers",
+		},
 	},
 	Action: func(context *cli.Context) {
+		kernel := context.GlobalString("kernel")
+		initrd := context.GlobalString("initrd")
+		stateDir := context.String("state-dir")
+		containerdDir := context.String("containerd-dir")
+		if containerdDir == "" {
+			containerdDir = stateDir
+		}
+
 		if context.GlobalBool("debug") {
 			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", context.GlobalString("log_dir"), "--alsologtostderr"})
 		} else {
 			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", context.GlobalString("log_dir")})
 		}
 
-		if context.GlobalString("kernel") == "" || context.GlobalString("initrd") == "" {
+		if kernel == "" || initrd == "" {
 			glog.Infof("argument kernel and initrd must be set")
 			os.Exit(1)
 		}
@@ -59,28 +78,33 @@ var ContainerdCommand = cli.Command{
 			os.Exit(1)
 		}
 
-		if err = daemon(
-			context.String("listen"),
-			context.String("state-dir"),
-			context.GlobalString("kernel"),
-			context.GlobalString("initrd"),
-		); err != nil {
+		f := factory.NewFromConfigs(kernel, initrd, nil)
+		sv, err := supervisor.New(stateDir, containerdDir, f)
+		if err != nil {
 			glog.Infof("%v", err)
 			os.Exit(1)
+		}
+
+		if context.Bool("solo-namespaced") {
+			go namespaceShare(sv, containerdDir, stateDir)
+		}
+
+		if err = daemon(sv, context.String("listen")); err != nil {
+			glog.Infof("%v", err)
+			os.Exit(1)
+		}
+
+		if context.Bool("solo-namespaced") {
+			os.RemoveAll(containerdDir)
 		}
 	},
 }
 
-func daemon(address, stateDir, kernel, initrd string) error {
+func daemon(sv *supervisor.Supervisor, address string) error {
 	// setup a standard reaper so that we don't leave any zombies if we are still alive
 	// this is just good practice because we are spawning new processes
 	s := make(chan os.Signal, 2048)
-	signal.Notify(s, syscall.SIGCHLD, syscall.SIGTERM, syscall.SIGINT)
-	f := factory.NewFromConfigs(kernel, initrd, nil)
-	sv, err := supervisor.New(stateDir, stateDir, f)
-	if err != nil {
-		return err
-	}
+	signal.Notify(s, syscall.SIGCHLD, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	server, err := startServer(address, sv)
 	if err != nil {
@@ -94,11 +118,28 @@ func daemon(address, stateDir, kernel, initrd string) error {
 			}
 		default:
 			glog.Infof("stopping containerd after receiving %s", ss)
+			time.Sleep(3 * time.Second) // TODO: fix it by proper way
 			server.Stop()
-			os.Exit(0)
+			return nil
 		}
 	}
 	return nil
+}
+
+func namespaceShare(sv *supervisor.Supervisor, namespace, state string) {
+	events := sv.Events.Events(time.Time{})
+	containerCount := 0
+	for e := range events {
+		if e.Type == supervisor.EventContainerStart {
+			os.Symlink(namespace, filepath.Join(state, e.ID, "namespace"))
+			containerCount++
+		} else if e.Type == supervisor.EventExit && e.PID == "init" {
+			containerCount--
+			if containerCount == 0 {
+				syscall.Kill(0, syscall.SIGQUIT)
+			}
+		}
+	}
 }
 
 func startServer(address string, sv *supervisor.Supervisor) (*grpc.Server, error) {
