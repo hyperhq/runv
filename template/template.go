@@ -16,7 +16,7 @@ import (
 // is StatePath/state
 //
 // New Vm can be booted from the saved TemplateVm states with all the initial
-// memory is shared(copy-on-write) with the TemplateVm(templatePath/vmName/memory)
+// memory is shared(copy-on-write) with the TemplateVm(statePath/memory)
 //
 // Phoenix rising from the ashes
 
@@ -28,8 +28,7 @@ type TemplateVmState struct {
 	Initrd    string `json:"initrd"`
 }
 
-func CreateTemplateVM(templatePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmState, err error) {
-	statePath := templatePath + "/" + vmName
+func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmState, err error) {
 	defer func() {
 		if err != nil {
 			(&TemplateVmState{StatePath: statePath}).Destroy()
