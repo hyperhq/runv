@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/codegangsta/cli"
@@ -84,7 +83,6 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "driver",
-			Value: getDefaultDriver(),
 			Usage: "hypervisor driver (supports: kvm xen vbox)",
 		},
 		cli.StringFlag{
@@ -112,16 +110,6 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
-}
-
-func getDefaultDriver() string {
-	if runtime.GOOS == "linux" {
-		return "qemu"
-	}
-	if runtime.GOOS == "darwin" {
-		return "vbox"
-	}
-	return ""
 }
 
 func getClient(address string) types.APIClient {
