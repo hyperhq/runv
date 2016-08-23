@@ -13,7 +13,7 @@ import (
 )
 
 type templateFactory struct {
-	s *template.TemplateVmState
+	s *template.TemplateVmConfig
 }
 
 func New(templateRoot string, cpu, mem int, kernel, initrd string) base.Factory {
@@ -25,7 +25,7 @@ func New(templateRoot string, cpu, mem int, kernel, initrd string) base.Factory 
 			break
 		}
 	}
-	s, err := template.CreateTemplateVM(templateRoot + "/" + vmName, vmName, cpu, mem, kernel, initrd)
+	s, err := template.CreateTemplateVM(templateRoot+"/"+vmName, vmName, cpu, mem, kernel, initrd)
 	if err != nil {
 		glog.Infof("failed to create template factory: %v", err)
 		glog.Infof("use direct factory instead")
@@ -34,7 +34,7 @@ func New(templateRoot string, cpu, mem int, kernel, initrd string) base.Factory 
 	return &templateFactory{s: s}
 }
 
-func NewFromExisted(s *template.TemplateVmState) base.Factory {
+func NewFromExisted(s *template.TemplateVmConfig) base.Factory {
 	return &templateFactory{s: s}
 }
 

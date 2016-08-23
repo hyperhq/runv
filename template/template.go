@@ -20,7 +20,7 @@ import (
 //
 // Phoenix rising from the ashes
 
-type TemplateVmState struct {
+type TemplateVmConfig struct {
 	StatePath string `json:"statepath"`
 	Cpu       int    `json:"cpu"`
 	Memory    int    `json:"memory"`
@@ -28,10 +28,10 @@ type TemplateVmState struct {
 	Initrd    string `json:"initrd"`
 }
 
-func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmState, err error) {
+func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmConfig, err error) {
 	defer func() {
 		if err != nil {
-			(&TemplateVmState{StatePath: statePath}).Destroy()
+			(&TemplateVmConfig{StatePath: statePath}).Destroy()
 		}
 	}()
 
@@ -85,10 +85,10 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 	// so we wait here. We should fix it in the qemu driver side.
 	time.Sleep(1 * time.Second)
 
-	return &TemplateVmState{StatePath: statePath, Cpu: cpu, Memory: mem, Kernel: kernel, Initrd: initrd}, nil
+	return &TemplateVmConfig{StatePath: statePath, Cpu: cpu, Memory: mem, Kernel: kernel, Initrd: initrd}, nil
 }
 
-func (t *TemplateVmState) BootConfigFromTemplate() *hypervisor.BootConfig {
+func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 	return &hypervisor.BootConfig{
 		CPU:              t.Cpu,
 		Memory:           t.Memory,
@@ -103,11 +103,11 @@ func (t *TemplateVmState) BootConfigFromTemplate() *hypervisor.BootConfig {
 }
 
 // boot vm from template, the returned vm is paused
-func (t *TemplateVmState) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
+func (t *TemplateVmConfig) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
 	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), true, false)
 }
 
-func (t *TemplateVmState) Destroy() {
+func (t *TemplateVmConfig) Destroy() {
 	for i := 0; i < 5; i++ {
 		err := syscall.Unmount(t.StatePath, 0)
 		if err != nil {
