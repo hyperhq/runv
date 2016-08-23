@@ -109,6 +109,9 @@ func InitDriver() *XenDriver {
 }
 
 //judge if the xl is available and if the version and cap is acceptable
+func (xd *XenDriver) Name() string {
+	return "xen"
+}
 
 func (xd *XenDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	return &XenContext{

@@ -46,6 +46,10 @@ func InitDriver() *QemuDriver {
 	}
 }
 
+func (qd *QemuDriver) Name() string {
+	return "qemu"
+}
+
 func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	if _, err := os.Stat(QemuLogDir); os.IsNotExist(err) {
 		os.Mkdir(QemuLogDir, 0755)

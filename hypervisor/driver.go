@@ -39,6 +39,7 @@ type GuestNicInfo struct {
 }
 
 type HypervisorDriver interface {
+	Name() string
 	InitContext(homeDir string) DriverContext
 
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
@@ -97,6 +98,10 @@ type EmptyContext struct{}
 
 func (ed *EmptyDriver) Initialize() error {
 	return nil
+}
+
+func (ed *EmptyDriver) Name() string {
+	return "empty"
 }
 
 func (ed *EmptyDriver) InitContext(homeDir string) DriverContext {

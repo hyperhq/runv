@@ -42,6 +42,10 @@ func InitDriver() *VBoxDriver {
 	return vd
 }
 
+func (vd *VBoxDriver) Name() string {
+	return "vbox"
+}
+
 func (vd *VBoxDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	return &VBoxContext{
 		Driver:  vd,
