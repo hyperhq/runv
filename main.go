@@ -94,6 +94,10 @@ func main() {
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
+			Name:  "template",
+			Usage: "path to the template vm state directory",
+		},
+		cli.StringFlag{
 			Name:  "vbox",
 			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
