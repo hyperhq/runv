@@ -22,6 +22,7 @@ import (
 
 type TemplateVmConfig struct {
 	StatePath string `json:"statepath"`
+	Driver    string `json:"driver"`
 	Cpu       int    `json:"cpu"`
 	Memory    int    `json:"memory"`
 	Kernel    string `json:"kernel"`
@@ -85,7 +86,16 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 	// so we wait here. We should fix it in the qemu driver side.
 	time.Sleep(1 * time.Second)
 
-	return &TemplateVmConfig{StatePath: statePath, Cpu: cpu, Memory: mem, Kernel: kernel, Initrd: initrd}, nil
+	config := &TemplateVmConfig{
+		StatePath: statePath,
+		Driver:    hypervisor.HDriver.Name(),
+		Cpu:       cpu,
+		Memory:    mem,
+		Kernel:    kernel,
+		Initrd:    initrd,
+	}
+
+	return config, nil
 }
 
 func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
