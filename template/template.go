@@ -1,8 +1,11 @@
 package template
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -93,6 +96,18 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 		Memory:    mem,
 		Kernel:    kernel,
 		Initrd:    initrd,
+	}
+
+	configData, err := json.MarshalIndent(config, "", "\t")
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return nil, err
+	}
+	configFile := filepath.Join(statePath, "config.json")
+	err = ioutil.WriteFile(configFile, configData, 0644)
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return nil, err
 	}
 
 	return config, nil
