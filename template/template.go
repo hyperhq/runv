@@ -1,8 +1,11 @@
 package template
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -16,23 +19,23 @@ import (
 // is StatePath/state
 //
 // New Vm can be booted from the saved TemplateVm states with all the initial
-// memory is shared(copy-on-write) with the TemplateVm(templatePath/vmName/memory)
+// memory is shared(copy-on-write) with the TemplateVm(statePath/memory)
 //
 // Phoenix rising from the ashes
 
-type TemplateVmState struct {
+type TemplateVmConfig struct {
 	StatePath string `json:"statepath"`
+	Driver    string `json:"driver"`
 	Cpu       int    `json:"cpu"`
 	Memory    int    `json:"memory"`
 	Kernel    string `json:"kernel"`
 	Initrd    string `json:"initrd"`
 }
 
-func CreateTemplateVM(templatePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmState, err error) {
-	statePath := templatePath + "/" + vmName
+func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmConfig, err error) {
 	defer func() {
 		if err != nil {
-			(&TemplateVmState{StatePath: statePath}).Destroy()
+			(&TemplateVmConfig{StatePath: statePath}).Destroy()
 		}
 	}()
 
@@ -86,10 +89,31 @@ func CreateTemplateVM(templatePath, vmName string, cpu, mem int, kernel, initrd 
 	// so we wait here. We should fix it in the qemu driver side.
 	time.Sleep(1 * time.Second)
 
-	return &TemplateVmState{StatePath: statePath, Cpu: cpu, Memory: mem, Kernel: kernel, Initrd: initrd}, nil
+	config := &TemplateVmConfig{
+		StatePath: statePath,
+		Driver:    hypervisor.HDriver.Name(),
+		Cpu:       cpu,
+		Memory:    mem,
+		Kernel:    kernel,
+		Initrd:    initrd,
+	}
+
+	configData, err := json.MarshalIndent(config, "", "\t")
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return nil, err
+	}
+	configFile := filepath.Join(statePath, "config.json")
+	err = ioutil.WriteFile(configFile, configData, 0644)
+	if err != nil {
+		glog.V(1).Infof("%s\n", err.Error())
+		return nil, err
+	}
+
+	return config, nil
 }
 
-func (t *TemplateVmState) BootConfigFromTemplate() *hypervisor.BootConfig {
+func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 	return &hypervisor.BootConfig{
 		CPU:              t.Cpu,
 		Memory:           t.Memory,
@@ -104,11 +128,11 @@ func (t *TemplateVmState) BootConfigFromTemplate() *hypervisor.BootConfig {
 }
 
 // boot vm from template, the returned vm is paused
-func (t *TemplateVmState) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
+func (t *TemplateVmConfig) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
 	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), true, false)
 }
 
-func (t *TemplateVmState) Destroy() {
+func (t *TemplateVmConfig) Destroy() {
 	for i := 0; i < 5; i++ {
 		err := syscall.Unmount(t.StatePath, 0)
 		if err != nil {

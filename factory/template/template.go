@@ -13,19 +13,19 @@ import (
 )
 
 type templateFactory struct {
-	s *template.TemplateVmState
+	s *template.TemplateVmConfig
 }
 
-func New(templatePath string, cpu, mem int, kernel, initrd string) base.Factory {
+func New(templateRoot string, cpu, mem int, kernel, initrd string) base.Factory {
 	var vmName string
 
 	for {
 		vmName = fmt.Sprintf("template-vm-%s", pod.RandStr(10, "alpha"))
-		if _, err := os.Stat(templatePath + "/" + vmName); os.IsNotExist(err) {
+		if _, err := os.Stat(templateRoot + "/" + vmName); os.IsNotExist(err) {
 			break
 		}
 	}
-	s, err := template.CreateTemplateVM(templatePath, vmName, cpu, mem, kernel, initrd)
+	s, err := template.CreateTemplateVM(templateRoot+"/"+vmName, vmName, cpu, mem, kernel, initrd)
 	if err != nil {
 		glog.Infof("failed to create template factory: %v", err)
 		glog.Infof("use direct factory instead")
@@ -34,7 +34,7 @@ func New(templatePath string, cpu, mem int, kernel, initrd string) base.Factory 
 	return &templateFactory{s: s}
 }
 
-func NewFromExisted(s *template.TemplateVmState) base.Factory {
+func NewFromExisted(s *template.TemplateVmConfig) base.Factory {
 	return &templateFactory{s: s}
 }
 

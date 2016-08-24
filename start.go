@@ -112,7 +112,6 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			}
 		}
 
-		driver := context.GlobalString("driver")
 		kernel := context.GlobalString("kernel")
 		initrd := context.GlobalString("initrd")
 		// only set the default kernel/initrd when it is the first container(sharedContainer == "")
@@ -163,14 +162,22 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				os.Exit(-1)
 			}
 
-			args := []string{
-				"runv",
-				"--driver", driver,
-				"--kernel", kernel,
-				"--initrd", initrd,
-			}
+			args := []string{"runv", "--kernel", kernel, "--initrd", initrd}
 			if context.GlobalBool("debug") {
-				args = append(args, "--debug", "--log_dir", context.GlobalString("log_dir"))
+				args = append(args, "--debug")
+			}
+			if context.GlobalIsSet("driver") {
+				args = append(args, "--driver", context.GlobalString("driver"))
+			}
+			for _, goption := range []string{"log_dir", "template"} {
+				if context.GlobalIsSet(goption) {
+					abs_path, err := filepath.Abs(context.GlobalString(goption))
+					if err != nil {
+						fmt.Printf("Cannot get abs path for %s: %v\n", goption, err)
+						os.Exit(-1)
+					}
+					args = append(args, "--"+goption, abs_path)
+				}
 			}
 			args = append(args,
 				"containerd", "--solo-namespaced",

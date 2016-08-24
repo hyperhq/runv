@@ -45,6 +45,10 @@ func InitDriver() *LibvirtDriver {
 	}
 }
 
+func (ld *LibvirtDriver) Name() string {
+	return "libvirt"
+}
+
 func (ld *LibvirtDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	return &LibvirtContext{
 		driver: ld,
