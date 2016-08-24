@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/codegangsta/cli"
 	"github.com/golang/glog"
@@ -15,6 +16,7 @@ import (
 
 var manageSubCmds = []cli.Command{
 	createTemplateCommand,
+	removeTemplateCommand,
 }
 
 var manageCommand = cli.Command{
@@ -80,6 +82,17 @@ var createTemplateCommand = cli.Command{
 
 		if _, err := templatecore.CreateTemplateVM(template, "", context.Int("cpu"), context.Int("mem"), kernel, initrd); err != nil {
 			fmt.Printf("Failed to create the template: %v\n", err)
+			os.Exit(-1)
+		}
+	},
+}
+
+var removeTemplateCommand = cli.Command{
+	Name:  "remove-template",
+	Usage: "remove the template VM on the directory specified by the global option --template",
+	Action: func(context *cli.Context) {
+		if err := syscall.Unmount(context.GlobalString("template"), 0); err != nil {
+			fmt.Printf("Failed to remove the template: %v\n", err)
 			os.Exit(-1)
 		}
 	},
