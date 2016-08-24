@@ -109,6 +109,7 @@ func main() {
 		killCommand,
 		listCommand,
 		stateCommand,
+		manageCommand,
 		containerd.ContainerdCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
