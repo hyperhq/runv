@@ -314,8 +314,9 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 			ctx.Become(stateDestroying, StateDestroying)
 		}
 	case ERROR_INTERRUPTED:
-		glog.Info("Connection interrupted, quit...")
-		ctx.exitVM(true, "connection to VM broken", false, false)
+		interruptEv := ev.(*Interrupted)
+		glog.Info("Connection interrupted: %s, quit...", interruptEv.Reason)
+		ctx.exitVM(true, fmt.Sprintf("connection to VM broken: %s", interruptEv.Reason), false, false)
 		ctx.onVmExit(hasPod)
 	case COMMAND_SHUTDOWN:
 		glog.Info("got shutdown command, shutting down")
@@ -660,7 +661,8 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		glog.Warning("VM did not exit in time, try to stop it")
 		ctx.poweroffVM(true, "vm terminating timeout")
 	case ERROR_INTERRUPTED:
-		glog.V(1).Info("Connection interrupted while terminating")
+		interruptEv := ev.(*Interrupted)
+		glog.V(1).Info("Connection interrupted while terminating: %s", interruptEv.Reason)
 	case GENERIC_OPERATION:
 		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
@@ -735,7 +737,8 @@ func stateDestroying(ctx *VmContext, ev VmEvent) {
 				glog.Info("VM Context closed.")
 			}
 		case ERROR_INTERRUPTED:
-			glog.V(1).Info("Connection interrupted while destroying")
+			interruptEv := ev.(*Interrupted)
+			glog.V(1).Info("Connection interrupted while destroying: %s", interruptEv.Reason)
 		case COMMAND_RELEASE:
 			glog.Info("vm destroying, got release")
 			ctx.reportVmShutdown()
