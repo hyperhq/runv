@@ -89,7 +89,7 @@ func GetBridgeFromIndex(idx int) (string, error) {
 	}
 
 	for _, link := range links {
-		if link.Type() != "bridge" {
+		if link.Type() != "bridge" && link.Type() != "openvswitch" {
 			continue
 		}
 
