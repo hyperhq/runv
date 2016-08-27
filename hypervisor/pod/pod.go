@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/hyperhq/runv/lib/utils"
+	"github.com/vishvananda/netlink"
 )
 
 // Pod Data Structure
@@ -98,6 +99,14 @@ type UserInterface struct {
 	Ifname string `json:"ifname,omitempty"`
 	Mac    string `json:"mac,omitempty"`
 	Gw     string `json:"gateway,omitempty"`
+
+	// Extra add more info when the bridge is an ovs bridge, in that case
+	// the Bridge field of this structure will be manipulated as "ovs-system",
+	// thus we could not find out the right brige without extra information.
+	//
+	// Precisely, the Extra info is the veth link which has been added to
+	// the ovs bridge.
+	Extra netlink.Link `json:"extra, omitempty"`
 }
 
 type UserServiceBackend struct {
