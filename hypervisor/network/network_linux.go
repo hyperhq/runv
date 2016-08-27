@@ -19,6 +19,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -790,7 +791,40 @@ func DeleteBridge(name string) error {
 	return nil
 }
 
-func AddToBridge(iface, master *net.Interface) error {
+// AddToBridge attch interface to the bridge,
+// we only support ovs bridge and linux bridge at present.
+func AddToBridge(iface, master *net.Interface, veth netlink.Link) error {
+	switch master.Name {
+	case "ovs-system":
+		return AddToOpenvswitchBridge(iface, master, veth)
+	default:
+		return AddToLinuxBridge(iface, master)
+	}
+}
+
+func AddToOpenvswitchBridge(iface, master *net.Interface, veth netlink.Link) error {
+	// ovs command "ovs-vsctl port-to-br PORT" will print the name of bridge
+	// that contains PORT, PORT indicates the name of veth link here.
+	//
+	// N.B., the output of the ovs command might contains some white space , like \n, \r etc.
+	out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	bridge := strings.TrimSpace(string(out))
+	glog.V(1).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, iface.Name)
+
+	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
+	// PORT and BRIDGE here indicate the device name respectively.
+	out, err = exec.Command("ovs-vsctl", "add-port", bridge, iface.Name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Ovs failed to add port: %s, error :%v", strings.TrimSpace(string(out)), err)
+	}
+	return nil
+}
+
+func AddToLinuxBridge(iface, master *net.Interface) error {
 	if len(master.Name) >= IFNAMSIZ {
 		return fmt.Errorf("Interface name %s too long", master.Name)
 	}
@@ -937,7 +971,7 @@ func UpAndAddToBridge(name string) error {
 		glog.Error("cannot find bridge interface ", BridgeIface)
 		return err
 	}
-	err = AddToBridge(inf, brg)
+	err = AddToBridge(inf, brg, nil)
 	if err != nil {
 		glog.Errorf("cannot add %s to %s ", name, BridgeIface)
 		return err
@@ -1014,13 +1048,14 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 	}
 
 	bIface, err := net.InterfaceByName(BridgeIface)
+
 	if err != nil {
 		glog.Errorf("get interface by name %s failed", BridgeIface)
 		tapFile.Close()
 		return nil, err
 	}
 
-	err = AddToBridge(tapIface, bIface)
+	err = AddToBridge(tapIface, bIface, nil)
 	if err != nil {
 		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
 		tapFile.Close()
@@ -1118,13 +1153,14 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 	}
 
 	bIface, err := net.InterfaceByName(BridgeIface)
+
 	if err != nil {
 		glog.Errorf("get interface by name %s failed", BridgeIface)
 		tapFile.Close()
 		return nil, err
 	}
 
-	err = AddToBridge(tapIface, bIface)
+	err = AddToBridge(tapIface, bIface, config.Extra)
 	if err != nil {
 		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
 		tapFile.Close()

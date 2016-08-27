@@ -243,9 +243,16 @@ func (hp *HyperPod) nsListenerStrap() {
 				continue
 			}
 
+			veth, err := netlink.LinkByIndex(link.Attrs().ParentIndex)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+
 			conf := pod.UserInterface{
 				Bridge: bridge,
 				Ip:     update.Addr.LinkAddress.String(),
+				Extra:  veth,
 			}
 
 			nicName := hp.vm.GetNextNicNameInVM()
