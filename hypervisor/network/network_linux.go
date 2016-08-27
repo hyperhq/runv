@@ -815,6 +815,20 @@ func AddToOpenvswitchBridge(iface, master *net.Interface, veth netlink.Link) err
 	bridge := strings.TrimSpace(string(out))
 	glog.V(1).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, iface.Name)
 
+	// Check whether there is already a device with the same name has already been attached
+	// to the ovs bridge or not. If so, skip the follow attaching operation.
+	out, err = exec.Command("ovs-vsctl", "list-ports", bridge).CombinedOutput()
+	if err != nil {
+		return err
+	}
+	ports := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for _, port := range ports {
+		if port == iface.Name {
+			glog.V(1).Infof("A port named %s already exists on bridge %s, using it.\n", iface.Name, bridge)
+			return nil
+		}
+	}
+
 	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
 	// PORT and BRIDGE here indicate the device name respectively.
 	out, err = exec.Command("ovs-vsctl", "add-port", bridge, iface.Name).CombinedOutput()
