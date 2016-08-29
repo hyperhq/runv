@@ -26,6 +26,7 @@ install:
   - cd ${TRAVIS_BUILD_DIR}
   - hack/verify-gofmt.sh
   - hack/validate-vet.sh
+  - test -d $GOPATH/src/github.com/hyperhq/runv || ln -s ${TRAVIS_BUILD_DIR} $GOPATH/src/github.com/hyperhq/runv
   - ./autogen.sh && ./configure && make && sudo GOPATH=${GOPATH} PATH=${PATH} GOROOT=${GOROOT} make install
 
 script:
