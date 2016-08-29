@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -13,7 +14,6 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
-	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	netcontext "golang.org/x/net/context"
@@ -145,7 +145,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		}
 
 		var address string
-		var pid uint32
+		var cmd *exec.Cmd
 		if sharedContainer != "" {
 			address = filepath.Join(root, container, "namespace/namespaced.sock")
 		} else {
@@ -162,7 +162,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				os.Exit(-1)
 			}
 
-			args := []string{"runv", "--kernel", kernel, "--initrd", initrd}
+			args := []string{"--kernel", kernel, "--initrd", initrd}
 			if context.GlobalBool("debug") {
 				args = append(args, "--debug")
 			}
@@ -185,9 +185,15 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				"--state-dir", root,
 				"--listen", filepath.Join(namespace, "namespaced.sock"),
 			)
-			pid, err = utils.ExecInDaemon(path, args)
+			cmd = exec.Command("runv", args...)
+			cmd.Path = path
+			cmd.Dir = "/"
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Setsid: true,
+			}
+			err = cmd.Start()
 			if err != nil {
-				fmt.Printf("failed to launch runv daemon, error:%v\n", err)
+				fmt.Printf("failed to launch runv containerd, error:%v\n", err)
 				os.Exit(-1)
 			}
 			address = filepath.Join(namespace, "namespaced.sock")
@@ -195,7 +201,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 
 		status := startContainer(context, container, address, spec)
 		if status < 0 && sharedContainer == "" {
-			syscall.Kill(int(pid), syscall.SIGINT)
+			cmd.Process.Signal(syscall.SIGINT)
 		}
 		os.Exit(status)
 	},
