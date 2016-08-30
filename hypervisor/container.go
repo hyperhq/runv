@@ -116,6 +116,12 @@ func (cc *ContainerContext) configProcess() {
 		Args:             append([]string{c.Path}, c.Args...),
 		Envs:             envs,
 		Workdir:          c.Workdir,
+		Rlimits:          make([]hyperstartapi.Rlimit, len(c.Rlimits)),
+	}
+	for i, l := range c.Rlimits {
+		cc.process.Rlimits[i].Type = l.Type
+		cc.process.Rlimits[i].Hard = l.Hard
+		cc.process.Rlimits[i].Soft = l.Soft
 	}
 
 	if !c.Tty {

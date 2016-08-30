@@ -7,6 +7,15 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+type Rlimit struct {
+	// Type of the rlimit to set
+	Type string `json:"type"`
+	// Hard is the hard limit for the specified type
+	Hard uint64 `json:"hard"`
+	// Soft is the soft limit for the specified type
+	Soft uint64 `json:"soft"`
+}
+
 type ContainerDescription struct {
 
 	Id string
@@ -31,7 +40,10 @@ type ContainerDescription struct {
 	Workdir    string
 	Path       string
 	Args       []string
+	Rlimits    []*Rlimit
 	Sysctl        map[string]string     `json:"sysctl,omitempty"`
+
+	StopSignal string
 
 	Volumes       map[string]*VolumeReference `json:"volumes"`
 
@@ -123,12 +135,21 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 		Workdir:       s.Process.Cwd,
 		Path: s.Process.Args[0],
 		Args: s.Process.Args[1:],
+		Rlimits: []*Rlimit{},
 		Sysctl:        s.Linux.Sysctl,
 	}
 
 	for _, value := range s.Process.Env {
 		values := strings.SplitN(value, "=", 2)
 		container.Envs[values[0]] = values[1]
+	}
+
+	for idx := range s.Process.Rlimits {
+		append(container.Rlimits, &Rlimit{
+			Type: s.Process.Rlimits[idx].Type,
+			Hard: s.Process.Rlimits[idx].Hard,
+			Soft: s.Process.Rlimits[idx].Soft,
+		})
 	}
 
 	rootfs := &VolumeDescription{

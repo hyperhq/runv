@@ -21,6 +21,16 @@ type EnvironmentVar struct {
 	Value string `json:"value"`
 }
 
+// Rlimit type and restrictions
+type Rlimit struct {
+	// Type of the rlimit to set
+	Type string `json:"type"`
+	// Hard is the hard limit for the specified type
+	Hard uint64 `json:"hard"`
+	// Soft is the soft limit for the specified type
+	Soft uint64 `json:"soft"`
+}
+
 type Process struct {
 	// User, Group, AdditionalGroups specify the user information
 	User             string   `json:"user,omitempty"`
@@ -39,6 +49,8 @@ type Process struct {
 	// Workdir is the current working directory for the process and must be
 	// relative to the container's root.
 	Workdir string `json:"workdir"`
+	// Rlimits specifies rlimit options to apply to the process.
+	Rlimits []Rlimit `json:"rlimits,omitempty"`
 }
 
 type Port struct {
