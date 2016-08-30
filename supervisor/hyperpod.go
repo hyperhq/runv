@@ -103,6 +103,19 @@ func GetBridgeFromIndex(idx int) (string, error) {
 		return "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
 	}
 
+	if bridge.Name == "ovs-system" {
+		veth, err := netlink.LinkByIndex(idx)
+		if err != nil {
+			return "", err
+		}
+
+		out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
+		if err != nil {
+			return "", err
+		}
+		bridge.Name = strings.TrimSpace(string(out))
+	}
+
 	glog.Infof("find bridge %s", bridge.Name)
 
 	return bridge.Name, nil
@@ -243,16 +256,9 @@ func (hp *HyperPod) nsListenerStrap() {
 				continue
 			}
 
-			veth, err := netlink.LinkByIndex(link.Attrs().ParentIndex)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
 			conf := pod.UserInterface{
 				Bridge: bridge,
 				Ip:     update.Addr.LinkAddress.String(),
-				Extra:  veth,
 			}
 
 			nicName := hp.vm.GetNextNicNameInVM()

@@ -793,45 +793,42 @@ func DeleteBridge(name string) error {
 
 // AddToBridge attch interface to the bridge,
 // we only support ovs bridge and linux bridge at present.
-func AddToBridge(iface, master *net.Interface, veth netlink.Link) error {
-	switch master.Name {
-	case "ovs-system":
-		return AddToOpenvswitchBridge(iface, master, veth)
-	default:
-		return AddToLinuxBridge(iface, master)
-	}
-}
-
-func AddToOpenvswitchBridge(iface, master *net.Interface, veth netlink.Link) error {
-	// ovs command "ovs-vsctl port-to-br PORT" will print the name of bridge
-	// that contains PORT, PORT indicates the name of veth link here.
-	//
-	// N.B., the output of the ovs command might contains some white space , like \n, \r etc.
-	out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
+func AddToBridge(iface, master *net.Interface) error {
+	link, err := netlink.LinkByName(master.Name)
 	if err != nil {
 		return err
 	}
 
-	bridge := strings.TrimSpace(string(out))
-	glog.V(1).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, iface.Name)
+	switch link.Type() {
+	case "openvswitch":
+		return AddToOpenvswitchBridge(iface, master)
+	case "bridge":
+		return AddToLinuxBridge(iface, master)
+	default:
+		return fmt.Errorf("unknown link type:%+v", link.Type())
+	}
+}
+
+func AddToOpenvswitchBridge(iface, master *net.Interface) error {
+	glog.V(1).Infof("Found ovs bridge %s, attaching tap %s to it\n", master.Name, iface.Name)
 
 	// Check whether there is already a device with the same name has already been attached
 	// to the ovs bridge or not. If so, skip the follow attaching operation.
-	out, err = exec.Command("ovs-vsctl", "list-ports", bridge).CombinedOutput()
+	out, err := exec.Command("ovs-vsctl", "list-ports", master.Name).CombinedOutput()
 	if err != nil {
 		return err
 	}
 	ports := strings.Split(strings.TrimSpace(string(out)), "\n")
 	for _, port := range ports {
 		if port == iface.Name {
-			glog.V(1).Infof("A port named %s already exists on bridge %s, using it.\n", iface.Name, bridge)
+			glog.V(1).Infof("A port named %s already exists on bridge %s, using it.\n", iface.Name, master.Name)
 			return nil
 		}
 	}
 
 	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
 	// PORT and BRIDGE here indicate the device name respectively.
-	out, err = exec.Command("ovs-vsctl", "add-port", bridge, iface.Name).CombinedOutput()
+	out, err = exec.Command("ovs-vsctl", "add-port", master.Name, iface.Name).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Ovs failed to add port: %s, error :%v", strings.TrimSpace(string(out)), err)
 	}
@@ -985,7 +982,7 @@ func UpAndAddToBridge(name string) error {
 		glog.Error("cannot find bridge interface ", BridgeIface)
 		return err
 	}
-	err = AddToBridge(inf, brg, nil)
+	err = AddToBridge(inf, brg)
 	if err != nil {
 		glog.Errorf("cannot add %s to %s ", name, BridgeIface)
 		return err
@@ -1062,14 +1059,13 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 	}
 
 	bIface, err := net.InterfaceByName(BridgeIface)
-
 	if err != nil {
 		glog.Errorf("get interface by name %s failed", BridgeIface)
 		tapFile.Close()
 		return nil, err
 	}
 
-	err = AddToBridge(tapIface, bIface, nil)
+	err = AddToBridge(tapIface, bIface)
 	if err != nil {
 		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
 		tapFile.Close()
@@ -1167,14 +1163,13 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 	}
 
 	bIface, err := net.InterfaceByName(BridgeIface)
-
 	if err != nil {
 		glog.Errorf("get interface by name %s failed", BridgeIface)
 		tapFile.Close()
 		return nil, err
 	}
 
-	err = AddToBridge(tapIface, bIface, config.Extra)
+	err = AddToBridge(tapIface, bIface)
 	if err != nil {
 		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
 		tapFile.Close()
