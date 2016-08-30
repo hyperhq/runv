@@ -441,6 +441,7 @@ func (ctx *VmContext) onInterfaceRemoved(nic *InterfaceReleased) bool {
 	if _, ok := ctx.progress.deleting.networks[nic.Index]; ok {
 		glog.V(1).Infof("interface %d released", nic.Index)
 		delete(ctx.progress.deleting.networks, nic.Index)
+		delete(ctx.devices.networkMap, nic.Index)
 	}
 
 	return nic.Success

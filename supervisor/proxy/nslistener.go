@@ -229,18 +229,3 @@ func handleRoute(update netlink.RouteUpdate, callback func(supervisor.NetlinkUpd
 	netlinkUpdate.UpdateType = supervisor.UpdateTypeRoute
 	callback(netlinkUpdate)
 }
-
-// HandleRTNetlinkChange handle the rtnetlink change event and do some verification.
-func HandleRTNetlinkChange(linkIndex int, callback func()) {
-	if err := sanityChecks(); err != nil {
-		fmt.Println("Error happen when doing sanity check, error:", err)
-		return
-	}
-
-	callback()
-}
-
-// Maybe some sanity check and some verifications
-func sanityChecks() error {
-	return nil
-}
