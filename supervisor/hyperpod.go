@@ -89,7 +89,7 @@ func GetBridgeFromIndex(idx int) (string, error) {
 	}
 
 	for _, link := range links {
-		if link.Type() != "bridge" {
+		if link.Type() != "bridge" && link.Type() != "openvswitch" {
 			continue
 		}
 
@@ -101,6 +101,19 @@ func GetBridgeFromIndex(idx int) (string, error) {
 
 	if bridge == nil {
 		return "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
+	}
+
+	if bridge.Name == "ovs-system" {
+		veth, err := netlink.LinkByIndex(idx)
+		if err != nil {
+			return "", err
+		}
+
+		out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
+		if err != nil {
+			return "", err
+		}
+		bridge.Name = strings.TrimSpace(string(out))
 	}
 
 	glog.Infof("find bridge %s", bridge.Name)

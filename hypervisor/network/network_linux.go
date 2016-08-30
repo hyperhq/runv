@@ -19,6 +19,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
 	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -790,7 +791,51 @@ func DeleteBridge(name string) error {
 	return nil
 }
 
+// AddToBridge attch interface to the bridge,
+// we only support ovs bridge and linux bridge at present.
 func AddToBridge(iface, master *net.Interface) error {
+	link, err := netlink.LinkByName(master.Name)
+	if err != nil {
+		return err
+	}
+
+	switch link.Type() {
+	case "openvswitch":
+		return AddToOpenvswitchBridge(iface, master)
+	case "bridge":
+		return AddToLinuxBridge(iface, master)
+	default:
+		return fmt.Errorf("unknown link type:%+v", link.Type())
+	}
+}
+
+func AddToOpenvswitchBridge(iface, master *net.Interface) error {
+	glog.V(1).Infof("Found ovs bridge %s, attaching tap %s to it\n", master.Name, iface.Name)
+
+	// Check whether there is already a device with the same name has already been attached
+	// to the ovs bridge or not. If so, skip the follow attaching operation.
+	out, err := exec.Command("ovs-vsctl", "list-ports", master.Name).CombinedOutput()
+	if err != nil {
+		return err
+	}
+	ports := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for _, port := range ports {
+		if port == iface.Name {
+			glog.V(1).Infof("A port named %s already exists on bridge %s, using it.\n", iface.Name, master.Name)
+			return nil
+		}
+	}
+
+	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
+	// PORT and BRIDGE here indicate the device name respectively.
+	out, err = exec.Command("ovs-vsctl", "add-port", master.Name, iface.Name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Ovs failed to add port: %s, error :%v", strings.TrimSpace(string(out)), err)
+	}
+	return nil
+}
+
+func AddToLinuxBridge(iface, master *net.Interface) error {
 	if len(master.Name) >= IFNAMSIZ {
 		return fmt.Errorf("Interface name %s too long", master.Name)
 	}
