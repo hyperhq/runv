@@ -211,7 +211,7 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 		for len(waiting) > 0 {
 			select {
 			case response, ok := <-Status:
-				if !ok {
+				if !ok || response.Code == types.E_VM_SHUTDOWN {
 					vm.ctx.Log(WARNING, "status chan broken during waiting containers: %#v", waiting)
 					close(result)
 					return
@@ -293,20 +293,22 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 //	mypod.Wg.Done()
 //}
 
-func (vm *Vm) InitSandbox(config *api.SandboxConfig) api.Result {
+func (vm *Vm) InitSandbox(config *api.SandboxConfig) {
 	if vm.ctx == nil {
 		return NewNotReadyError(vm.Id)
 	}
 
 	vm.ctx.SetNetworkEnvironment(config)
+	vm.ctx.startPod()
+}
+
+func (vm *Vm) WaitInit() api.Result {
 	Status, err := vm.GetResponseChan()
 	if err != nil {
 		vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
 		return api.NewResultBase(vm.Id, false, err.Error())
 	}
 	defer vm.ReleaseResponseChan(Status)
-
-	vm.ctx.startPod()
 
 	for {
 		s, ok := <-Status
@@ -323,7 +325,6 @@ func (vm *Vm) InitSandbox(config *api.SandboxConfig) api.Result {
 			vm.ctx.Log(DEBUG, "got message %#v while waiting start pod command finish")
 		}
 	}
-
 }
 
 func (vm *Vm) Shutdown() api.Result {

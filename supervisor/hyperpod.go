@@ -491,8 +491,15 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 		glog.V(3).Infof("Creating VM with specific kernel config")
 	}
 
+	r := make(chan api.Result, 1)
+	go func() {
+		r <- vm.WaitInit()
+	}()
+
 	sandbox := api.SandboxInfoFromOCF(spec)
-	rsp := vm.InitSandbox(sandbox)
+	vm.InitSandbox(sandbox)
+
+	rsp := <- r
 
 	if !rsp.IsSuccess() {
 		vm.Kill()
