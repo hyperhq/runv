@@ -135,6 +135,7 @@ func waitInitReady(ctx *VmContext) {
 		ctx.PauseState = PauseStatePaused
 		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
 		go waitCmdToInit(ctx, conn.(*net.UnixConn))
+		// TODO call getVMHyperstartAPIVersion(ctx) after unpaused
 		return
 	}
 
@@ -151,6 +152,9 @@ func waitInitReady(ctx *VmContext) {
 		glog.Info("Get init ready message")
 		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
 		go waitCmdToInit(ctx, conn.(*net.UnixConn))
+		if !ctx.Boot.BootToBeTemplate {
+			getVMHyperstartAPIVersion(ctx)
+		}
 	} else {
 		glog.Warningf("Get init message %d", msg.Code)
 		ctx.Hub <- &InitFailedEvent{
@@ -171,6 +175,29 @@ func connectToInit(ctx *VmContext) {
 	}
 
 	go waitCmdToInit(ctx, conn.(*net.UnixConn))
+	getVMHyperstartAPIVersion(ctx)
+}
+
+func getVMHyperstartAPIVersion(ctx *VmContext) error {
+	result := make(chan error, 1)
+	vcmd := &hyperstartCmd{
+		Code:   hyperstartapi.INIT_VERSION,
+		result: result,
+	}
+	ctx.vm <- vcmd
+	err := <-result
+	if err != nil {
+		glog.Infof("get hyperstart API version error: %v\n", err)
+		return err
+	}
+	if len(vcmd.retMsg) < 4 {
+		glog.Infof("get hyperstart API version error, wrong retMsg: %v\n", vcmd.retMsg)
+		return fmt.Errorf("unexpected version string: %v\n", vcmd.retMsg)
+	}
+	ctx.vmHyperstartAPIVersion = binary.BigEndian.Uint32(vcmd.retMsg[:4])
+	glog.Infof("hyperstart API version:%d, VM hyperstart API version: %d\n", hyperstartapi.VERSION, ctx.vmHyperstartAPIVersion)
+	// TODO setup compatibility attributes here
+	return nil
 }
 
 func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
