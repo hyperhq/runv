@@ -694,6 +694,23 @@ func (vm *Vm) Save(path string) error {
 	}, StateInit, StateRunning)
 }
 
+func (vm *Vm) GetIPAddrs() []string {
+	ips := []string{}
+
+	err := vm.GenericOperation("GetIP", func(ctx *VmContext, result chan<- error) {
+		res := ctx.networks.getIpAddrs()
+		ips = append(ips, res...)
+
+		result <- nil
+	}, StateRunning)
+
+	if err != nil {
+		glog.Errorf("get pod ip failed: %v", err)
+	}
+
+	return ips
+}
+
 func (vm *Vm) SendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
 	result := make(chan error, 1)
 	goe := &GenericOperation{
