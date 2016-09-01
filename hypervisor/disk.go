@@ -102,7 +102,7 @@ func (dc *DiskContext) insert(result chan api.Result) {
 	}()
 }
 
-func (dc *DiskContext) remove(result chan api.Result) {
+func (dc *DiskContext) remove(result chan<- api.Result) {
 	if result == nil {
 		result = make(chan api.Result, 4)
 	}

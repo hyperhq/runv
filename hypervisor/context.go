@@ -314,7 +314,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 	return
 }
 
-func (ctx *VmContext) RemoveContainer(id string, result chan api.Result) {
+func (ctx *VmContext) RemoveContainer(id string, result chan<- api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -362,7 +362,7 @@ func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan api.Resu
 	ctx.volumes[vol.Name] = dc
 }
 
-func (ctx *VmContext) RemoveVolume(name string, result chan api.Result) {
+func (ctx *VmContext) RemoveVolume(name string, result chan<- api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 

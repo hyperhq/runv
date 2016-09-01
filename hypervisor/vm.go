@@ -583,6 +583,63 @@ func (vm *Vm) AddContainer(c *api.ContainerDescription) api.Result {
 	return <-result
 }
 
+func (vm *Vm) RemoveContainer(id string) api.Result {
+	result := make(chan api.Result, 1)
+	vm.ctx.RemoveContainer(id, result)
+	return <-result
+}
+
+func (vm *Vm) RemoveVolume(name string) api.Result {
+	result := make(chan api.Result, 1)
+	vm.ctx.RemoveVolume(name, result)
+	return <-result
+}
+
+func (vm *Vm) RemoveContainers(ids ...string) (bool, map[string]api.Result) {
+	return vm.batchWaitResult(ids, vm.ctx.RemoveContainer)
+}
+
+func (vm *Vm) RemoveVolumes(names ...string) (bool, map[string]api.Result) {
+	return vm.batchWaitResult(names, vm.ctx.RemoveVolume)
+}
+
+type waitResultOp func(string, chan<- api.Result)
+
+func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string]api.Result) {
+	var (
+		success = true
+		result  = map[string]api.Result{}
+		wl      = map[string]struct{}{}
+		r       = make(chan api.Result, len(names))
+	)
+
+	for _, name := range names {
+		if _, ok := wl[name] ; !ok {
+			wl[name] = struct{}{}
+			go op(name, r)
+		}
+	}
+
+	for len(wl) > 0 {
+		rsp, ok := <-r
+		if !ok {
+			vm.ctx.Log(ERROR, "fail to wait channels for op %v on %v", op, names)
+			return false, result
+		}
+		if !rsp.IsSuccess() {
+			vm.ctx.Log(ERROR, "batch op %v on %s is not success: %s", op, rsp.ResultId(), rsp.Message())
+			success = false
+		}
+		vm.ctx.Log(DEBUG, "batch op %v on %s returned: %s", op, rsp.Message())
+		if _, ok:= wl[rsp.ResultId()]; ok {
+			delete(wl, rsp.ResultId())
+			result[rsp.ResultId()] = rsp
+		}
+	}
+
+	return success, result
+}
+
 func (vm *Vm) StartContainer(id string) error {
 
 	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
