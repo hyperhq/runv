@@ -453,7 +453,7 @@ func chooseInitrd(spec *specs.Spec) (initrd string) {
 func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaultMemory int) (*HyperPod, error) {
 	cpu := defaultCpus
 	mem := defaultMemory
-	if spec.Linux.Resources != nil && spec.Linux.Resources.Memory != nil && spec.Linux.Resources.Memory.Limit != nil {
+	if spec.Linux != nil && spec.Linux.Resources != nil && spec.Linux.Resources.Memory != nil && spec.Linux.Resources.Memory.Limit != nil {
 		mem = int(*spec.Linux.Resources.Memory.Limit >> 20)
 	}
 

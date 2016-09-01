@@ -209,9 +209,7 @@ func (ctx *VmContext) handleGenericOperation(goe *GenericOperation) {
 // state machine
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
-	case COMMAND_RUN_POD,
-		COMMAND_STOP_POD,
-		COMMAND_REPLACE_POD,
+	case COMMAND_STOP_POD,
 		COMMAND_SHUTDOWN,
 		COMMAND_RELEASE,
 		COMMAND_PAUSEVM:
@@ -223,9 +221,6 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 
 func stateRunning(ctx *VmContext, ev VmEvent) {
 	switch ev.Event() {
-	case COMMAND_RUN_POD, COMMAND_REPLACE_POD:
-		ctx.Log(DEBUG, "got start pod event, send the sandbox info to hyperstart.")
-		ctx.startPod()
 	case COMMAND_ONLINECPUMEM:
 		ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 	case COMMAND_WINDOWSIZE:

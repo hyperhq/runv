@@ -12,7 +12,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hypervisor/pod"
+	"github.com/hyperhq/runv/lib/utils"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -295,7 +295,8 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig) {
 	if vm.ctx == nil {
-		return NewNotReadyError(vm.Id)
+		vm.ctx.Log(ERROR, "%v", NewNotReadyError(vm.Id))
+		return
 	}
 
 	vm.ctx.SetNetworkEnvironment(config)
@@ -749,7 +750,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (vm *Vm, err erro
 	id := vmId
 	if id == "" {
 		for {
-			id = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
+			id = fmt.Sprintf("vm-%s", utils.RandStr(10, "alpha"))
 			if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
 				break
 			}

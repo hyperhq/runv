@@ -145,7 +145,7 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 	}
 
 	for idx := range s.Process.Rlimits {
-		append(container.Rlimits, &Rlimit{
+		container.Rlimits = append(container.Rlimits, &Rlimit{
 			Type: s.Process.Rlimits[idx].Type,
 			Hard: s.Process.Rlimits[idx].Hard,
 			Soft: s.Process.Rlimits[idx].Soft,

@@ -3,9 +3,6 @@ package hypervisor
 import (
 	"net"
 	"os"
-	"sync"
-
-	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
 type VmEvent interface {
@@ -39,15 +36,6 @@ type InitConnectedEvent struct {
 type GetPodStatsCommand struct {
 	Id string
 }
-
-type RunPodCommand struct {
-	Spec       *pod.UserPod
-	Containers []*ContainerInfo
-	Volumes    map[string]*VolumeInfo
-	Wg         *sync.WaitGroup
-}
-
-type ReplacePodCommand RunPodCommand
 
 type OnlineCpuMemCommand struct{}
 
@@ -86,21 +74,6 @@ type ContainerCreatedEvent struct {
 	Entrypoint []string
 	Cmd        []string
 	Envs       map[string]string
-}
-
-type ContainerInfo struct {
-	Id      string
-	User    string
-	MountId string
-	Rootfs  string
-	Image   pod.UserVolume // if fstype is `dir`, this should be a path relative to share_dir
-	// which described the mounted aufs or overlayfs dir.
-	Fstype     string
-	Workdir    string
-	Entrypoint []string
-	Cmd        []string
-	Envs       map[string]string
-	Initialize bool // need to initialize container environment in start
 }
 
 type ContainerUnmounted struct {
@@ -238,9 +211,7 @@ func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
 func (qe *InterfaceReleased) Event() int     { return EVENT_INTERFACE_DELETE }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
-func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
 func (qe *GetPodStatsCommand) Event() int    { return COMMAND_GET_POD_STATS }
-func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -31,7 +30,6 @@ type PersistNetworkInfo struct {
 type PersistInfo struct {
 	Id          string
 	DriverInfo  map[string]interface{}
-	UserSpec    *pod.UserPod
 	VmSpec      *hyperstartapi.Pod
 	HwStat      *VmHwStatus
 	VolumeList  []*PersistVolumeInfo
