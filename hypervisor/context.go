@@ -344,8 +344,8 @@ func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan api.Resu
 
 	if _, ok := ctx.volumes[vol.Name]; ok {
 		estr := fmt.Sprintf("duplicate volume %s", vol.Name)
-		ctx.Log(ERROR, estr)
-		result <- NewSpecError(vol.Name, estr)
+		ctx.Log(WARNING, estr)
+		result <- api.NewResultBase(vol.Name, true, estr)
 		return
 	}
 
