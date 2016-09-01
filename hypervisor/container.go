@@ -56,7 +56,7 @@ func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
 
 func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) {
 	wgDisk.Wait()
-	for vn, vc := range cc.Volumes {
+	for vn, vcs := range cc.Volumes {
 		vol, ok := cc.sandbox.volumes[vn]
 		if !ok || !vol.isReady() {
 			cc.Log(ERROR, "vol %s is failed to insert", vn)
@@ -64,24 +64,26 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 			return
 		}
 
-		if vol.IsDir() {
-			cc.Log(DEBUG, "volume (fs mapping) %s is ready", vn)
-			cc.fsmap = append(cc.fsmap, &hyperstartapi.FsmapDescriptor{
-				Source:       vol.Filename,
-				Path:         vc.Path,
-				ReadOnly:     vc.ReadOnly,
-				DockerVolume: vol.DockerVolume,
-			})
-		} else {
-			cc.Log(DEBUG, "volume (disk) %s is ready", vn)
-			cc.vmVolumes = append(cc.vmVolumes, &hyperstartapi.VolumeDescriptor{
-				Device:       vol.DeviceName,
-				Addr:         vol.ScsiAddr,
-				Mount:        vc.Path,
-				Fstype:       vol.Fstype,
-				ReadOnly:     vc.ReadOnly,
-				DockerVolume: vol.DockerVolume,
-			})
+		for _, vc := range vcs {
+			if vol.IsDir() {
+				cc.Log(DEBUG, "volume (fs mapping) %s is ready", vn)
+				cc.fsmap = append(cc.fsmap, &hyperstartapi.FsmapDescriptor{
+					Source:       vol.Filename,
+					Path:         vc.Path,
+					ReadOnly:     vc.ReadOnly,
+					DockerVolume: vol.DockerVolume,
+				})
+			} else {
+				cc.Log(DEBUG, "volume (disk) %s is ready", vn)
+				cc.vmVolumes = append(cc.vmVolumes, &hyperstartapi.VolumeDescriptor{
+					Device:       vol.DeviceName,
+					Addr:         vol.ScsiAddr,
+					Mount:        vc.Path,
+					Fstype:       vol.Fstype,
+					ReadOnly:     vc.ReadOnly,
+					DockerVolume: vol.DockerVolume,
+				})
+			}
 		}
 	}
 

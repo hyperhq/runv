@@ -285,10 +285,10 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 	}
 
 	//TODO: should we validate container before we add them to volumeMap?
-	for _, v := range c.Volumes {
-		entry, ok := ctx.volumes[v.Name]
+	for vn := range c.Volumes {
+		entry, ok := ctx.volumes[vn]
 		if !ok {
-			estr := fmt.Sprintf("volume %s does not exist in volume map", v.Name)
+			estr := fmt.Sprintf("volume %s does not exist in volume map", vn)
 			cc.Log(ERROR, estr)
 			rollback()
 			result <- NewSpecError(c.Id, estr)
@@ -296,7 +296,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		}
 
 		entry.wait(c.Id, wgDisk)
-		added = append(added, v.Name)
+		added = append(added, vn)
 	}
 
 	//prepare runtime environment

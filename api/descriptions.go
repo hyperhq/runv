@@ -45,7 +45,7 @@ type ContainerDescription struct {
 
 	StopSignal string
 
-	Volumes       map[string]*VolumeReference `json:"volumes"`
+	Volumes       map[string][]*VolumeReference `json:"volumes"`
 
 	Initialize bool // need to initialize container environment in start
 }
