@@ -5,23 +5,15 @@ package qemu
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func InitDriver() *QemuDriver {
-	cmd, err := exec.LookPath("qemu-system-x86_64")
-	if err != nil {
-		return nil
-	}
-
-	return &QemuDriver{
-		executable: cmd,
-	}
-}
+const (
+	QEMU_SYSTEM_EXE = "qemu-system-x86_64"
+)
 
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	if ctx.Boot == nil {

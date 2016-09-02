@@ -4,22 +4,14 @@ package qemu
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
 
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func InitDriver() *QemuDriver {
-	cmd, err := exec.LookPath("qemu-system-ppc64le")
-	if err != nil {
-		return nil
-	}
-
-	return &QemuDriver{
-		executable: cmd,
-	}
-}
+const (
+	QEMU_SYSTEM_EXE = "qemu-system-ppc64le"
+)
 
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	if ctx.Boot == nil {

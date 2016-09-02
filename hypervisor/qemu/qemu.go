@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,17 @@ type QemuContext struct {
 
 func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
 	return ctx.DCtx.(*QemuContext)
+}
+
+func InitDriver() *QemuDriver {
+	cmd, err := exec.LookPath(QEMU_SYSTEM_EXE)
+	if err != nil {
+		return nil
+	}
+
+	return &QemuDriver{
+		executable: cmd,
+	}
 }
 
 func (qd *QemuDriver) Name() string {
