@@ -1,7 +1,9 @@
 package json
 
+const VERSION = 4242
+
 const (
-	INIT_RESERVED = iota
+	INIT_VERSION = iota
 	INIT_STARTPOD
 	INIT_GETPOD
 	INIT_STOPPOD

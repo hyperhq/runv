@@ -30,6 +30,8 @@ type VmContext struct {
 	PauseState int
 	Boot       *BootConfig
 
+	vmHyperstartAPIVersion uint32
+
 	// Communication Context
 	Hub    chan VmEvent
 	client chan *types.VmResponse
