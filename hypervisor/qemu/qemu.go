@@ -29,6 +29,25 @@ type QemuContext struct {
 	qemuLogFile *QemuLogFile
 	cpus        int
 	process     *os.Process
+	interfaces  []qemuNicConfig
+	images      []qemuImageConfig
+	callbacks   []hypervisor.VmEvent
+}
+
+//qemu nic configuration
+type qemuNicConfig struct {
+	fd         uint64
+	deviceName string
+	macAddr    string
+	pciAddr    int
+}
+
+//qemu image configuration
+type qemuImageConfig struct {
+	deviceName string
+	sourceType string
+	format     string
+	scsiId     int
 }
 
 func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
@@ -337,7 +356,7 @@ func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, result chan<
 }
 
 func (qc *QemuDriver) SupportLazyMode() bool {
-	return false
+	return true
 }
 
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
@@ -415,4 +434,64 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 		"-fsdev", fmt.Sprintf("local,id=virtio9p,path=%s,security_model=none", ctx.ShareDir),
 		"-device", fmt.Sprintf("virtio-9p-pci,fsdev=virtio9p,mount_tag=%s", hypervisor.ShareDirTag),
 	)
+
+	for i, info := range qc.interfaces {
+		params = append(params,
+			"-netdev", fmt.Sprintf("tap,fd=%d,id=%s", info.fd, info.deviceName),
+			"-device", fmt.Sprintf("virtio-net-pci,netdev=%s,id=netchan%d,mac=%s,bus=pci.0,addr=0x%d", info.deviceName, i, info.macAddr, info.pciAddr),
+		)
+	}
+
+	for _, image := range qc.images {
+		params = append(params,
+			"-drive", fmt.Sprintf("file=%s,if=none,id=drive%d,format=%s,cache=writeback", image.deviceName, image.scsiId, image.format),
+			"-device", fmt.Sprintf("scsi-hd,bus=scsi0.0,drive=drive%d,id=scsi-disk%d,scsi-id=%d", image.scsiId, image.scsiId, image.scsiId),
+		)
+	}
+
+	return params
+}
+
+func (qc *QemuContext) LazyAddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo) {
+	callback := &hypervisor.NetDevInsertedEvent{
+		Index:      guest.Index,
+		DeviceName: guest.Device,
+		Address:    guest.Busaddr,
+	}
+	qc.callbacks = append(qc.callbacks, callback)
+
+	info := qemuNicConfig{
+		fd:         host.Fd,
+		deviceName: guest.Device,
+		macAddr:    host.Mac,
+		pciAddr:    guest.Busaddr,
+	}
+	qc.interfaces = append(qc.interfaces, info)
+}
+
+func (qc *QemuContext) LazyAddDisk(ctx *hypervisor.VmContext, name, sourceType, filename, format string, id int) {
+	devName := scsiId2Name(id)
+	callback := &hypervisor.BlockdevInsertedEvent{
+		Name:       name,
+		SourceType: sourceType,
+		DeviceName: devName,
+		ScsiId:     id,
+	}
+	qc.callbacks = append(qc.callbacks, callback)
+	image := qemuImageConfig{
+		deviceName: filename,
+		sourceType: sourceType,
+		format:     format,
+		scsiId:     id,
+	}
+	qc.images = append(qc.images, image)
+}
+
+func (qc *QemuContext) InitVM(ctx *hypervisor.VmContext) error {
+	return nil
+}
+
+func (qc *QemuContext) LazyLaunch(ctx *hypervisor.VmContext) {
+	go launchQemu(qc, ctx)
+	go qmpHandler(ctx)
 }

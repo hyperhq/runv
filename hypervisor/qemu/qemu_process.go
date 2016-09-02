@@ -211,6 +211,12 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "watch qemu process failed"}
 		return
 	}
+
+	// report device ready, could start pod
+	for _, cb := range qc.callbacks {
+		ctx.Hub <- cb
+	}
+
 }
 
 func associateQemu(ctx *hypervisor.VmContext) {
