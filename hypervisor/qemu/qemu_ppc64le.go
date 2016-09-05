@@ -26,15 +26,13 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	qc.cpus = boot.CPU
 
 	var memParams, cpuParams string
-	if ctx.Boot.HotAddCpuMem {
-		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", ctx.Boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
-		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", ctx.Boot.CPU, hypervisor.DefaultMaxCpus)           // TODO set it to the cpus of the system
+	if boot.HotAddCpuMem {
+		memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+		cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, hypervisor.DefaultMaxCpus)           // TODO set it to the cpus of the system
 	} else {
-		memParams = strconv.Itoa(ctx.Boot.Memory)
-		cpuParams = strconv.Itoa(ctx.Boot.CPU)
+		memParams = strconv.Itoa(boot.Memory)
+		cpuParams = strconv.Itoa(boot.CPU)
 	}
-	memParams = "256"
-	cpuParams = "1"
 
 	return []string{
 		"-machine", "pseries,accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host",
