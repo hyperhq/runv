@@ -10,20 +10,27 @@ import (
 )
 
 const (
-	QEMU_SYSTEM_EXE = "qemu-system-ppc64le"
+	QEMU_SYSTEM_EXE    = "qemu-system-ppc64le"
+	VM_MIN_MEMORY_SIZE = 256 // On ppc64le the minimum memory size of a VM is 256 MiB
 )
 
 func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	if ctx.Boot == nil {
 		ctx.Boot = &hypervisor.BootConfig{
 			CPU:    1,
-			Memory: 256, // The minimum requirement for running a VM on PowerPC LE arch is 256M
+			Memory: VM_MIN_MEMORY_SIZE,
 			Kernel: hypervisor.DefaultKernel,
 			Initrd: hypervisor.DefaultInitrd,
 		}
 	}
 	boot := ctx.Boot
 	qc.cpus = boot.CPU
+
+	// Currently the default memory size is fixed to 128 MiB.
+	// TODO: Check with PPC team for a better solution
+	if boot.Memory < VM_MIN_MEMORY_SIZE {
+		boot.Memory = VM_MIN_MEMORY_SIZE
+	}
 
 	var memParams, cpuParams string
 	if boot.HotAddCpuMem {
