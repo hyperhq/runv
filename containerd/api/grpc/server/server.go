@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry/gosigar"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperhq/runv/supervisor"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
@@ -25,6 +26,15 @@ func NewServer(sv *supervisor.Supervisor) types.APIServer {
 	return &apiServer{
 		sv: sv,
 	}
+}
+
+func (s *apiServer) GetServerVersion(ctx context.Context, c *types.GetServerVersionRequest) (*types.GetServerVersionResponse, error) {
+	return &types.GetServerVersionResponse{
+		Major:    0,
+		Minor:    6,
+		Patch:    2,
+		Revision: "runv-containerd",
+	}, nil
 }
 
 func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContainerRequest) (*types.CreateContainerResponse, error) {
@@ -137,16 +147,24 @@ func (s *apiServer) UpdateProcess(ctx context.Context, r *types.UpdateProcessReq
 
 func (s *apiServer) Events(r *types.EventsRequest, stream types.API_EventsServer) error {
 	t := time.Time{}
-	if r.Timestamp != 0 {
-		t = time.Unix(int64(r.Timestamp), 0)
+	if r.Timestamp != nil {
+		from, err := ptypes.Timestamp(r.Timestamp)
+		if err != nil {
+			return err
+		}
+		t = from
 	}
 	events := s.sv.Events.Events(t)
 	defer s.sv.Events.Unsubscribe(events)
 	for e := range events {
+		tsp, err := ptypes.TimestampProto(e.Timestamp)
+		if err != nil {
+			return err
+		}
 		if err := stream.Send(&types.Event{
 			Id:        e.ID,
 			Type:      e.Type,
-			Timestamp: uint64(e.Timestamp.Unix()),
+			Timestamp: tsp,
 			Pid:       e.PID,
 			Status:    uint32(e.Status),
 		}); err != nil {

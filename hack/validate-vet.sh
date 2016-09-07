@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files=( $(find . -path ./Godeps -prune -o -name "*.go" -print) )
+files=( $(find . -path ./vendor -prune -o -name "*.go" -print) )
 
 errors=()
 for f in "${files[@]}"; do

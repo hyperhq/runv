@@ -11,6 +11,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/reexec"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperhq/runv/containerd"
 	_ "github.com/hyperhq/runv/supervisor/proxy" // for proxy.init()
 	netcontext "golang.org/x/net/context"
@@ -135,8 +136,13 @@ func getClient(address string) types.APIClient {
 }
 
 func waitForExit(c types.APIClient, timestamp uint64, container, process string) int {
+	ts := time.Unix(int64(timestamp), 0)
 	for {
-		events, err := c.Events(netcontext.Background(), &types.EventsRequest{Timestamp: timestamp})
+		tsp, err := ptypes.TimestampProto(ts)
+		if err != nil {
+			return -1
+		}
+		events, err := c.Events(netcontext.Background(), &types.EventsRequest{Timestamp: tsp})
 		if err != nil {
 			fmt.Printf("c.Events error: %v", err)
 			// TODO try to find a way to kill the process ?
@@ -148,7 +154,7 @@ func waitForExit(c types.APIClient, timestamp uint64, container, process string)
 				time.Sleep(1 * time.Second)
 				break
 			}
-			timestamp = e.Timestamp
+			ts, err = ptypes.Timestamp(e.Timestamp)
 			if e.Id == container && e.Type == "exit" && e.Pid == process {
 				return int(e.Status)
 			}
