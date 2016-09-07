@@ -6,7 +6,7 @@ go_import_path: github.com/hyperhq/runv
 
 matrix:
   include:
-    - go: 1.4
+    - go: 1.7
 
 before_install:
   - sudo apt-get update -qq
