@@ -513,9 +513,8 @@ func (hp *HyperPod) reap() {
 	Response := hp.vm.StopPod(hp.podStatus)
 	if Response.Data == nil {
 		glog.V(1).Infof("StopPod fail: QEMU response data is nil\n")
-		return
 	}
-	hp.stopNsListener()
 	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
+	hp.stopNsListener()
 	os.RemoveAll(filepath.Join(hypervisor.BaseDir, hp.vm.Id))
 }
