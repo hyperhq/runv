@@ -76,6 +76,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			fmt.Printf("load config failed %v\n", err)
 			os.Exit(-1)
 		}
+		if spec.Linux == nil {
+			fmt.Printf("it is not linux container config\n")
+			os.Exit(-1)
+		}
 		if os.Geteuid() != 0 {
 			fmt.Printf("runv should be run as root\n")
 			os.Exit(-1)

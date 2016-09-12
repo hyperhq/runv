@@ -13,8 +13,11 @@ func ConvertOCF2UserContainer(s *specs.Spec) *UserContainer {
 		Workdir:       s.Process.Cwd,
 		Tty:           s.Process.Terminal,
 		Image:         s.Root.Path,
-		Sysctl:        s.Linux.Sysctl,
 		RestartPolicy: "never",
+	}
+
+	if s.Linux != nil {
+		container.Sysctl = s.Linux.Sysctl
 	}
 
 	for _, value := range s.Process.Env {
@@ -32,7 +35,7 @@ func ConvertOCF2UserContainer(s *specs.Spec) *UserContainer {
 
 func ConvertOCF2PureUserPod(s *specs.Spec) *UserPod {
 	mem := 0
-	if s.Linux.Resources != nil && s.Linux.Resources.Memory != nil && s.Linux.Resources.Memory.Limit != nil {
+	if s.Linux != nil && s.Linux.Resources != nil && s.Linux.Resources.Memory != nil && s.Linux.Resources.Memory.Limit != nil {
 		mem = int(*s.Linux.Resources.Memory.Limit >> 20)
 	}
 	return &UserPod{
