@@ -140,6 +140,9 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 	if _, ok := sv.Containers[container]; ok {
 		return nil, fmt.Errorf("The container %s is already existing", container)
 	}
+	if spec.Linux == nil {
+		return nil, fmt.Errorf("it is not linux container config")
+	}
 	for _, ns := range spec.Linux.Namespaces {
 		if ns.Path != "" {
 			if strings.Contains(ns.Path, "/") {
