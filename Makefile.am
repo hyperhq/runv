@@ -21,4 +21,5 @@ install-exec-local:
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
 test-integration:
+	cd integration-test/test_data && make
 	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} .

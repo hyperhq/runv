@@ -54,3 +54,7 @@ _testmain.go
 /runv
 /runv-containerd
 *.out
+
+# ignore test_data
+test_data
+!test_data/Makefile
