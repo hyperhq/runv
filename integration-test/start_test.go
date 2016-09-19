@@ -13,9 +13,6 @@ import (
 )
 
 func (s *RunVSuite) TestStartHelloworld(c *check.C) {
-	//TODO: enable this after fixing
-	//c.Skip("enable this after fixing!")
-
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"echo", "hello"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
@@ -26,9 +23,6 @@ func (s *RunVSuite) TestStartHelloworld(c *check.C) {
 }
 
 func (s *RunVSuite) TestStartPid(c *check.C) {
-	//TODO: enable this after fixing!!!
-	//c.Skip("enable this after fixing")
-
 	ctrName := "testStartPid"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}
