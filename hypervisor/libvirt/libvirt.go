@@ -110,23 +110,6 @@ func (ld *LibvirtDriver) lookupDomainByName(name string) (libvirtgo.VirDomain, e
 	return domain, err
 }
 
-func (ld *LibvirtDriver) domainCreateXML(domainXml string) (libvirtgo.VirDomain, error) {
-	ld.Lock()
-	defer ld.Unlock()
-
-	domain, err := ld.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
-	if err != nil {
-		if res := ld.checkConnection(); res != nil {
-			glog.Error(res)
-			return domain, err
-		}
-
-		return ld.conn.DomainCreateXML(domainXml, libvirtgo.VIR_DOMAIN_NONE)
-	}
-
-	return domain, nil
-}
-
 func (ld *LibvirtDriver) lookupCephSecretByUsage(usageID string) (libvirtgo.VirSecret, error) {
 	ld.Lock()
 	defer ld.Unlock()
