@@ -653,25 +653,23 @@ func (lc *LibvirtContext) Dump() (map[string]interface{}, error) {
 }
 
 func (lc *LibvirtContext) Shutdown(ctx *hypervisor.VmContext) {
-	go func() {
-		if lc.domain == nil {
-			ctx.Hub <- &hypervisor.VmExit{}
-			return
-		}
-		lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
+	if lc.domain == nil {
 		ctx.Hub <- &hypervisor.VmExit{}
-	}()
+		return
+	}
+
+	lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
+	ctx.Hub <- &hypervisor.VmExit{}
 }
 
 func (lc *LibvirtContext) Kill(ctx *hypervisor.VmContext) {
-	go func() {
-		if lc.domain == nil {
-			ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
-			return
-		}
-		lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
+	if lc.domain == nil {
 		ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
-	}()
+		return
+	}
+
+	lc.domain.DestroyFlags(libvirtgo.VIR_DOMAIN_DESTROY_DEFAULT)
+	ctx.Hub <- &hypervisor.VmKilledEvent{Success: true}
 }
 
 func (lc *LibvirtContext) Close() {

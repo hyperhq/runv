@@ -317,7 +317,9 @@ func commonStateHandler(ctx *VmContext, ev VmEvent, hasPod bool) bool {
 		interruptEv := ev.(*Interrupted)
 		glog.Info("Connection interrupted: %s, quit...", interruptEv.Reason)
 		ctx.exitVM(true, fmt.Sprintf("connection to VM broken: %s", interruptEv.Reason), false, false)
-		ctx.onVmExit(hasPod)
+		if hasPod {
+			ctx.reclaimDevice()
+		}
 	case COMMAND_SHUTDOWN:
 		glog.Info("got shutdown command, shutting down")
 		ctx.exitVM(false, "", hasPod, ev.(*ShutdownCommand).Wait)
