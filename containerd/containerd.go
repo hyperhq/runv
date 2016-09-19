@@ -114,7 +114,8 @@ var ContainerdCommand = cli.Command{
 		} else {
 			f = factory.NewFromConfigs(kernel, initrd, nil)
 		}
-		sv, err := supervisor.New(stateDir, containerdDir, f)
+		sv, err := supervisor.New(stateDir, containerdDir, f,
+			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
 		if err != nil {
 			glog.Infof("%v", err)
 			os.Exit(1)

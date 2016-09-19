@@ -16,23 +16,35 @@ import (
 type Supervisor struct {
 	StateDir string
 	Factory  factory.Factory
-	Events   SvEvents
+	// Default CPU and memory amounts to use when not specified by container
+	defaultCpus   int
+	defaultMemory int
+
+	Events SvEvents
 
 	sync.RWMutex // Protects Supervisor.Containers, HyperPod.Containers, HyperPod.Processes, Container.Processes
 	Containers   map[string]*Container
 }
 
-func New(stateDir, eventLogDir string, f factory.Factory) (*Supervisor, error) {
+func New(stateDir, eventLogDir string, f factory.Factory, defaultCpus int, defaultMemory int) (*Supervisor, error) {
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(eventLogDir, 0755); err != nil {
 		return nil, err
 	}
+	if defaultCpus <= 0 {
+		return nil, fmt.Errorf("defaultCpu must be greater than 0.")
+	}
+	if defaultMemory <= 0 {
+		return nil, fmt.Errorf("defaultMemory must be greater than 0.")
+	}
 	sv := &Supervisor{
-		StateDir:   stateDir,
-		Factory:    f,
-		Containers: make(map[string]*Container),
+		StateDir:      stateDir,
+		Factory:       f,
+		defaultCpus:   defaultCpus,
+		defaultMemory: defaultMemory,
+		Containers:    make(map[string]*Container),
 	}
 	sv.Events.subscribers = make(map[chan Event]struct{})
 	go sv.reaper()
@@ -174,7 +186,7 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 	}
 	if hp == nil {
 		sv.Unlock()
-		hp, err = createHyperPod(sv.Factory, spec)
+		hp, err = createHyperPod(sv.Factory, spec, sv.defaultCpus, sv.defaultMemory)
 		sv.Lock()
 		glog.Infof("createHyperPod() returns")
 		if err != nil {

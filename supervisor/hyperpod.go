@@ -442,23 +442,23 @@ func chooseInitrd(spec *specs.Spec) (initrd string) {
 	return
 }
 
-func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
+func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaultMemory int) (*HyperPod, error) {
 	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
 	userPod := pod.ConvertOCF2PureUserPod(spec)
 	podStatus := hypervisor.NewPod(podId, userPod, nil)
 
-	cpu := 1
+	cpu := defaultCpus
 	if userPod.Resource.Vcpu > 0 {
 		cpu = userPod.Resource.Vcpu
 	}
-	mem := 128
+	mem := defaultMemory
 	if userPod.Resource.Memory > 0 {
 		mem = userPod.Resource.Memory
 	}
 
 	kernel := chooseKernel(spec)
 	initrd := chooseInitrd(spec)
-	glog.V(3).Infof("Using kernel: %s; Initrd: %s;", kernel, initrd)
+	glog.V(3).Infof("Using kernel: %s; Initrd: %s; vCPU: %d; Memory %d", kernel, initrd, cpu, mem)
 
 	var (
 		vm  *hypervisor.Vm
@@ -470,6 +470,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 			glog.V(1).Infof("Create VM failed with default kernel config: %s", err.Error())
 			return nil, err
 		}
+		glog.V(3).Infof("Creating VM with default kernel config")
 	} else if len(kernel) == 0 || len(initrd) == 0 {
 		// if user specify a kernel, they must specify an initrd at the same time
 		return nil, fmt.Errorf("You must specify an initrd if you specify a kernel, or vice-versa")
@@ -486,6 +487,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec) (*HyperPod, error) {
 			glog.V(1).Infof("Create VM failed: %s", err.Error())
 			return nil, err
 		}
+		glog.V(3).Infof("Creating VM with specific kernel config")
 	}
 
 	Response := vm.StartPod(podStatus, userPod, nil, nil)
