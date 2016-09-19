@@ -8,10 +8,6 @@ BUSYBOX_URL = https://busybox.net/downloads/busybox-$(BUSYBOX_VER).tar.bz2
 BUSYBOX_SHA1 = c6c759bf4c4f24b37f52e136e2b15d921a8d44cb
 BUSYBOX_SRC = build/busybox-$(BUSYBOX_VER).tar.bz2
 
-GETCONF_URL = http://git.alpinelinux.org/cgit/aports/plain/main/musl/getconf.c
-GETCONF_SHA1 = c06f6984220c421bfcee48128822889c75728858
-GETCONF_SRC = build/getconf.c
-
 CURL_FLAGS = -s
 VERBOSE = >/dev/null
 CFLAGS = -w
@@ -33,20 +29,12 @@ build/busybox: $(BUSYBOX_SRC)
 	CFLAGS="$(CFLAGS)" make -C build defconfig $(VERBOSE)
 	CFLAGS="$(CFLAGS)" LDFLAGS="--static" make -C build -j $(JOBS) all $(VERBOSE)
 
-$(GETCONF_SRC):
-	curl $(CURL_FLAGS) --create-dirs -o $(GETCONF_SRC) $(GETCONF_URL)
-	shasum -a 1 $(GETCONF_SRC) | grep ^$(GETCONF_SHA1)
-
-build/getconf: $(GETCONF_SRC)
-	gcc -D_XOPEN_SOURCE=700 -o build/getconf $(GETCONF_SRC)
-
-busybox.tar: build/busybox build/getconf
+busybox.tar: build/busybox
 	rm -rf build/rootfs
 	mkdir -p build/rootfs
 	cd build/rootfs && mkdir bin dev etc proc root sys tmp usr var
 	touch build/rootfs/.dockerenv
 	install -D build/busybox build/rootfs/bin/busybox
-	install -D build/getconf build/rootfs/usr/bin/getconf
 	set -e; for i in `build/busybox --list`; do ln -s busybox build/rootfs/bin/$$i; done
 	cd build/rootfs && tar -cf $(CURDIR)/busybox.tar .
 
