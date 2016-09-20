@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
@@ -205,7 +204,7 @@ func runProcess(root, container string, config *specs.Process) int {
 		Stderr: fmt.Sprintf("/proc/%d/fd/2", pid),
 	}
 	c := getClient(filepath.Join(root, container, "namespace/namespaced.sock"))
-	timestamp := uint64(time.Now().Unix())
+	evChan := containerEvents(c, container)
 	if _, err := c.AddProcess(netcontext.Background(), p); err != nil {
 		fmt.Printf("error %v\n", err)
 		return -1
@@ -219,5 +218,10 @@ func runProcess(root, container string, config *specs.Process) int {
 		defer term.RestoreTerminal(os.Stdin.Fd(), s)
 		monitorTtySize(c, container, process)
 	}
-	return waitForExit(c, timestamp, container, process)
+	for e := range evChan {
+		if e.Type == "exit" && e.Pid == process {
+			return int(e.Status)
+		}
+	}
+	return -1
 }

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
@@ -235,7 +234,7 @@ func startContainer(context *cli.Context, container, address string, config *spe
 	}
 
 	c := getClient(address)
-	timestamp := uint64(time.Now().Unix())
+	evChan := containerEvents(c, container)
 	if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
 		fmt.Printf("error %v\n", err)
 		return -1
@@ -266,8 +265,12 @@ func startContainer(context *cli.Context, container, address string, config *spe
 			fmt.Printf("create pid-file error %v\n", err)
 		}
 	}
-	return waitForExit(c, timestamp, container, "init")
-
+	for e := range evChan {
+		if e.Type == "exit" && e.Pid == "init" {
+			return int(e.Status)
+		}
+	}
+	return -1
 }
 
 // createPidFile creates a file with the processes pid inside it atomically

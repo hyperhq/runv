@@ -135,29 +135,35 @@ func getClient(address string) types.APIClient {
 	return types.NewAPIClient(conn)
 }
 
-func waitForExit(c types.APIClient, timestamp uint64, container, process string) int {
-	ts := time.Unix(int64(timestamp), 0)
-	for {
-		tsp, err := ptypes.TimestampProto(ts)
-		if err != nil {
-			return -1
-		}
-		events, err := c.Events(netcontext.Background(), &types.EventsRequest{Timestamp: tsp})
-		if err != nil {
-			fmt.Printf("c.Events error: %v", err)
-			// TODO try to find a way to kill the process ?
-			return -1
-		}
+func containerEvents(c types.APIClient, container string) <-chan *types.Event {
+	evChan := make(chan *types.Event)
+	ts := time.Now()
+	go func() {
 		for {
-			e, err := events.Recv()
+			tsp, err := ptypes.TimestampProto(ts)
 			if err != nil {
-				time.Sleep(1 * time.Second)
-				break
+				close(evChan)
+				return
 			}
-			ts, err = ptypes.Timestamp(e.Timestamp)
-			if e.Id == container && e.Type == "exit" && e.Pid == process {
-				return int(e.Status)
+			events, err := c.Events(netcontext.Background(), &types.EventsRequest{Timestamp: tsp})
+			if err != nil {
+				fmt.Printf("c.Events error: %v", err)
+				// TODO try to find a way to kill the process ?
+				close(evChan)
+				return
+			}
+			for {
+				e, err := events.Recv()
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					break
+				}
+				ts, err = ptypes.Timestamp(e.Timestamp)
+				if e.Id == container {
+					evChan <- e
+				}
 			}
 		}
-	}
+	}()
+	return evChan
 }
