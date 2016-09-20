@@ -254,13 +254,6 @@ func (ctx *VmContext) startPod() {
 	}
 }
 
-func (ctx *VmContext) stopPod() {
-	ctx.setTimeout(30)
-	ctx.vm <- &hyperstartCmd{
-		Code: hyperstartapi.INIT_STOPPOD,
-	}
-}
-
 func (ctx *VmContext) exitVM(err bool, msg string, hasPod bool, wait bool) {
 	ctx.wait = wait
 	if hasPod {
@@ -550,9 +543,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		ctx.Become(stateTerminating, StateTerminating)
 	} else {
 		switch ev.Event() {
-		case COMMAND_STOP_POD:
-			ctx.stopPod()
-			ctx.Become(statePodStopping, StatePodStopping)
 		case COMMAND_RELEASE:
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
