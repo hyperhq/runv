@@ -254,13 +254,6 @@ func (ctx *VmContext) startPod() {
 	}
 }
 
-func (ctx *VmContext) stopPod() {
-	ctx.setTimeout(30)
-	ctx.vm <- &hyperstartCmd{
-		Code: hyperstartapi.INIT_STOPPOD,
-	}
-}
-
 func (ctx *VmContext) exitVM(err bool, msg string, hasPod bool, wait bool) {
 	ctx.wait = wait
 	if hasPod {
@@ -550,9 +543,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		ctx.Become(stateTerminating, StateTerminating)
 	} else {
 		switch ev.Event() {
-		case COMMAND_STOP_POD:
-			ctx.stopPod()
-			ctx.Become(statePodStopping, StatePodStopping)
 		case COMMAND_RELEASE:
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
@@ -588,6 +578,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 	}
 }
 
+// TODO: remove this state
 func statePodStopping(ctx *VmContext, ev VmEvent) {
 	if processed := commonStateHandler(ctx, ev, true); processed {
 	} else {
@@ -605,14 +596,14 @@ func statePodStopping(ctx *VmContext, ev VmEvent) {
 		case COMMAND_ACK:
 			ack := ev.(*CommandAck)
 			glog.V(1).Infof("[Stopping] got init ack to %d", ack.reply.Code)
-			if ack.reply.Code == hyperstartapi.INIT_STOPPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STOPPOD_DEPRECATED {
 				glog.Info("POD stopped ", string(ack.msg))
 				ctx.detachDevice()
 				ctx.Become(stateCleaning, StateCleaning)
 			}
 		case ERROR_CMD_FAIL:
 			ack := ev.(*CommandError)
-			if ack.reply.Code == hyperstartapi.INIT_STOPPOD {
+			if ack.reply.Code == hyperstartapi.INIT_STOPPOD_DEPRECATED {
 				ctx.unsetTimeout()
 				ctx.shutdownVM(true, "Stop pod failed as init report")
 				ctx.Become(stateTerminating, StateTerminating)
