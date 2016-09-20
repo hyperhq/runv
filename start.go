@@ -248,6 +248,21 @@ func startContainer(context *cli.Context, container, address string, config *spe
 		defer term.RestoreTerminal(os.Stdin.Fd(), s)
 		monitorTtySize(c, container, "init")
 	}
+	var started bool
+	for e := range evChan {
+		if e.Type == "exit" && e.Pid == "init" {
+			fmt.Printf("get exit event before start event\n")
+			return int(e.Status)
+		}
+		if e.Type == "start-container" {
+			started = true
+			break
+		}
+	}
+	if !started {
+		fmt.Printf("failed to get the start event\n")
+		return -1
+	}
 	if context.String("pid-file") != "" {
 		stateData, err := ioutil.ReadFile(filepath.Join(context.GlobalString("root"), container, stateJson))
 		if err != nil {
