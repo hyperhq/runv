@@ -37,7 +37,7 @@ type NetlinkUpdate struct {
 	// We only support veth link at present.
 	Veth *netlink.Veth
 
-	// UpdateType indicates which part of the netlink infomation has been changed.
+	// UpdateType indicates which part of the netlink information has been changed.
 	UpdateType NetlinkUpdateType
 }
 
@@ -180,7 +180,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 			conf.Gw = gw_route.Gw.String()
 		}
 
-		// TODO(hukeping): the name here is alwasy eth1, 2, 3, 4, 5, etc.,
+		// TODO(hukeping): the name here is always eth1, 2, 3, 4, 5, etc.,
 		// which would not be the proper way to name device name, instead it
 		// should be the same as what we specified in the network namespace.
 		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)

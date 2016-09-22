@@ -35,7 +35,7 @@ var createTemplateCommand = cli.Command{
 		cli.IntFlag{
 			Name:  "cpu",
 			Value: 1,
-			Usage: "the initial number of CPUs of the tempalte VM",
+			Usage: "the initial number of CPUs of the template VM",
 		},
 		cli.IntFlag{
 			Name:  "mem",
