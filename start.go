@@ -27,6 +27,14 @@ func firstExistingFile(candidates []string) string {
 	return ""
 }
 
+func getDefaultBundlePath() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
+
 var startCommand = cli.Command{
 	Name:  "start",
 	Usage: "create and run a container",
@@ -46,7 +54,8 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "bundle, b",
-			Usage: "path to the root of the bundle directory",
+			Value: getDefaultBundlePath(),
+			Usage: "path to the root of the bundle directory, defaults to the current directory",
 		},
 		cli.StringFlag{
 			Name:  "console",
