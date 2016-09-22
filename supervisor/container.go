@@ -220,6 +220,7 @@ func (c *Container) addProcess(processId, stdin, stdout, stderr string, spec *sp
 	c.ownerPod.sv.Events.notifySubscribers(e)
 
 	go func() {
+		c.ownerPod.podStatus.AddExec(c.Id, processId, "", spec.Terminal)
 		err := c.ownerPod.vm.AddProcess(c.Id, processId, spec.Terminal, spec.Args, spec.Env, spec.Cwd, p.stdio)
 		if err != nil {
 			glog.V(1).Infof("add process to container failed: %v\n", err)
