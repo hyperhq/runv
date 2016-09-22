@@ -153,6 +153,9 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 	}
 	p := spec.Process
 	p.Args = context.Args()[1:]
+	if p.Cwd == "" {
+		return nil, fmt.Errorf("Cwd property must not be empty")
+	}
 	// override the cwd, if passed
 	if context.String("cwd") != "" {
 		p.Cwd = context.String("cwd")
