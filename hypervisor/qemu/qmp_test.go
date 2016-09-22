@@ -51,7 +51,7 @@ func testQmpInitHelper(t *testing.T, ctx *QemuContext) (*net.UnixListener, net.C
 	t.Log("connected")
 
 	banner := `{"QMP": {"version": {"qemu": {"micro": 0,"minor": 0,"major": 2},"package": ""},"capabilities": []}}`
-	t.Log("Writting", banner)
+	t.Log("Writing", banner)
 
 	nr, err := c.Write([]byte(banner))
 	if err != nil {
@@ -142,7 +142,7 @@ func TestInitFail(t *testing.T) {
 	t.Log("connected")
 
 	banner := `{"QMP": {"version": {"qemu": {"micro": 0,"minor": 0,"major": 2},"package": ""},"capabilities": []}}`
-	t.Log("Writting", banner)
+	t.Log("Writing", banner)
 
 	nr, err := c.Write([]byte(banner))
 	if err != nil {
