@@ -17,6 +17,7 @@ import (
 //implement the hypervisor.HypervisorDriver interface
 type QemuDriver struct {
 	executable string
+	hasVsock   bool
 }
 
 //implement the hypervisor.DriverContext interface
@@ -42,8 +43,15 @@ func InitDriver() *QemuDriver {
 		return nil
 	}
 
+	var hasVsock bool
+	_, err = exec.Command("/sbin/modprobe", "vhost_vsock").Output()
+	if err == nil {
+		hasVsock = true
+	}
+
 	return &QemuDriver{
 		executable: cmd,
+		hasVsock:   hasVsock,
 	}
 }
 
