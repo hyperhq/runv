@@ -100,7 +100,7 @@ func (ctx *VmContext) lazyPrepareDevice(cmd *RunPodCommand) bool {
 func (ctx *VmContext) lazyAllocateNetworks() error {
 	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
-		addr := ctx.nextPciAddr()
+		addr := ctx.NextPciAddr()
 		nic, err := ctx.allocateInterface(i, addr, name)
 		if err != nil {
 			return err

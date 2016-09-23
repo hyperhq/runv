@@ -293,7 +293,7 @@ func (ctx *VmContext) setVolumeInfo(info *VolumeInfo) {
 func (ctx *VmContext) allocateNetworks() {
 	for i := range ctx.progress.adding.networks {
 		name := fmt.Sprintf("eth%d", i)
-		addr := ctx.nextPciAddr()
+		addr := ctx.NextPciAddr()
 		if len(ctx.userSpec.Interfaces) > 0 {
 			go ctx.ConfigureInterface(i, addr, name, ctx.userSpec.Interfaces[i], ctx.Hub)
 		} else {
