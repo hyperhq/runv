@@ -86,6 +86,16 @@ func main() {
 			Name:  "driver",
 			Usage: "hypervisor driver (supports: kvm xen vbox)",
 		},
+		cli.IntFlag{
+			Name:  "default_cpus",
+			Usage: "default number of vcpus to assign pod",
+			Value: 1,
+		},
+		cli.IntFlag{
+			Name:  "default_memory",
+			Usage: "default memory to assign pod (mb)",
+			Value: 128,
+		},
 		cli.StringFlag{
 			Name:  "kernel",
 			Usage: "kernel for the container",

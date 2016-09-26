@@ -174,7 +174,12 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				os.Exit(-1)
 			}
 
-			args := []string{"--kernel", kernel, "--initrd", initrd}
+			args := []string{
+				"--kernel", kernel,
+				"--initrd", initrd,
+				"--default_cpus", fmt.Sprintf("%d", context.GlobalInt("default_cpus")),
+				"--default_memory", fmt.Sprintf("%d", context.GlobalInt("default_memory")),
+			}
 			if context.GlobalBool("debug") {
 				args = append(args, "--debug")
 			}
