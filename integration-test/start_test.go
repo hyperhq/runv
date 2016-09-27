@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/docker/docker/pkg/integration/checker"
 	"github.com/go-check/check"
+	"github.com/kr/pty"
 )
 
 func (s *RunVSuite) TestStartHelloworld(c *check.C) {
@@ -73,4 +76,38 @@ func (s *RunVSuite) TestStartPid(c *check.C) {
 	c.Assert(string(pidData), checker.Equals, pid)
 
 	<-exitChan
+}
+
+func (s *RunVSuite) TestStartWithTty(c *check.C) {
+	ctrName := "TestStartWithTty"
+	spec := defaultTestSpec
+	spec.Process.Terminal = true
+	spec.Process.Args = []string{"sh"}
+	c.Assert(s.addSpec(&spec), checker.IsNil)
+
+	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath}
+	cmdArgs = append(cmdArgs, "start", "--bundle", s.bundlePath, ctrName)
+	cmd := exec.Command(s.binaryPath, cmdArgs...)
+	tty, err := pty.Start(cmd)
+	c.Assert(err, checker.IsNil)
+	defer tty.Close()
+
+	_, err = tty.Write([]byte("uname && sleep 2 && exit\n"))
+	c.Assert(err, checker.IsNil)
+
+	chErr := make(chan error)
+	go func() {
+		chErr <- cmd.Wait()
+	}()
+	select {
+	case err := <-chErr:
+		c.Assert(err, checker.IsNil)
+	case <-time.After(15 * time.Second):
+		c.Fatal("timeout waiting for start to exit")
+	}
+
+	buf := make([]byte, 256)
+	n, err := tty.Read(buf)
+	c.Assert(err, checker.IsNil)
+	c.Assert(bytes.Contains(buf, []byte("Linux")), checker.Equals, true, check.Commentf(string(buf[:n])))
 }
