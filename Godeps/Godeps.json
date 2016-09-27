@@ -3,8 +3,7 @@
 	"GoVersion": "go1.7",
 	"GodepVersion": "v74",
 	"Packages": [
-		"github.com/hyperhq/runv",
-		"github.com/hyperhq/runv/integration-test"
+		"./..."
 	],
 	"Deps": [
 		{
@@ -108,6 +107,11 @@
 		{
 			"ImportPath": "github.com/kardianos/osext",
 			"Rev": "c2c54e542fb797ad986b31721e1baedf214ca413"
+		},
+		{
+			"ImportPath": "github.com/kr/pty",
+			"Comment": "release.r56-35-gce7fa45",
+			"Rev": "ce7fa45920dc37a92de8377972e52bc55ffa8d57"
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
