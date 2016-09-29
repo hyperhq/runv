@@ -2,10 +2,11 @@ package hypervisor
 
 import (
 	"errors"
+	"os"
+
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"os"
 )
 
 type BootConfig struct {
@@ -14,6 +15,7 @@ type BootConfig struct {
 	HotAddCpuMem     bool
 	BootToBeTemplate bool
 	BootFromTemplate bool
+	EnableVsock      bool
 	MemoryPath       string
 	DevicesStatePath string
 	Kernel           string

@@ -6,6 +6,7 @@ package factory
 
 import (
 	"encoding/json"
+
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/factory/base"
 	"github.com/hyperhq/runv/factory/cache"
@@ -24,6 +25,7 @@ type Factory interface {
 type FactoryConfig struct {
 	Cache    int  `json:"cache"`
 	Template bool `json:"template"`
+	Vsock    bool `json:"vsock"`
 	Cpu      int  `json:"cpu"`
 	Memory   int  `json:"memory"`
 }
@@ -33,16 +35,16 @@ func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
 	for i, c := range configs {
 		var b base.Factory
 		if c.Template {
-			b = template.New(hypervisor.BaseDir+"/template", c.Cpu, c.Memory, kernel, initrd)
+			b = template.New(hypervisor.BaseDir+"/template", c.Cpu, c.Memory, kernel, initrd, c.Vsock)
 		} else {
-			b = direct.New(c.Cpu, c.Memory, kernel, initrd)
+			b = direct.New(c.Cpu, c.Memory, kernel, initrd, c.Vsock)
 		}
 		bases[i] = cache.New(c.Cache, b)
 	}
 
 	if len(bases) == 0 {
 		// skip GetVm from the base factory
-		return single.New(direct.New(1000000, 1000000, kernel, initrd))
+		return single.New(direct.New(1000000, 1000000, kernel, initrd, false))
 	} else if len(bases) == 1 {
 		return single.New(bases[0])
 	} else {
@@ -51,7 +53,7 @@ func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
 }
 
 // vmFactoryPolicy = [FactoryConfig,]*FactoryConfig
-// FactoryConfig   = {["cache":NUMBER,]["template":true|false,]"cpu":NUMBER,"memory":NUMBER}
+// FactoryConfig   = {["cache":NUMBER,]["template":true|false,]["vsock":true|false,]"cpu":NUMBER,"memory":NUMBER}
 func NewFromPolicy(kernel, initrd string, policy string) Factory {
 	var configs []FactoryConfig
 	jsonString := "[" + policy + "]"
