@@ -30,9 +30,14 @@ type TemplateVmConfig struct {
 	Memory    int    `json:"memory"`
 	Kernel    string `json:"kernel"`
 	Initrd    string `json:"initrd"`
+	// For network QoS (kilobytes/s)
+	InboundAverage  string `json:"inboundaverage"`
+	InboundPeak     string `json:"inboundpeak"`
+	OutboundAverage string `json:"outboundaverage"`
+	OutboundPeak    string `json:"outboundpeak"`
 }
 
-func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmConfig, err error) {
+func CreateTemplateVM(statePath, vmName string, cpu, mem int, bootconfig *hypervisor.BootConfig) (t *TemplateVmConfig, err error) {
 	defer func() {
 		if err != nil {
 			(&TemplateVmConfig{StatePath: statePath}).Destroy()
@@ -66,8 +71,12 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 		BootFromTemplate: false,
 		MemoryPath:       statePath + "/memory",
 		DevicesStatePath: statePath + "/state",
-		Kernel:           kernel,
-		Initrd:           initrd,
+		Kernel:           bootconfig.Kernel,
+		Initrd:           bootconfig.Initrd,
+		InboundAverage:   bootconfig.InboundAverage,
+		InboundPeak:      bootconfig.InboundPeak,
+		OutboundAverage:  bootconfig.OutboundAverage,
+		OutboundPeak:     bootconfig.OutboundPeak,
 	}
 	vm, err := hypervisor.GetVm(vmName, b, true, false)
 	if err != nil {
@@ -90,12 +99,16 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 	time.Sleep(1 * time.Second)
 
 	config := &TemplateVmConfig{
-		StatePath: statePath,
-		Driver:    hypervisor.HDriver.Name(),
-		Cpu:       cpu,
-		Memory:    mem,
-		Kernel:    kernel,
-		Initrd:    initrd,
+		StatePath:       statePath,
+		Driver:          hypervisor.HDriver.Name(),
+		Cpu:             cpu,
+		Memory:          mem,
+		Kernel:          bootconfig.Kernel,
+		Initrd:          bootconfig.Initrd,
+		InboundAverage:  bootconfig.InboundAverage,
+		InboundPeak:     bootconfig.InboundPeak,
+		OutboundAverage: bootconfig.OutboundAverage,
+		OutboundPeak:    bootconfig.OutboundPeak,
 	}
 
 	configData, err := json.MarshalIndent(config, "", "\t")
@@ -124,6 +137,10 @@ func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 		DevicesStatePath: t.StatePath + "/state",
 		Kernel:           t.Kernel,
 		Initrd:           t.Initrd,
+		InboundAverage:   t.InboundAverage,
+		InboundPeak:      t.InboundPeak,
+		OutboundAverage:  t.OutboundAverage,
+		OutboundPeak:     t.OutboundPeak,
 	}
 }
 

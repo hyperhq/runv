@@ -112,7 +112,10 @@ var ContainerdCommand = cli.Command{
 		if template != "" {
 			f = singlefactory.New(templatefactory.NewFromExisted(tconfig))
 		} else {
-			f = factory.NewFromConfigs(kernel, initrd, nil)
+			f = factory.NewFromConfigs(&hypervisor.BootConfig{
+				Kernel: kernel,
+				Initrd: initrd,
+			}, nil)
 		}
 		sv, err := supervisor.New(stateDir, containerdDir, f,
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
