@@ -312,7 +312,7 @@ func mountToRootfs(m *specs.Mount, rootfs, mountLabel string) error {
 	}
 
 	switch m.Type {
-	case "proc", "sysfs", "mqueue", "tmpfs", "cgroup":
+	case "proc", "sysfs", "mqueue", "tmpfs", "cgroup", "devpts":
 		glog.V(3).Infof("Skip mount point %q of type %s", m.Destination, m.Type)
 		return nil
 	case "bind":
