@@ -68,7 +68,7 @@ func (c *Container) start(p *Process) error {
 	_, err := os.Stat(stateDir)
 	if err == nil {
 		glog.V(1).Infof("Container %s exists\n", c.Id)
-		return err
+		return fmt.Errorf("Container %s exists\n", c.Id)
 	}
 	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
