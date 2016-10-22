@@ -103,16 +103,31 @@ func (c *Container) start(p *Process) error {
 	os.MkdirAll(vmRootfs, 0755)
 
 	// Mount rootfs
-	err = utils.Mount(u.Image, vmRootfs, c.Spec.Root.Readonly)
+	err = utils.Mount(u.Image, vmRootfs)
 	if err != nil {
-		glog.V(1).Infof("mount %s to %s failed: %s\n", u.Image, vmRootfs, err.Error())
+		glog.Errorf("mount %s to %s failed: %s\n", u.Image, vmRootfs, err.Error())
+		return err
+	}
+
+	// Pre-create dirs necessary for hyperstart before setting rootfs readonly
+	// TODO: a better way to support readonly rootfs
+	if err = preCreateDirs(u.Image); err != nil {
 		return err
 	}
 
 	// Mount necessary files and directories from spec
 	for _, m := range c.Spec.Mounts {
 		if err := mountToRootfs(&m, vmRootfs, ""); err != nil {
-			return fmt.Errorf("mounting %q to rootfs %q failed", m.Destination, vmRootfs)
+			return fmt.Errorf("mounting %q to rootfs %q at %q failed: %v", m.Source, vmRootfs, m.Destination, err)
+		}
+	}
+
+	// set rootfs readonly
+	if c.Spec.Root.Readonly {
+		err = utils.SetReadonly(vmRootfs)
+		if err != nil {
+			glog.Errorf("set rootfs %s readonly failed: %s\n", vmRootfs, err.Error())
+			return err
 		}
 	}
 
@@ -383,6 +398,23 @@ func checkMountDestination(rootfs, dest string) error {
 			return fmt.Errorf("%q cannot be mounted because it is located inside %q", dest, invalid)
 		}
 
+	}
+	return nil
+}
+
+// preCreateDirs creates necessary dirs for hyperstart
+func preCreateDirs(rootfs string) error {
+	dirs := []string{
+		"proc",
+		"sys",
+		"dev",
+		"lib/modules",
+	}
+	for _, dir := range dirs {
+		err := createIfNotExists(filepath.Join(rootfs, dir), true)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
