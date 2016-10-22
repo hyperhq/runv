@@ -202,8 +202,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				"--state-dir", root,
 				"--listen", filepath.Join(namespace, "namespaced.sock"),
 			)
-			cmd = exec.Command("runv", args...)
-			cmd.Path = path
+			cmd = &exec.Cmd{
+				Path: path,
+				Args: append([]string{"runv"}, args...),
+			}
 			cmd.Dir = "/"
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				Setsid: true,
