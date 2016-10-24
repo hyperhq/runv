@@ -118,6 +118,7 @@ func main() {
 		specCommand,
 		execCommand,
 		killCommand,
+		deleteCommand,
 		listCommand,
 		stateCommand,
 		manageCommand,
