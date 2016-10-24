@@ -64,6 +64,10 @@ func (p *Process) setupIO() error {
 }
 
 func (p *Process) ttyResize(container string, width, height int) error {
+	// If working on the primary process, do not pass execId (it won't be recognized)
+	if p.inerId == fmt.Sprintf("%s-init", container) {
+		return p.ownerCont.ownerPod.vm.Tty(container, "", height, width)
+	}
 	return p.ownerCont.ownerPod.vm.Tty(container, p.inerId, height, width)
 }
 
