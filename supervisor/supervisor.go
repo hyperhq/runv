@@ -116,7 +116,7 @@ func (sv *Supervisor) getProcess(container, processId string) *Process {
 }
 
 func (sv *Supervisor) reaper() {
-	events := sv.Events.Events(time.Time{})
+	events := sv.Events.Events(time.Time{}, false, "")
 	for e := range events {
 		if e.Type == EventExit {
 			go sv.reap(e.ID, e.PID)
