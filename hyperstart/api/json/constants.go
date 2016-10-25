@@ -3,8 +3,11 @@ package json
 // when APIVERSION < 1000000, the version MUST be exactly matched on both sides
 const VERSION = 4243
 
+//go:generate stringer -type=HyperstartCode
+type HyperstartCode uint32
+
 const (
-	INIT_VERSION = iota // 0
+	INIT_VERSION HyperstartCode = iota // 0
 	INIT_STARTPOD
 	INIT_GETPOD_DEPRECATED
 	INIT_STOPPOD_DEPRECATED

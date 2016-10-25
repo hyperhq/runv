@@ -36,7 +36,7 @@ type serialBasedHyperstart struct {
 }
 
 type hyperstartCmd struct {
-	Code    uint32
+	Code    hyperstartapi.HyperstartCode
 	Message interface{}
 
 	// result
@@ -124,7 +124,7 @@ func readVmMessage(conn io.Reader) (*hyperstartapi.DecodedMessage, error) {
 	}
 
 	return &hyperstartapi.DecodedMessage{
-		Code:    binary.BigEndian.Uint32(res[:4]),
+		Code:    hyperstartapi.HyperstartCode(binary.BigEndian.Uint32(res[:4])),
 		Message: res[8:],
 	}, nil
 }
@@ -145,9 +145,9 @@ func handleCtlSock(h *serialBasedHyperstart, ctlSock string, waitReady bool) err
 			return err
 		} else if msg.Code != hyperstartapi.INIT_READY {
 			conn.Close()
-			glog.Errorf("Expect INIT_READY, but get init message %d", msg.Code)
+			glog.Errorf("Expect INIT_READY, but get init message %s(%d)", msg.Code.String(), msg.Code)
 			h.Close()
-			return fmt.Errorf("Expect INIT_READY, but get init message %d", msg.Code)
+			return fmt.Errorf("Expect INIT_READY, but get init message %s(%d)", msg.Code.String(), msg.Code)
 		}
 	}
 
@@ -162,7 +162,7 @@ func handleCtlSock(h *serialBasedHyperstart, ctlSock string, waitReady bool) err
 	return err
 }
 
-func (h *serialBasedHyperstart) hyperstartCommandWithRetMsg(code uint32, msg interface{}) (retMsg []byte, err error) {
+func (h *serialBasedHyperstart) hyperstartCommandWithRetMsg(code hyperstartapi.HyperstartCode, msg interface{}) (retMsg []byte, err error) {
 	defer func() {
 		if recover() != nil {
 			err = fmt.Errorf("send ctl channel error, the hyperstart might have closed")
@@ -179,7 +179,7 @@ func (h *serialBasedHyperstart) hyperstartCommandWithRetMsg(code uint32, msg int
 	return vcmd.retMsg, err
 }
 
-func (h *serialBasedHyperstart) hyperstartCommand(code uint32, msg interface{}) error {
+func (h *serialBasedHyperstart) hyperstartCommand(code hyperstartapi.HyperstartCode, msg interface{}) error {
 	_, err := h.hyperstartCommandWithRetMsg(code, msg)
 	return err
 }
@@ -198,7 +198,7 @@ func handleMsgToHyperstart(h *serialBasedHyperstart, conn io.WriteCloser) {
 			glog.Info("vm channel closed, quit")
 			break
 		}
-		glog.Infof("got cmd:%d", cmd.Code)
+		glog.Infof("got cmd:%s(%d)", cmd.Code.String(), cmd.Code)
 		if cmd.Code == hyperstartapi.INIT_ACK || cmd.Code == hyperstartapi.INIT_ERROR {
 			if len(cmds) > 0 {
 				if cmds[0].Code == hyperstartapi.INIT_DESTROYPOD {
@@ -230,7 +230,7 @@ func handleMsgToHyperstart(h *serialBasedHyperstart, conn io.WriteCloser) {
 			} else {
 				if h.vmAPIVersion == 0 && (cmd.Code == hyperstartapi.INIT_EXECCMD || cmd.Code == hyperstartapi.INIT_NEWCONTAINER) {
 					// delay version-awared command
-					glog.V(1).Infof("delay version-awared command :%d", cmd.Code)
+					glog.V(1).Infof("delay version-awared command :%s(%d)", cmd.Code.String(), cmd.Code)
 					time.AfterFunc(2*time.Millisecond, func() {
 						h.ctlChan <- cmd
 					})
@@ -242,8 +242,8 @@ func handleMsgToHyperstart(h *serialBasedHyperstart, conn io.WriteCloser) {
 				} else if message2, err := json.Marshal(cmd.Message); err == nil {
 					message = message2
 				} else {
-					glog.Infof("marshal command %d failed. object: %v", cmd.Code, cmd.Message)
-					cmd.result <- fmt.Errorf("marshal command %d failed", cmd.Code)
+					glog.Infof("marshal command %s(%d) failed. object: %v", cmd.Code.String(), cmd.Code, cmd.Message)
+					cmd.result <- fmt.Errorf("marshal command %s(%d) failed", cmd.Code.String(), cmd.Code)
 					continue
 				}
 				if h.vmAPIVersion <= 4242 {
@@ -269,7 +269,7 @@ func handleMsgToHyperstart(h *serialBasedHyperstart, conn io.WriteCloser) {
 					Code:    cmd.Code,
 					Message: message,
 				}
-				glog.V(1).Infof("send command %d to init, payload: '%s'.", cmd.Code, string(msg.Message))
+				glog.V(1).Infof("send command %s(%d) to init, payload: '%s'.", cmd.Code.String(), cmd.Code, string(msg.Message))
 				cmds = append(cmds, cmd)
 				data = append(data, newVmMessage(msg)...)
 			}
@@ -301,7 +301,7 @@ func handleMsgFromHyperstart(h *serialBasedHyperstart, conn io.Reader) {
 	for {
 		res, err := readVmMessage(conn)
 		if err == nil {
-			glog.V(3).Infof("readVmMessage code: %d, len: %d", res.Code, len(res.Message))
+			glog.V(3).Infof("readVmMessage code: %s(%d), len: %d", res.Code.String(), res.Code, len(res.Message))
 		}
 		if err != nil {
 			h.Close()
