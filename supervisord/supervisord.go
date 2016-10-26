@@ -1,4 +1,4 @@
-package containerd
+package supervisord
 
 import (
 	"encoding/json"
@@ -11,29 +11,29 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
-	"github.com/docker/containerd/osutils"
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/containerd/api/grpc/server"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/factory"
 	singlefactory "github.com/hyperhq/runv/factory/single"
 	templatefactory "github.com/hyperhq/runv/factory/template"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/supervisor"
+	"github.com/hyperhq/runv/supervisord/api/grpc/server"
+	"github.com/hyperhq/runv/supervisord/api/grpc/types"
+	"github.com/hyperhq/runv/supervisord/osutils"
 	templatecore "github.com/hyperhq/runv/template"
 	"google.golang.org/grpc"
 )
 
 const (
 	usage               = `High performance hypervisor based container daemon`
-	defaultStateDir     = "/run/runv-containerd"
+	defaultStateDir     = "/run/runv-supervisord"
 	defaultListenType   = "unix"
-	defaultGRPCEndpoint = "/run/runv-containerd/containerd.sock"
+	defaultGRPCEndpoint = "/run/runv-supervisord/supervisord.sock"
 )
 
-var ContainerdCommand = cli.Command{
-	Name:  "containerd",
+var SupervisordCommand = cli.Command{
+	Name:  "supervisord",
 	Usage: usage,
 	Flags: []cli.Flag{
 		cli.StringFlag{
@@ -42,9 +42,9 @@ var ContainerdCommand = cli.Command{
 			Usage: "runtime state directory",
 		},
 		cli.StringFlag{
-			Name:  "containerd-dir",
+			Name:  "supervisord-dir",
 			Value: defaultStateDir,
-			Usage: "containerd daemon state directory",
+			Usage: "supervisord daemon state directory",
 		},
 		cli.StringFlag{
 			Name:  "listen,l",
@@ -62,9 +62,9 @@ var ContainerdCommand = cli.Command{
 		initrd := context.GlobalString("initrd")
 		template := context.GlobalString("template")
 		stateDir := context.String("state-dir")
-		containerdDir := context.String("containerd-dir")
-		if containerdDir == "" {
-			containerdDir = stateDir
+		supervisordDir := context.String("supervisord-dir")
+		if supervisordDir == "" {
+			supervisordDir = stateDir
 		}
 
 		if context.GlobalBool("debug") {
@@ -114,7 +114,7 @@ var ContainerdCommand = cli.Command{
 		} else {
 			f = factory.NewFromConfigs(kernel, initrd, nil)
 		}
-		sv, err := supervisor.New(stateDir, containerdDir, f,
+		sv, err := supervisor.New(stateDir, supervisordDir, f,
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
 		if err != nil {
 			glog.Infof("%v", err)
@@ -122,7 +122,7 @@ var ContainerdCommand = cli.Command{
 		}
 
 		if context.Bool("solo-namespaced") {
-			go namespaceShare(sv, containerdDir, stateDir)
+			go namespaceShare(sv, supervisordDir, stateDir)
 		}
 
 		if err = daemon(sv, context.String("listen")); err != nil {
@@ -131,7 +131,7 @@ var ContainerdCommand = cli.Command{
 		}
 
 		if context.Bool("solo-namespaced") {
-			os.RemoveAll(containerdDir)
+			os.RemoveAll(supervisordDir)
 		}
 	},
 }
@@ -150,10 +150,10 @@ func daemon(sv *supervisor.Supervisor, address string) error {
 		switch ss {
 		case syscall.SIGCHLD:
 			if _, err := osutils.Reap(); err != nil {
-				glog.Infof("containerd: reap child processes")
+				glog.Infof("supervisord: reap child processes")
 			}
 		default:
-			glog.Infof("stopping containerd after receiving %s", ss)
+			glog.Infof("stopping supervisord after receiving %s", ss)
 			time.Sleep(3 * time.Second) // TODO: fix it by proper way
 			server.Stop()
 			return nil
@@ -189,9 +189,9 @@ func startServer(address string, sv *supervisor.Supervisor) (*grpc.Server, error
 	s := grpc.NewServer()
 	types.RegisterAPIServer(s, server.NewServer(sv))
 	go func() {
-		glog.Infof("containerd: grpc api on %s", address)
+		glog.Infof("supervisord: grpc api on %s", address)
 		if err := s.Serve(l); err != nil {
-			glog.Infof("containerd: serve grpc error")
+			glog.Infof("supervisord: serve grpc error")
 		}
 	}()
 	return s, nil

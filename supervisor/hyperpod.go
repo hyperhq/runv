@@ -308,7 +308,7 @@ func (hp *HyperPod) startNsListener() (err error) {
 	glog.Infof("get exec path %s", path)
 	parentPipe, childPipe, err = newPipe()
 	if err != nil {
-		glog.Errorf("create pipe for containerd-nslistener failed: %v", err)
+		glog.Errorf("create pipe for supervisord-nslistener failed: %v", err)
 		return err
 	}
 
@@ -320,10 +320,10 @@ func (hp *HyperPod) startNsListener() (err error) {
 	}()
 
 	cmd := exec.Command(path)
-	cmd.Args[0] = "containerd-nslistener"
+	cmd.Args[0] = "supervisord-nslistener"
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
 	if err = cmd.Start(); err != nil {
-		glog.Errorf("start containerd-nslistener failed: %v", err)
+		glog.Errorf("start supervisord-nslistener failed: %v", err)
 		return err
 	}
 
@@ -347,12 +347,12 @@ func (hp *HyperPod) startNsListener() (err error) {
 	/* Make sure nsListener create new netns */
 	var ready string
 	if err = dec.Decode(&ready); err != nil {
-		glog.Errorf("Get ready message from containerd-nslistener failed: %v", err)
+		glog.Errorf("Get ready message from supervisord-nslistener failed: %v", err)
 		return err
 	}
 
 	if ready != "init" {
-		err = fmt.Errorf("containerd get incorrect init message: %s", ready)
+		err = fmt.Errorf("supervisord get incorrect init message: %s", ready)
 		return err
 	}
 

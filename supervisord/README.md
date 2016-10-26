@@ -1,6 +1,6 @@
-# containerd
+# supervisord
 
-runv-containerd is a daemon to control hypercontainer and supports the same gRPC api of the [docker-containerd](https://github.com/docker/containerd/).
+runv-supervisord is a daemon to control hypercontainer and supports the same gRPC api of the [docker-containerd](https://github.com/docker/containerd/).
 
 ## Getting started
 
@@ -14,9 +14,9 @@ runv-containerd is a daemon to control hypercontainer and supports the same gRPC
 
 ```bash
 # in terminal #1
-runv --debug --driver libvirt --kernel /opt/hyperstart/build/kernel --initrd /opt/hyperstart/build/hyper-initrd.img containerd
+runv --debug --driver libvirt --kernel /opt/hyperstart/build/kernel --initrd /opt/hyperstart/build/hyper-initrd.img supervisord
 # in terminal #2
-docker daemon -D -l debug --containerd=/run/runv-containerd/containerd.sock
+docker daemon -D -l debug --containerd=/run/runv-supervisord/supervisord.sock
 # in terminal #3 for trying it
 docker run -ti busybox
 # ls   # (already in the terminal of the busybox container)

@@ -22,16 +22,6 @@
 			"Rev": "a14d7d367bc02b1f57d88de97926727f2d936387"
 		},
 		{
-			"ImportPath": "github.com/docker/containerd/api/grpc/types",
-			"Comment": "v0.2.3-10-g4f0a33a",
-			"Rev": "4f0a33ac3d5de20505022455625020cbbd575071"
-		},
-		{
-			"ImportPath": "github.com/docker/containerd/osutils",
-			"Comment": "v0.2.3-10-g4f0a33a",
-			"Rev": "4f0a33ac3d5de20505022455625020cbbd575071"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/daemon/logger",
 			"Comment": "v1.12.1",
 			"Rev": "23cf638307f030cd8d48c9efc21feec18a6f88f8"
