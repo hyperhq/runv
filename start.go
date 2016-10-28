@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
@@ -216,6 +217,9 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				os.Exit(-1)
 			}
 			address = filepath.Join(namespace, "namespaced.sock")
+			if _, err = os.Stat(address); os.IsNotExist(err) {
+				time.Sleep(3 * time.Second)
+			}
 		}
 
 		status := startContainer(context, container, address, spec)
