@@ -94,7 +94,7 @@ func (s *apiServer) AddProcess(ctx context.Context, r *types.AddProcessRequest) 
 		Env:      r.Env,
 		Cwd:      r.Cwd,
 	}
-	_, err := s.sv.AddProcess(r.Id, r.Pid, r.Stdin, r.Stdout, r.Stderr, spec)
+	_, err := s.sv.AddProcess(r.Id, r.Pid, r.Terminal, r.Stdin, r.Stdout, r.Stderr, spec)
 	if err != nil {
 		return nil, err
 	}
