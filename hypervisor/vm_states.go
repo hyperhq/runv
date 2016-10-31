@@ -85,24 +85,24 @@ func (ctx *VmContext) prepareDevice(cmd *RunPodCommand) bool {
 	return true
 }
 
-func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.Container {
+func (ctx *VmContext) prepareContainer(spec *pod.UserContainer, info *ContainerInfo) *hyperstartapi.Container {
 	ctx.lock.Lock()
 
 	idx := len(ctx.vmSpec.Containers)
 	vmContainer := &hyperstartapi.Container{}
 
-	ctx.initContainerInfo(idx, vmContainer, cmd.container)
-	ctx.setContainerInfo(idx, vmContainer, cmd.info)
+	ctx.initContainerInfo(idx, vmContainer, spec)
+	ctx.setContainerInfo(idx, vmContainer, info)
 
-	vmContainer.Sysctl = cmd.container.Sysctl
+	vmContainer.Sysctl = spec.Sysctl
 	vmContainer.Process.Stdio = ctx.ptys.attachId
 	ctx.ptys.attachId++
-	if !cmd.container.Tty {
+	if !spec.Tty {
 		vmContainer.Process.Stderr = ctx.ptys.attachId
 		ctx.ptys.attachId++
 	}
 
-	ctx.userSpec.Containers = append(ctx.userSpec.Containers, *cmd.container)
+	ctx.userSpec.Containers = append(ctx.userSpec.Containers, *spec)
 	ctx.vmSpec.Containers = append(ctx.vmSpec.Containers, *vmContainer)
 
 	ctx.lock.Unlock()
@@ -122,12 +122,13 @@ func (ctx *VmContext) prepareContainer(cmd *NewContainerCommand) *hyperstartapi.
 	return vmContainer
 }
 
-func (ctx *VmContext) newContainer(cmd *NewContainerCommand) {
-	c := ctx.prepareContainer(cmd)
+func (ctx *VmContext) newContainer(spec *pod.UserContainer, info *ContainerInfo, result chan<- error) {
+	c := ctx.prepareContainer(spec, info)
 	glog.Infof("start sending INIT_NEWCONTAINER")
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_NEWCONTAINER,
 		Message: c,
+		result:  result,
 	}
 	glog.Infof("sent INIT_NEWCONTAINER")
 }
@@ -428,8 +429,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			ctx.shutdownVM(false, "")
 			ctx.Become(stateDestroying, StateDestroying)
 			ctx.reportVmShutdown()
-		case COMMAND_NEWCONTAINER:
-			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_ONLINECPUMEM:
 			ctx.onlineCpuMem(ev.(*OnlineCpuMemCommand))
 		case COMMAND_WINDOWSIZE:
@@ -440,17 +439,6 @@ func stateInit(ctx *VmContext, ev VmEvent) {
 			if ok := ctx.prepareDevice(ev.(*RunPodCommand)); ok {
 				ctx.setTimeout(60)
 				ctx.Become(stateStarting, StateStarting)
-			}
-		case COMMAND_ACK:
-			ack := ev.(*CommandAck)
-			glog.V(1).Infof("[init] got init ack to %d", ack.reply)
-			if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
-				glog.Infof("Get ack for new container")
-
-				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
-				idx := len(ctx.vmSpec.Containers) - 1
-				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
 			}
 		default:
 			unexpectedEventHandler(ctx, ev, "pod initiating")
@@ -547,8 +535,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			glog.Info("pod is running, got release command, let VM fly")
 			ctx.Become(nil, StateNone)
 			ctx.reportSuccess("", nil)
-		case COMMAND_NEWCONTAINER:
-			ctx.newContainer(ev.(*NewContainerCommand))
 		case COMMAND_WINDOWSIZE:
 			cmd := ev.(*WindowSizeCommand)
 			ctx.setWindowSize(cmd.ContainerId, cmd.ExecId, cmd.Size)
@@ -556,17 +542,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			result := ev.(*PodFinished)
 			ctx.reportPodFinished(result)
 			ctx.exitVM(false, "", true, false)
-		case COMMAND_ACK:
-			ack := ev.(*CommandAck)
-			glog.V(1).Infof("[running] got init ack to %d", ack.reply)
-
-			if ack.reply.Code == hyperstartapi.INIT_NEWCONTAINER {
-				glog.Infof("Get ack for new container")
-				// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
-				idx := len(ctx.vmSpec.Containers) - 1
-				c := ctx.vmSpec.Containers[idx]
-				ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
-			}
 		case COMMAND_GET_POD_STATS:
 			ctx.reportPodStats(ev)
 		case EVENT_INTERFACE_EJECTED:
