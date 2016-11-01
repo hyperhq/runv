@@ -1053,7 +1053,7 @@ func GetTapFd(tapname, bridge string) (device string, tapFile *os.File, err erro
 
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
+func AllocateAddr(requestedIP string) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
@@ -1068,6 +1068,26 @@ func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 		return nil, err
 	}
 
+	return &Settings{
+		Mac:         mac,
+		IPAddress:   ip.String(),
+		Gateway:     BridgeIPv4Net.IP.String(),
+		Bridge:      BridgeIface,
+		IPPrefixLen: maskSize,
+		Device:      "",
+		File:        nil,
+		Automatic:   true,
+	}, nil
+}
+
+func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
+
+	setting, err := AllocateAddr(requestedIP)
+	if err != nil {
+		return nil, err
+	}
+
+
 	//TODO: will move to a dedicate method
 	//err = SetupPortMaps(ip.String(), maps)
 	//if err != nil {
@@ -1075,34 +1095,15 @@ func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 	//	return nil, err
 	//}
 
-	if addrOnly {
-		return &Settings{
-			Mac:         mac,
-			IPAddress:   ip.String(),
-			Gateway:     BridgeIPv4Net.IP.String(),
-			Bridge:      BridgeIface,
-			IPPrefixLen: maskSize,
-			Device:      "",
-			File:        nil,
-			Automatic:   true,
-		}, nil
-	}
-
 	device, tapFile, err := GetTapFd("", BridgeIface)
 	if err != nil {
+		IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(setting.IPAddress))
 		return nil, err
 	}
 
-	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     BridgeIPv4Net.IP.String(),
-		Bridge:      BridgeIface,
-		IPPrefixLen: maskSize,
-		Device:      device,
-		File:        tapFile,
-		Automatic:   true,
-	}, nil
+	setting.Device = device
+	setting.File   = tapFile
+	return setting, nil
 }
 
 func Configure(vmId, requestedIP string, addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
@@ -1169,10 +1170,17 @@ func Close(file *os.File) error {
 	return nil
 }
 
+func ReleaseAddr(releasedIP string) error {
+	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Release an interface for a select ip
 func Release(vmId, releasedIP string) error {
 
-	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
+	if err := ReleaseAddr(releasedIP); err != nil {
 		return err
 	}
 
