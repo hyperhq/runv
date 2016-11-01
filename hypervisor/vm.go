@@ -567,12 +567,22 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 }
 
 func (vm *Vm) NewContainer(c *pod.UserContainer, info *ContainerInfo) error {
-	newContainerCommand := &NewContainerCommand{
-		container: c,
-		info:      info,
+	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
+		ctx.newContainer(c, info, result)
+	}, StateInit, StateRunning)
+
+	if err != nil {
+		return fmt.Errorf("Create new container failed: %v", err)
 	}
 
-	vm.Hub <- newContainerCommand
+	vm.GenericOperation("StartNewContainerStdin", func(ctx *VmContext, result chan<- error) {
+		// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
+		idx := len(ctx.vmSpec.Containers) - 1
+		c := ctx.vmSpec.Containers[idx]
+		ctx.ptys.startStdin(c.Process.Stdio, c.Process.Terminal)
+		result <- nil
+	}, StateInit, StateRunning)
+
 	return nil
 }
 

@@ -49,11 +49,6 @@ type RunPodCommand struct {
 
 type ReplacePodCommand RunPodCommand
 
-type NewContainerCommand struct {
-	container *pod.UserContainer
-	info      *ContainerInfo
-}
-
 type OnlineCpuMemCommand struct{}
 
 type ShutdownCommand struct {
@@ -211,7 +206,6 @@ func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
 func (qe *RunPodCommand) Event() int         { return COMMAND_RUN_POD }
 func (qe *GetPodStatsCommand) Event() int    { return COMMAND_GET_POD_STATS }
 func (qe *ReplacePodCommand) Event() int     { return COMMAND_REPLACE_POD }
-func (qe *NewContainerCommand) Event() int   { return COMMAND_NEWCONTAINER }
 func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
