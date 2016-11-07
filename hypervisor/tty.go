@@ -84,7 +84,7 @@ func newPts() *pseudoTtys {
 	}
 }
 
-func readTtyMessage(conn *net.UnixConn) (*hyperstartapi.TtyMessage, error) {
+func readTtyMessage(conn net.Conn) (*hyperstartapi.TtyMessage, error) {
 	needRead := 12
 	length := 0
 	read := 0
@@ -122,7 +122,7 @@ func readTtyMessage(conn *net.UnixConn) (*hyperstartapi.TtyMessage, error) {
 	}, nil
 }
 
-func waitTtyMessage(ctx *VmContext, conn *net.UnixConn) {
+func waitTtyMessage(ctx *VmContext, conn net.Conn) {
 	for {
 		msg, ok := <-ctx.ptys.channel
 		if !ok {
@@ -154,10 +154,10 @@ func waitPts(ctx *VmContext) {
 
 	glog.V(1).Info("tty socket connected")
 
-	go waitTtyMessage(ctx, conn.(*net.UnixConn))
+	go waitTtyMessage(ctx, conn)
 
 	for {
-		res, err := readTtyMessage(conn.(*net.UnixConn))
+		res, err := readTtyMessage(conn)
 		if err != nil {
 			glog.V(1).Info("tty socket closed, quit the reading goroutine ", err.Error())
 			ctx.Hub <- &Interrupted{Reason: "tty socket failed " + err.Error()}
