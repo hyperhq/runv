@@ -135,6 +135,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		addr := ctx.NextPciAddr()
 		vsockDev := fmt.Sprintf("vhost-vsock-pci,id=vsock0,bus=pci.0,addr=%x,guest-cid=%d", addr, qc.guestCid)
 		args = append(args, "-device", vsockDev)
+		ctx.GuestCid = qc.guestCid
 	}
 
 	if glog.V(1) {

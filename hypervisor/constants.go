@@ -10,6 +10,9 @@ const (
 	DefaultInitrd   = "/var/lib/hyper/hyper-initrd.img"
 	DetachKeys      = "ctrl-p,ctrl-q"
 
+	HyperVsockCtlPort = 2718
+	HyperVsockMsgPort = 2719
+
 	// cpu/mem hotplug constants
 	DefaultMaxCpus = 8     // CONFIG_NR_CPUS hyperstart.git/build/kernel_config
 	DefaultMaxMem  = 32768 // size in MiB

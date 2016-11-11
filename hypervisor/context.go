@@ -44,6 +44,7 @@ type VmContext struct {
 	TtySockName     string
 	ConsoleSockName string
 	ShareDir        string
+	GuestCid        uint32 // guest vsock cid
 
 	pciAddr int //next available pci addr for pci hotplug
 	scsiId  int //next available scsi id for scsi hotplug
@@ -151,6 +152,7 @@ func (ctx *VmContext) reset() {
 
 	ctx.pciAddr = PciAddrFrom
 	ctx.scsiId = 0
+	ctx.GuestCid = 0
 	//do not reset attach id here, let it increase
 
 	ctx.userSpec = nil
