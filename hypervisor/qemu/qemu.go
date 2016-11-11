@@ -22,7 +22,7 @@ type QemuDriver struct {
 	hasVsock   bool
 
 	lock    *sync.Mutex // protects nextCid in case of overflow
-	nextCid uint64
+	nextCid uint32
 }
 
 //implement the hypervisor.DriverContext interface
@@ -36,7 +36,7 @@ type QemuContext struct {
 	qemuLogFile *QemuLogFile
 	cpus        int
 	process     *os.Process
-	guestCid    uint64
+	guestCid    uint32
 }
 
 func qemuContext(ctx *hypervisor.VmContext) *QemuContext {
@@ -67,11 +67,11 @@ func (qd *QemuDriver) Name() string {
 	return "qemu"
 }
 
-func (qd *QemuDriver) getNextVsockCid() uint64 {
+func (qd *QemuDriver) getNextVsockCid() uint32 {
 	if !qd.hasVsock {
 		return 0
 	}
-	cid := atomic.AddUint64(&qd.nextCid, 1)
+	cid := atomic.AddUint32(&qd.nextCid, 1)
 	if cid < QemuDefaultVsockCid {
 		// overflow
 		qd.lock.Lock()
@@ -79,7 +79,7 @@ func (qd *QemuDriver) getNextVsockCid() uint64 {
 			qd.nextCid = QemuDefaultVsockCid
 		}
 		qd.lock.Unlock()
-		cid = atomic.AddUint64(&qd.nextCid, 1)
+		cid = atomic.AddUint32(&qd.nextCid, 1)
 	}
 
 	return cid

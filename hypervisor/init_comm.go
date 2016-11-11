@@ -121,7 +121,16 @@ func ReadVmMessage(conn net.Conn) (*hyperstartapi.DecodedMessage, error) {
 }
 
 func waitInitReady(ctx *VmContext) {
-	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
+	var (
+		conn net.Conn
+		err  error
+	)
+
+	if ctx.Boot.EnableVsock {
+		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
+	} else {
+		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
+	}
 	if err != nil {
 		glog.Error("Cannot connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -165,7 +174,16 @@ func waitInitReady(ctx *VmContext) {
 }
 
 func connectToInit(ctx *VmContext) {
-	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
+	var (
+		conn net.Conn
+		err  error
+	)
+
+	if ctx.Boot.EnableVsock {
+		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
+	} else {
+		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
+	}
 	if err != nil {
 		glog.Error("Cannot re-connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{

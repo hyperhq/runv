@@ -143,7 +143,16 @@ func waitTtyMessage(ctx *VmContext, conn net.Conn) {
 }
 
 func waitPts(ctx *VmContext) {
-	conn, err := utils.UnixSocketConnect(ctx.TtySockName)
+	var (
+		conn net.Conn
+		err  error
+	)
+
+	if ctx.Boot.EnableVsock {
+		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockMsgPort)
+	} else {
+		conn, err = utils.UnixSocketConnect(ctx.TtySockName)
+	}
 	if err != nil {
 		glog.Error("Cannot connect to tty socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
