@@ -43,8 +43,8 @@ func VmLoop(vmId string, hub chan VmEvent, client chan *types.VmResponse, boot *
 	}
 
 	//launch routines
-	context.startSocks()
 	context.DCtx.Launch(context)
+	context.startSocks()
 
 	context.loop()
 }

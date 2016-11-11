@@ -14,6 +14,7 @@ func Dial(cid uint32, port uint32) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	unix.SetNonblock(fd, false)
 
 	dst := &unix.SockaddrVsock{Cid: cid, Port: port}
 	err = unix.Connect(fd, dst)
