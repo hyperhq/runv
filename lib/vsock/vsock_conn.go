@@ -75,9 +75,9 @@ func (c *VsockConn) Read(b []byte) (int, error) {
 		break
 	}
 	if err != nil && err != io.EOF {
-		err = &net.OpError{Op: "read", Net: c.net, Source: c.laddr, Addr: c.raddr, Err: err}
+		return 0, &net.OpError{Op: "read", Net: c.net, Source: c.laddr, Addr: c.raddr, Err: err}
 	}
-	return n, err
+	return n, nil
 }
 
 func (c *VsockConn) Write(b []byte) (int, error) {
