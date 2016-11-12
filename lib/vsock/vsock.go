@@ -5,9 +5,13 @@ package vsock
 import (
 	"fmt"
 	"net"
+	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 )
+
+const hyperDefaultVsockCid = 1025
 
 func Dial(cid uint32, port uint32) (net.Conn, error) {
 	fd, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM, 0)
@@ -36,4 +40,33 @@ func Dial(cid uint32, port uint32) (net.Conn, error) {
 	}
 
 	return newVsockConn(fd, src, dst), nil
+}
+
+type VsockCid interface {
+	sync.Locker
+	GetNextCid() uint32
+}
+
+type DefaultVsockCid struct {
+	sync.Mutex
+	nextCid uint32
+}
+
+func NewDefaultVsockCid() VsockCid {
+	return &DefaultVsockCid{nextCid: hyperDefaultVsockCid}
+}
+
+func (vc *DefaultVsockCid) GetNextCid() uint32 {
+	cid := atomic.AddUint32(&vc.nextCid, 1)
+	if cid < hyperDefaultVsockCid {
+		// overflow
+		vc.Lock()
+		if vc.nextCid < hyperDefaultVsockCid {
+			vc.nextCid = hyperDefaultVsockCid
+		}
+		vc.Unlock()
+		cid = atomic.AddUint32(&vc.nextCid, 1)
+	}
+
+	return cid
 }

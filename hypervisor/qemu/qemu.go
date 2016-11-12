@@ -8,12 +8,11 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/vsock"
 )
 
 //implement the hypervisor.HypervisorDriver interface
@@ -21,8 +20,7 @@ type QemuDriver struct {
 	executable string
 	hasVsock   bool
 
-	lock    *sync.Mutex // protects nextCid in case of overflow
-	nextCid uint32
+	vsock.VsockCid
 }
 
 //implement the hypervisor.DriverContext interface
@@ -55,12 +53,13 @@ func InitDriver() *QemuDriver {
 		hasVsock = true
 	}
 
-	return &QemuDriver{
+	qd := &QemuDriver{
 		executable: cmd,
 		hasVsock:   hasVsock,
-		lock:       &sync.Mutex{},
-		nextCid:    QemuDefaultVsockCid,
+		VsockCid:   vsock.NewDefaultVsockCid(),
 	}
+
+	return qd
 }
 
 func (qd *QemuDriver) Name() string {
@@ -71,18 +70,8 @@ func (qd *QemuDriver) getNextVsockCid() uint32 {
 	if !qd.hasVsock {
 		return 0
 	}
-	cid := atomic.AddUint32(&qd.nextCid, 1)
-	if cid < QemuDefaultVsockCid {
-		// overflow
-		qd.lock.Lock()
-		if qd.nextCid < QemuDefaultVsockCid {
-			qd.nextCid = QemuDefaultVsockCid
-		}
-		qd.lock.Unlock()
-		cid = atomic.AddUint32(&qd.nextCid, 1)
-	}
 
-	return cid
+	return qd.GetNextCid()
 }
 
 func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {

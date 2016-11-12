@@ -13,10 +13,9 @@ const (
 )
 
 const (
-	QmpSockName         = "qmp.sock"
-	QemuPidFile         = "pidfile"
-	QemuLogDir          = "/var/log/hyper/qemu"
-	QemuDefaultVsockCid = 1025
+	QmpSockName = "qmp.sock"
+	QemuPidFile = "pidfile"
+	QemuLogDir  = "/var/log/hyper/qemu"
 
 	QMP_EVENT_SHUTDOWN = "SHUTDOWN"
 )
