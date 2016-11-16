@@ -1,9 +1,8 @@
 package hypervisor
 
 import (
-	"sync"
-
 	"encoding/json"
+
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
@@ -134,8 +133,7 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 	return json.Marshal(pinfo)
 }
 
-func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse,
-	wg *sync.WaitGroup) (*VmContext, error) {
+func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse) (*VmContext, error) {
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
 	if err != nil {

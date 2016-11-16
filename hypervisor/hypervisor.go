@@ -4,8 +4,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
-
-	"sync"
 )
 
 func (ctx *VmContext) startSocks() {
@@ -40,8 +38,7 @@ func (ctx *VmContext) Launch() {
 	ctx.loop()
 }
 
-func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
-	wg *sync.WaitGroup, pack []byte) {
+func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, pack []byte) {
 
 	if glog.V(1) {
 		glog.Infof("VM %s trying to reload with serialized data: %s", vmId, string(pack))
@@ -66,7 +63,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse,
 		return
 	}
 
-	context, err := pinfo.vmContext(hub, client, wg)
+	context, err := pinfo.vmContext(hub, client)
 	if err != nil {
 		client <- &types.VmResponse{
 			VmId:  vmId,

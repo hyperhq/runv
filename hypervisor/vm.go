@@ -76,25 +76,25 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 }
 
 // This function will only be invoked during daemon start
-//func (vm *Vm) AssociateVm(mypod *PodStatus, data []byte) error {
-//	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", mypod.Id, mypod.Vm)
-//	var (
-//		PodEvent = make(chan VmEvent, 128)
-//		Status   = make(chan *types.VmResponse, 128)
-//	)
-//
-//	VmAssociate(mypod.Vm, PodEvent, Status, mypod.Wg, data)
-//
-//	ass := <-Status
-//	if ass.Code != types.E_OK {
-//		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", mypod.Vm, ass.Code, ass.Cause)
-//		return errors.New("load vm status failed")
-//	}
+func (vm *Vm) AssociateVm(data []byte) error {
+	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", vm.Id)
+	var (
+		PodEvent = make(chan VmEvent, 128)
+		Status   = make(chan *types.VmResponse, 128)
+	)
+
+	VmAssociate(vm.Id, PodEvent, Status, data)
+
+	ass := <-Status
+	if ass.Code != types.E_OK {
+		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", vm.Id, ass.Code, ass.Cause)
+		return errors.New("load vm status failed")
+	}
 //	go vm.handlePodEvent(mypod)
 //
-//	vm.Hub = PodEvent
-//	vm.clients = CreateFanout(Status, 128, false)
-//
+	vm.Hub = PodEvent
+	vm.clients = CreateFanout(Status, 128, false)
+
 //	mypod.Status = types.S_POD_RUNNING
 //	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
 //	mypod.SetContainerStatus(types.S_POD_RUNNING)
@@ -102,8 +102,8 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 //	//vm.Status = types.S_VM_ASSOCIATED
 //	//vm.Pod = mypod
 //
-//	return nil
-//}
+	return nil
+}
 
 func (vm *Vm) ReleaseVm() (int, error) {
 	var Response *types.VmResponse
