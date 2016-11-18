@@ -155,7 +155,6 @@ func (ne *NetDevInsertedEvent) Message() string {
 	return "NIC inserted"
 }
 
-
 type NetDevRemovedEvent struct {
 	Index int
 }

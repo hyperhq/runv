@@ -17,7 +17,6 @@ type Rlimit struct {
 }
 
 type ContainerDescription struct {
-
 	Id string
 
 	// Static Info, got from client input
@@ -25,9 +24,9 @@ type ContainerDescription struct {
 	Image string
 
 	// User content or user specified behavior
-	Labels        map[string]string     `json:"labels"`
-	Tty           bool                  `json:"tty,omitempty"`
-	RestartPolicy string                `json:"restartPolicy"`
+	Labels        map[string]string `json:"labels"`
+	Tty           bool              `json:"tty,omitempty"`
+	RestartPolicy string            `json:"restartPolicy"`
 
 	// Creation Info, got during creation
 	RootVolume *VolumeDescription // The root device of container, previous `Image` field of the ContainerInfo structure. if fstype is `dir`, this should be a path relative to share_dir, which described the mounted aufs or overlayfs dir.
@@ -35,27 +34,26 @@ type ContainerDescription struct {
 	RootPath   string // root path relative to the root volume, always be 'rootfs', previous `Rootfs` field of the ContainerInfo structure
 
 	// runtime info, combined during creation
-	UGI        *UserGroupInfo
-	Envs       map[string]string //TODO: Should I use []string or map[string]string?
-	Workdir    string
-	Path       string
-	Args       []string
-	Rlimits    []*Rlimit
-	Sysctl        map[string]string     `json:"sysctl,omitempty"`
+	UGI     *UserGroupInfo
+	Envs    map[string]string //TODO: Should I use []string or map[string]string?
+	Workdir string
+	Path    string
+	Args    []string
+	Rlimits []*Rlimit
+	Sysctl  map[string]string `json:"sysctl,omitempty"`
 
 	StopSignal string
 
-	Volumes       map[string][]*VolumeReference `json:"volumes"`
+	Volumes map[string][]*VolumeReference `json:"volumes"`
 
 	Initialize bool // need to initialize container environment in start
 }
 
 type VolumeDescription struct {
+	Name   string
+	Source string
 
-	Name         string
-	Source       string
-
-	Options      *VolumeOption
+	Options *VolumeOption
 
 	Fstype       string //"xfs", "ext4" etc. for block dev, or "dir" for dir path
 	Format       string //"raw" (or "qcow2" later) for volume, "vfs" for dir path
@@ -77,9 +75,9 @@ type VolumeReference struct {
 }
 
 type SandboxConfig struct {
-	Hostname   string
-	Neighbors  *NeighborNetworks
-	Dns        []string
+	Hostname  string
+	Neighbors *NeighborNetworks
+	Dns       []string
 }
 
 type InterfaceDescription struct {
@@ -121,21 +119,21 @@ func SandboxInfoFromOCF(s *specs.Spec) *SandboxConfig {
 
 func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription {
 	container := &ContainerDescription{
-		Id: id,
-		Name: s.Hostname,
-		Image: "",
-		Labels: make(map[string]string),
-		Tty: s.Process.Terminal,
+		Id:            id,
+		Name:          s.Hostname,
+		Image:         "",
+		Labels:        make(map[string]string),
+		Tty:           s.Process.Terminal,
 		RestartPolicy: "never",
-		RootVolume: nil,
-		MountId: "",
-		RootPath: "rootfs",
-		UGI: UGIFromOCF(&s.Process.User),
-		Envs: make(map[string]string),
+		RootVolume:    nil,
+		MountId:       "",
+		RootPath:      "rootfs",
+		UGI:           UGIFromOCF(&s.Process.User),
+		Envs:          make(map[string]string),
 		Workdir:       s.Process.Cwd,
-		Path: s.Process.Args[0],
-		Args: s.Process.Args[1:],
-		Rlimits: []*Rlimit{},
+		Path:          s.Process.Args[0],
+		Args:          s.Process.Args[1:],
+		Rlimits:       []*Rlimit{},
 		Sysctl:        s.Linux.Sysctl,
 	}
 
@@ -153,7 +151,7 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 	}
 
 	rootfs := &VolumeDescription{
-		Name: id,
+		Name:   id,
 		Source: id,
 		Fstype: "dir",
 		Format: "vfs",
@@ -178,7 +176,7 @@ func UGIFromOCF(u *specs.User) *UserGroupInfo {
 	}
 	if len(u.AdditionalGids) > 0 {
 		ugi.AdditionalGroups = []string{}
-		for _, gid := range u.AdditionalGids{
+		for _, gid := range u.AdditionalGids {
 			ugi.AdditionalGroups = append(ugi.AdditionalGroups, strconv.FormatUint(uint64(gid), 10))
 		}
 	}

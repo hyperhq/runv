@@ -135,7 +135,8 @@ func (ec *EmptyContext) Dump() (map[string]interface{}, error) {
 	return map[string]interface{}{"hypervisor": "empty"}, nil
 }
 
-func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *DiskDescriptor, result chan<- VmEvent) {}
+func (ec *EmptyContext) AddDisk(ctx *VmContext, sourceType string, blockInfo *DiskDescriptor, result chan<- VmEvent) {
+}
 
 func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *DiskDescriptor, callback VmEvent, result chan<- VmEvent) {
 }
@@ -143,7 +144,8 @@ func (ec *EmptyContext) RemoveDisk(ctx *VmContext, blockInfo *DiskDescriptor, ca
 func (ec *EmptyContext) AddNic(ctx *VmContext, host *HostNicInfo, guest *GuestNicInfo, result chan<- VmEvent) {
 }
 
-func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent, result chan<- VmEvent) {}
+func (ec *EmptyContext) RemoveNic(ctx *VmContext, n *InterfaceCreated, callback VmEvent, result chan<- VmEvent) {
+}
 
 func (ec *EmptyContext) SetCpus(ctx *VmContext, cpus int, result chan<- error) {}
 func (ec *EmptyContext) AddMem(ctx *VmContext, slot, size int, result chan<- error) {
@@ -167,7 +169,7 @@ func (ec *EmptyContext) AllocateNetwork(vmId, requestedIP string) (*network.Sett
 	return nil, nil
 }
 
-func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string,file *os.File) error {
+func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
 	return nil
 }
 

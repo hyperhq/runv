@@ -5,9 +5,9 @@ package xen
 import (
 	"os"
 
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/api"
 )
 
 func (xd *XenDriver) BuildinNetwork() bool {

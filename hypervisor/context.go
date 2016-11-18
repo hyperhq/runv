@@ -47,7 +47,7 @@ type VmContext struct {
 	pciAddr int //next available pci addr for pci hotplug
 	scsiId  int //next available scsi id for scsi hotplug
 
-//	InterfaceCount int
+	//	InterfaceCount int
 
 	ptys *pseudoTtys
 
@@ -105,14 +105,14 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
 		//InterfaceCount:  InterfaceCount,
-		timer:           nil,
-		handler:         stateRunning,
-		current:         StateRunning,
-		volumes:         make(map[string]*DiskContext),
-		containers:      make(map[string]*ContainerContext),
-		networks:        NewNetworkContext(),
-		vmExec:          make(map[string]*hyperstartapi.ExecCommand),
-		lock:            &sync.Mutex{},
+		timer:      nil,
+		handler:    stateRunning,
+		current:    StateRunning,
+		volumes:    make(map[string]*DiskContext),
+		containers: make(map[string]*ContainerContext),
+		networks:   NewNetworkContext(),
+		vmExec:     make(map[string]*hyperstartapi.ExecCommand),
+		lock:       &sync.Mutex{},
 	}
 	ctx.networks.sandbox = ctx
 
@@ -255,6 +255,13 @@ func (ctx *VmContext) AddInterface(inf *api.InterfaceDescription, result chan ap
 	ctx.networks.addInterface(inf, result)
 }
 
+func (ctx *VmContext) RemoveInterface(id string, result chan api.Result) {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	ctx.networks.removeInterface(id, result)
+}
+
 func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
@@ -277,7 +284,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 	}
 
 	wgDisk := &sync.WaitGroup{}
-	added  := []string{}
+	added := []string{}
 	rollback := func() {
 		for _, d := range added {
 			ctx.volumes[d].unwait(c.Id)

@@ -19,6 +19,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -1087,7 +1088,6 @@ func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 		return nil, err
 	}
 
-
 	//TODO: will move to a dedicate method
 	//err = SetupPortMaps(ip.String(), maps)
 	//if err != nil {
@@ -1102,7 +1102,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 	}
 
 	setting.Device = device
-	setting.File   = tapFile
+	setting.File = tapFile
 	return setting, nil
 }
 

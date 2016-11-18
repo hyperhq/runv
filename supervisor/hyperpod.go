@@ -49,8 +49,8 @@ type HyperPod struct {
 
 	//userPod   *pod.UserPod
 	//podStatus *hypervisor.PodStatus
-	vm        *hypervisor.Vm
-	sv        *Supervisor
+	vm *hypervisor.Vm
+	sv *Supervisor
 
 	nslistener *nsListener
 }
@@ -177,10 +177,10 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id: nicId, //ip as an id
-			Lo: false,
+			Id:     nicId, //ip as an id
+			Lo:     false,
 			Bridge: bridge,
-			Ip: info.Ip,
+			Ip:     info.Ip,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -232,7 +232,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			link := update.Veth
 			if link.Attrs().ParentIndex == 0 {
 				glog.Info("The deleted link :", link)
-				err = hp.vm.DeleteNic(link.Attrs().Index)
+				err = hp.vm.DeleteNic(link.Attrs().Name)
 				if err != nil {
 					glog.Error(err)
 					continue
@@ -269,18 +269,14 @@ func (hp *HyperPod) nsListenerStrap() {
 				continue
 			}
 
-			conf := pod.UserInterface{
+			inf := &api.InterfaceDescription{
+				Id:     update.Veth.Attrs().Name,
+				Lo:     false,
 				Bridge: bridge,
 				Ip:     update.Addr.LinkAddress.String(),
 			}
 
-			nicName := hp.vm.GetNextNicNameInVM()
-			if nicName == "" {
-				glog.Errorf("Can not get proper nic name")
-				continue
-			}
-
-			err = hp.vm.AddNic(update.Addr.LinkIndex, nicName, conf)
+			err = hp.vm.AddNic(inf)
 			if err != nil {
 				glog.Error(err)
 				continue
@@ -499,7 +495,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 	sandbox := api.SandboxInfoFromOCF(spec)
 	vm.InitSandbox(sandbox)
 
-	rsp := <- r
+	rsp := <-r
 
 	if !rsp.IsSuccess() {
 		vm.Kill()
@@ -527,10 +523,10 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 func (hp *HyperPod) reap() {
 	result := make(chan api.Result, 1)
 	go func() {
-		result<- hp.vm.Shutdown()
+		result <- hp.vm.Shutdown()
 	}()
 	select {
-	case rsp, ok := <-result :
+	case rsp, ok := <-result:
 		if !ok || !rsp.IsSuccess() {
 			glog.Errorf("StopPod fail: chan: %v, response: %v", ok, rsp)
 			break

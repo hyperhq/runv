@@ -94,8 +94,8 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 		nc.idMap[inf.Id] = i
 
 		result <- &api.ResultBase{
-			Id: inf.Id,
-			Success:  true,
+			Id:      inf.Id,
+			Success: true,
 		}
 		return
 	}
@@ -313,7 +313,7 @@ func (nc *NetworkContext) close() {
 		nc.cleanupInf(inf)
 	}
 	nc.eth = map[int]*InterfaceCreated{}
-	nc.lo =  map[string]*InterfaceCreated{}
+	nc.lo = map[string]*InterfaceCreated{}
 	nc.idMap = map[string]*InterfaceCreated{}
 }
 

@@ -1,9 +1,9 @@
 package hypervisor
 
 const (
-	ET_SPEC string = "SPEC_ERROR"
-	ET_BUSY string = "RESOURSE_UNAVAILABLE"
-	ET_DEVICE string = "DEVICE_OPERATION_FAIL"
+	ET_SPEC      string = "SPEC_ERROR"
+	ET_BUSY      string = "RESOURSE_UNAVAILABLE"
+	ET_DEVICE    string = "DEVICE_OPERATION_FAIL"
 	ET_NOT_READY string = "VM_NOT_READY"
 )
 
@@ -13,9 +13,9 @@ type Errors interface {
 
 //implement error, hypervisor.Error, and api.Result
 type CommonError struct {
-	errType string
+	errType   string
 	contextId string
-	cause string
+	cause     string
 }
 
 func (err *CommonError) Error() string {
@@ -42,32 +42,32 @@ func (err *CommonError) Message() string {
 // is checked when elements are being added to Sandbox.
 func NewSpecError(id, cause string) *CommonError {
 	return &CommonError{
-		errType: ET_SPEC,
+		errType:   ET_SPEC,
 		contextId: id,
-		cause: "spec error: " + cause,
+		cause:     "spec error: " + cause,
 	}
 }
 
 func NewBusyError(id, cause string) *CommonError {
 	return &CommonError{
-		errType: ET_BUSY,
+		errType:   ET_BUSY,
 		contextId: id,
-		cause: "resouse unavailable: " + cause,
+		cause:     "resouse unavailable: " + cause,
 	}
 }
 
 func NewDeviceError(id, cause string) *CommonError {
 	return &CommonError{
-		errType: ET_DEVICE,
+		errType:   ET_DEVICE,
 		contextId: id,
-		cause: "device operation error: " + cause,
+		cause:     "device operation error: " + cause,
 	}
 }
 
 func NewNotReadyError(id string) *CommonError {
 	return &CommonError{
-		errType: ET_NOT_READY,
+		errType:   ET_NOT_READY,
 		contextId: id,
-		cause: "vm is not ready to accept requests",
+		cause:     "vm is not ready to accept requests",
 	}
 }

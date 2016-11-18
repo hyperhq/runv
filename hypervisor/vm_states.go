@@ -55,13 +55,13 @@ func (ctx *VmContext) updateInterface(id string, result chan<- error) {
 		return
 	} else {
 		ctx.vm <- &hyperstartCmd{
-			Code:    hyperstartapi.INIT_SETUPINTERFACE,
+			Code: hyperstartapi.INIT_SETUPINTERFACE,
 			Message: hyperstartapi.NetworkInf{
 				Device:    inf.DeviceName,
 				IpAddress: inf.IpAddr,
 				NetMask:   inf.NetMask,
 			},
-			result:  result,
+			result: result,
 		}
 	}
 }
@@ -279,9 +279,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 			ctx.Log(ERROR, reason)
 		default:
 		}
-	case EVENT_INTERFACE_EJECTED:
-		ctx.releaseNetworkByLinkIndex((ev.(*NetDevRemovedEvent)).Index)
-		glog.V(1).Info("releaseNetworkByLinkIndex:", (ev.(*NetDevRemovedEvent)).Index)
 	case GENERIC_OPERATION:
 		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:

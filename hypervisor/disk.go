@@ -131,7 +131,7 @@ func (dc *DiskContext) remove(result chan<- api.Result) {
 		}
 
 		result <- api.NewResultBase(dc.Name, true, "")
-	} ()
+	}()
 }
 
 func (dc *DiskContext) wait(id string, wg *sync.WaitGroup) {

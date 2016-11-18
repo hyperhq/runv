@@ -16,7 +16,7 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []*api.PortDescripti
 }
 
 func Configure(vmId, requestedIP string, addrOnly bool,
-maps []*api.PortDescription, inf *api.InterfaceDescription) (*Settings, error) {
+	maps []*api.PortDescription, inf *api.InterfaceDescription) (*Settings, error) {
 	return nil, fmt.Errorf("Generial Network driver is unsupported on this os")
 }
 

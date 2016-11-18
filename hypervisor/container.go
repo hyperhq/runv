@@ -10,13 +10,13 @@ import (
 type ContainerContext struct {
 	*api.ContainerDescription
 
-	sandbox            *VmContext
+	sandbox *VmContext
 
-	root               *DiskContext
+	root *DiskContext
 
-	process            *hyperstartapi.Process
-	fsmap              []*hyperstartapi.FsmapDescriptor
-	vmVolumes          []*hyperstartapi.VolumeDescriptor
+	process   *hyperstartapi.Process
+	fsmap     []*hyperstartapi.FsmapDescriptor
+	vmVolumes []*hyperstartapi.VolumeDescriptor
 }
 
 func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {

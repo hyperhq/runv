@@ -60,18 +60,18 @@ type Port struct {
 }
 
 type Container struct {
-	Id            string             `json:"id"`
-	Rootfs        string             `json:"rootfs"`
-	Fstype        string             `json:"fstype,omitempty"`
-	Image         string             `json:"image"`
-	Addr          string             `json:"addr,omitempty"`
+	Id            string              `json:"id"`
+	Rootfs        string              `json:"rootfs"`
+	Fstype        string              `json:"fstype,omitempty"`
+	Image         string              `json:"image"`
+	Addr          string              `json:"addr,omitempty"`
 	Volumes       []*VolumeDescriptor `json:"volumes,omitempty"`
 	Fsmap         []*FsmapDescriptor  `json:"fsmap,omitempty"`
-	Sysctl        map[string]string  `json:"sysctl,omitempty"`
+	Sysctl        map[string]string   `json:"sysctl,omitempty"`
 	Process       *Process            `json:"process"`
-	RestartPolicy string             `json:"restartPolicy"`
-	Initialize    bool               `json:"initialize"`
-	Ports         []Port             `json:"ports,omitempty"`  //deprecated
+	RestartPolicy string              `json:"restartPolicy"`
+	Initialize    bool                `json:"initialize"`
+	Ports         []Port              `json:"ports,omitempty"` //deprecated
 }
 
 type NetworkInf struct {
@@ -80,7 +80,7 @@ type NetworkInf struct {
 	NetMask   string `json:"netMask"`
 }
 
-type  Route struct {
+type Route struct {
 	Dest    string `json:"dest"`
 	Gateway string `json:"gateway,omitempty"`
 	Device  string `json:"device,omitempty"`

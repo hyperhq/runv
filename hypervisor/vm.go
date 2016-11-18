@@ -12,8 +12,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/lib/utils"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type Vm struct {
@@ -23,9 +23,9 @@ type Vm struct {
 
 	//Pod    *PodStatus
 	//Status uint
-	Cpu    int
-	Mem    int
-	Lazy   bool
+	Cpu  int
+	Mem  int
+	Lazy bool
 
 	Hub     chan VmEvent
 	clients *Fanout
@@ -90,18 +90,18 @@ func (vm *Vm) AssociateVm(data []byte) error {
 		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", vm.Id, ass.Code, ass.Cause)
 		return errors.New("load vm status failed")
 	}
-//	go vm.handlePodEvent(mypod)
-//
+	//	go vm.handlePodEvent(mypod)
+	//
 	vm.Hub = PodEvent
 	vm.clients = CreateFanout(Status, 128, false)
 
-//	mypod.Status = types.S_POD_RUNNING
-//	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-//	mypod.SetContainerStatus(types.S_POD_RUNNING)
-//
-//	//vm.Status = types.S_VM_ASSOCIATED
-//	//vm.Pod = mypod
-//
+	//	mypod.Status = types.S_POD_RUNNING
+	//	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
+	//	mypod.SetContainerStatus(types.S_POD_RUNNING)
+	//
+	//	//vm.Status = types.S_VM_ASSOCIATED
+	//	//vm.Pod = mypod
+	//
 	return nil
 }
 
@@ -134,7 +134,7 @@ func (vm *Vm) ReleaseVm() (int, error) {
 
 func (vm *Vm) WaitVm(timeout int) <-chan bool {
 	var (
-		result = make(chan bool)
+		result      = make(chan bool)
 		timeoutChan <-chan time.Time
 	)
 
@@ -180,10 +180,10 @@ func (vm *Vm) WaitVm(timeout int) <-chan bool {
 
 func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
 	var (
-		waiting = make(map[string]struct{})
-		result = make(chan *api.ProcessExit, len(ids))
+		waiting     = make(map[string]struct{})
+		result      = make(chan *api.ProcessExit, len(ids))
 		timeoutChan <-chan time.Time
-		waitEvent = types.E_CONTAINER_FINISHED
+		waitEvent   = types.E_CONTAINER_FINISHED
 	)
 
 	if !isContainer {
@@ -220,8 +220,8 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 					ps, _ := response.Data.(*types.ProcessFinished)
 					if _, ok := waiting[ps.Id]; ok {
 						result <- &api.ProcessExit{
-							Id:   ps.Id,
-							Code: int(ps.Code),
+							Id:         ps.Id,
+							Code:       int(ps.Code),
 							FinishedAt: time.Now().UTC(),
 						}
 					}
@@ -442,23 +442,21 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	}, StateRunning)
 }
 
-func (vm *Vm) DeleteNic(idx int) error {
-
+func (vm *Vm) DeleteNic(id string) error {
+	client := make(chan api.Result, 1)
 	vm.SendGenericOperation("NetDevRemovedEvent", func(ctx *VmContext, result chan<- error) {
-		ctx.removeInterfaceByLinkIndex(idx)
+		ctx.RemoveInterface(id, client)
 	}, StateRunning)
 
+	ev, ok := <-client
+	if !ok {
+		return fmt.Errorf("internal error")
+	}
+
+	if !ev.IsSuccess() {
+		return fmt.Errorf("remove device failed")
+	}
 	return nil
-}
-
-func (vm *Vm) GetNextNicNameInVM() string {
-	name := make(chan string, 1)
-
-	vm.SendGenericOperation("GetNextNicName", func(ctx *VmContext, result chan<- error) {
-		ctx.GetNextNicName(name)
-	}, StateRunning)
-
-	return <-name
 }
 
 // TODO: deprecated api, it will be removed after the hyper.git updated
@@ -614,7 +612,7 @@ func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string
 	)
 
 	for _, name := range names {
-		if _, ok := wl[name] ; !ok {
+		if _, ok := wl[name]; !ok {
 			wl[name] = struct{}{}
 			go op(name, r)
 		}
@@ -631,7 +629,7 @@ func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string
 			success = false
 		}
 		vm.ctx.Log(DEBUG, "batch op %v on %s returned: %s", op, rsp.Message())
-		if _, ok:= wl[rsp.ResultId()]; ok {
+		if _, ok := wl[rsp.ResultId()]; ok {
 			delete(wl, rsp.ResultId())
 			result[rsp.ResultId()] = rsp
 		}
@@ -797,9 +795,9 @@ func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 	return &Vm{
 		Id: vmId,
 		//Pod:    nil,
-		Lazy:   lazy,
-		Cpu:    cpu,
-		Mem:    memory,
+		Lazy: lazy,
+		Cpu:  cpu,
+		Mem:  memory,
 	}
 }
 

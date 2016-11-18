@@ -42,11 +42,11 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	}
 
 	info := &PersistInfo{
-		Id:          ctx.Id,
-		DriverInfo:  dr,
+		Id:         ctx.Id,
+		DriverInfo: dr,
 		//UserSpec:    ctx.userSpec,
 		//VmSpec:      ctx.vmSpec,
-		HwStat:      ctx.dumpHwInfo(),
+		HwStat: ctx.dumpHwInfo(),
 		//VolumeList:  make([]*PersistVolumeInfo, len(ctx.devices.imageMap)+len(ctx.devices.volumeMap)),
 		//NetworkList: make([]*PersistNetworkInfo, len(ctx.devices.networkMap)),
 	}

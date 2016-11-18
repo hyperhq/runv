@@ -100,7 +100,6 @@ func (c *Container) create(p *Process) error {
 		}
 	}
 
-
 	// set rootfs readonly
 	if c.Spec.Root.Readonly {
 		err = utils.SetReadonly(vmRootfs)
