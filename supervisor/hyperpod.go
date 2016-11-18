@@ -232,7 +232,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			link := update.Veth
 			if link.Attrs().ParentIndex == 0 {
 				glog.Info("The deleted link :", link)
-				err = hp.vm.DeleteNic(link.Attrs().Name)
+				err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
 				if err != nil {
 					glog.Error(err)
 					continue
@@ -270,7 +270,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			}
 
 			inf := &api.InterfaceDescription{
-				Id:     update.Veth.Attrs().Name,
+				Id:     strconv.Itoa(link.Attrs().Index),
 				Lo:     false,
 				Bridge: bridge,
 				Ip:     update.Addr.LinkAddress.String(),
