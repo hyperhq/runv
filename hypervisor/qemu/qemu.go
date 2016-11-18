@@ -151,9 +151,21 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 	} else if err = json.Unmarshal(bytes, &log); err != nil {
 		return nil, fmt.Errorf("wrong qemu log filename type in persist info: %v", err)
 	}
-	cid, err := qd.getNextVsockCid()
-	if err != nil {
-		glog.Errorf("failed to get vsock cid: %s", err.Error())
+
+	var cid uint32
+	d, ok := persisted["cid"]
+	if !ok {
+		glog.Infof("no cid persisted. Loading old qemu?")
+	} else {
+		switch d.(type) {
+		case float64:
+			cid = uint32(d.(float64))
+		default:
+			return nil, errors.New("wrong cid field type in persist info")
+		}
+		if !qd.SetCid(cid) {
+			return nil, errors.New("conflicting persisted cid")
+		}
 	}
 
 	return &QemuContext{
@@ -188,6 +200,7 @@ func (qc *QemuContext) Dump() (map[string]interface{}, error) {
 		"qmpSock":    qc.qmpSockName,
 		"log":        *qc.qemuLogFile,
 		"pid":        qc.process.Pid,
+		"cid":        qc.guestCid,
 	}, nil
 }
 
@@ -215,6 +228,9 @@ func (qc *QemuContext) Close() {
 	qc.qemuLogFile.Close()
 	close(qc.qmp)
 	close(qc.wdt)
+	if qc.driver.hasVsock {
+		qc.driver.ClearCid(qc.guestCid)
+	}
 }
 
 func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {

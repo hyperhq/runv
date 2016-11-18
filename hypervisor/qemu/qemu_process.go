@@ -124,7 +124,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		return
 	}
 
-	if ctx.Boot.EnableVsock && !qc.driver.hasVsock {
+	if ctx.Boot.EnableVsock && (!qc.driver.hasVsock || qc.guestCid == 0) {
 		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "cannot enable vsock, qemu driver does not support it"}
 		return
 	}
