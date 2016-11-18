@@ -66,9 +66,9 @@ func (qd *QemuDriver) Name() string {
 	return "qemu"
 }
 
-func (qd *QemuDriver) getNextVsockCid() uint32 {
+func (qd *QemuDriver) getNextVsockCid() (uint32, error) {
 	if !qd.hasVsock {
-		return 0
+		return 0, fmt.Errorf("vsock is not enabled")
 	}
 
 	return qd.GetNextCid()
@@ -87,6 +87,10 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 		Name:   logFile,
 		Offset: 0,
 	}
+	cid, err := qd.getNextVsockCid()
+	if err != nil {
+		glog.Errorf("failed to get vsock cid: %s", err.Error())
+	}
 
 	return &QemuContext{
 		driver:      qd,
@@ -97,7 +101,7 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 		qemuPidFile: homeDir + QemuPidFile,
 		qemuLogFile: qemuLogFile,
 		process:     nil,
-		guestCid:    qd.getNextVsockCid(),
+		guestCid:    cid,
 	}
 }
 
@@ -147,6 +151,10 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 	} else if err = json.Unmarshal(bytes, &log); err != nil {
 		return nil, fmt.Errorf("wrong qemu log filename type in persist info: %v", err)
 	}
+	cid, err := qd.getNextVsockCid()
+	if err != nil {
+		glog.Errorf("failed to get vsock cid: %s", err.Error())
+	}
 
 	return &QemuContext{
 		driver:      qd,
@@ -156,7 +164,7 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 		qmpSockName: sock,
 		qemuLogFile: &log,
 		process:     proc,
-		guestCid:    qd.getNextVsockCid(),
+		guestCid:    cid,
 	}, nil
 }
 

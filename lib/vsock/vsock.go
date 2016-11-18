@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 
+	"github.com/RoaringBitmap/roaring"
 	"golang.org/x/sys/unix"
 )
 
-const hyperDefaultVsockCid = 1025
+const hyperDefaultVsockCid = 1024
+const hyperDefaultVsockBitmapSize = 16384
 
 func Dial(cid uint32, port uint32) (net.Conn, error) {
 	fd, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM, 0)
@@ -44,29 +45,55 @@ func Dial(cid uint32, port uint32) (net.Conn, error) {
 
 type VsockCid interface {
 	sync.Locker
-	GetNextCid() uint32
+	GetNextCid() (uint32, error)
+	SetCid(uint32) bool
+	ClearCid(uint32)
 }
 
 type DefaultVsockCid struct {
 	sync.Mutex
-	nextCid uint32
+	bitmap *roaring.Bitmap
+	start  uint32
+	size   uint32
+	pivot  uint32
 }
 
 func NewDefaultVsockCid() VsockCid {
-	return &DefaultVsockCid{nextCid: hyperDefaultVsockCid}
+	return &DefaultVsockCid{
+		bitmap: roaring.NewBitmap(),
+		start:  hyperDefaultVsockCid,
+		size:   hyperDefaultVsockBitmapSize,
+		pivot:  hyperDefaultVsockCid,
+	}
 }
 
-func (vc *DefaultVsockCid) GetNextCid() uint32 {
-	cid := atomic.AddUint32(&vc.nextCid, 1)
-	if cid < hyperDefaultVsockCid {
-		// overflow
-		vc.Lock()
-		if vc.nextCid < hyperDefaultVsockCid {
-			vc.nextCid = hyperDefaultVsockCid
+func (vc *DefaultVsockCid) GetNextCid() (uint32, error) {
+	var cid uint32
+	vc.Lock()
+	defer vc.Unlock()
+	for i := uint32(0); i < vc.size; i++ {
+		cid = vc.pivot + i
+		if cid >= vc.start+vc.size {
+			cid -= vc.size
 		}
-		vc.Unlock()
-		cid = atomic.AddUint32(&vc.nextCid, 1)
+		if vc.bitmap.CheckedAdd(cid) {
+			vc.pivot = cid + 1
+			return cid, nil
+		}
 	}
 
-	return cid
+	return cid, fmt.Errorf("No more available cid")
+}
+
+func (vc *DefaultVsockCid) SetCid(cid uint32) bool {
+	vc.Lock()
+	defer vc.Unlock()
+	success := vc.bitmap.CheckedAdd(cid)
+	return success
+}
+
+func (vc *DefaultVsockCid) ClearCid(cid uint32) {
+	vc.Lock()
+	defer vc.Unlock()
+	vc.bitmap.Remove(cid)
 }
