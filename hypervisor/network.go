@@ -34,6 +34,7 @@ func NewNetworkContext() *NetworkContext {
 		ports:    []*api.PortDescription{},
 		eth:      make(map[int]*InterfaceCreated),
 		lo:       make(map[string]*InterfaceCreated),
+		idMap:    make(map[string]*InterfaceCreated),
 		slotLock: &sync.RWMutex{},
 	}
 }
@@ -136,7 +137,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			result <- fe
 			return
 		} else if ni, ok := ev.(*NetDevInsertedEvent); ok {
-			nc.sandbox.Log(DEBUG, "nic insert success: ", ni.Id)
+			nc.sandbox.Log(DEBUG, "nic insert success: %s", ni.Id)
 			result <- ni
 			return
 		}
@@ -253,6 +254,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 	}
 
 	nc.eth[index] = created
+	nc.idMap[created.Id] = created
 	nc.sandbox.DCtx.AddNic(nc.sandbox, h, g, result)
 }
 
