@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v74",
+	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
 	],
@@ -103,6 +103,10 @@
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/timestamp",
 			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+		},
+		{
+			"ImportPath": "github.com/hyperhq/hypercontainer-utils/hlog",
+			"Rev": "858f20bc00c2e7450d2905bd574e631099aa1001"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
