@@ -1,54 +1,40 @@
 package hypervisor
 
 import (
-	"github.com/golang/glog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 )
 
 const (
-	ERROR uint = iota
-	WARNING
-	INFO
-	DEBUG
-	TRACE
+	ERROR   = hlog.ERROR
+	WARNING = hlog.WARNING
+	INFO    = hlog.INFO
+	DEBUG   = hlog.DEBUG
+	TRACE   = hlog.TRACE
 )
 
-func (ctx *VmContext) LogLevel(level uint) bool {
-	if level <= INFO {
-		return true
-	} else if level == DEBUG {
-		return bool(glog.V(1))
-	} else if level == TRACE {
-		return bool(glog.V(4))
-	}
-	return false
+func (ctx *VmContext) LogLevel(level hlog.LogLevel) bool {
+	return hlog.IsLogLevel(level)
 }
 
-func (ctx *VmContext) Log(level uint, format string, args ...interface{}) {
-	var (
-		logf   func(string, ...interface{})
-		prefix string
-	)
-	if ctx != nil {
-		prefix = ctx.Id
+func (ctx *VmContext) LogPrefix() string {
+	if ctx == nil {
+		return "Sandbox[] "
 	}
-	switch level {
-	case ERROR:
-		logf = glog.Errorf
-	case WARNING:
-		logf = glog.Warningf
-	case INFO:
-		logf = glog.Infof
-	case DEBUG:
-		logf = glog.V(1).Infof
-	case TRACE:
-		logf = glog.V(3).Infof
-	default:
-		return
-	}
-
-	logf(prefix+": "+format, args)
+	return ctx.logPrefix
 }
 
-func (cc *ContainerContext) Log(level uint, format string, args ...interface{}) {
-	cc.sandbox.Log(level, cc.Id+": "+format, args)
+func (ctx *VmContext) Log(level hlog.LogLevel, args ...interface{}) {
+	hlog.HLog(level, ctx, 1, args...)
 }
+
+func (cc *ContainerContext) LogPrefix() string {
+	if cc == nil {
+		return "Sandbox[] Container[] "
+	}
+	return cc.logPrefix
+}
+
+func (cc *ContainerContext) Log(level hlog.LogLevel, args ...interface{}) {
+	hlog.HLog(level, cc, 1, args...)
+}
+

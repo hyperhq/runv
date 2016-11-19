@@ -64,6 +64,8 @@ type VmContext struct {
 	current string
 	timer   *time.Timer
 
+	logPrefix string
+
 	lock *sync.Mutex //protect update of context
 	wg   *sync.WaitGroup
 }
@@ -127,6 +129,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		containers: make(map[string]*ContainerContext),
 		networks:   NewNetworkContext(),
 		vmExec:     make(map[string]*hyperstartapi.ExecCommand),
+		logPrefix:  fmt.Sprintf("Sandbox[%s] ", id),
 		lock:       &sync.Mutex{},
 	}
 	ctx.networks.sandbox = ctx
@@ -287,6 +290,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		fsmap:                []*hyperstartapi.FsmapDescriptor{},
 		vmVolumes:            []*hyperstartapi.VolumeDescriptor{},
 		sandbox:              ctx,
+		logPrefix:            fmt.Sprintf("Sandbox[%s] Container[%s] ", ctx.Id, c.Id),
 	}
 
 	wgDisk := &sync.WaitGroup{}

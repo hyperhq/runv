@@ -17,6 +17,8 @@ type ContainerContext struct {
 	process   *hyperstartapi.Process
 	fsmap     []*hyperstartapi.FsmapDescriptor
 	vmVolumes []*hyperstartapi.VolumeDescriptor
+
+	logPrefix string
 }
 
 func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
