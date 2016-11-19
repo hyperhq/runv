@@ -86,9 +86,25 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		ttySockName     = homeDir + TtySockName
 		consoleSockName = homeDir + ConsoleSockName
 		shareDir        = homeDir + ShareDirTag
+		ctx             *VmContext
 	)
 
-	ctx := &VmContext{
+	err := os.MkdirAll(shareDir, 0755)
+	if err != nil {
+		ctx.Log(ERROR, "cannot make dir %s: %v", shareDir, err)
+		return nil, err
+	}
+
+	if dc == nil {
+		dc = HDriver.InitContext(homeDir)
+		if dc == nil {
+			err := fmt.Errorf("cannot create driver context of %s", homeDir)
+			ctx.Log(ERROR, "init failed: %v", err)
+			return nil, err
+		}
+	}
+
+	ctx = &VmContext{
 		Id:              id,
 		Boot:            boot,
 		PauseState:      PauseStateUnpaused,
@@ -104,7 +120,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		TtySockName:     ttySockName,
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
-		//InterfaceCount:  InterfaceCount,
 		timer:      nil,
 		handler:    stateRunning,
 		current:    StateRunning,
@@ -115,15 +130,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		lock:       &sync.Mutex{},
 	}
 	ctx.networks.sandbox = ctx
-
-	if dc == nil {
-		dc = HDriver.InitContext(homeDir)
-	}
-	err := os.MkdirAll(shareDir, 0755)
-	if err != nil {
-		ctx.Log(ERROR, "cannot make dir", shareDir, err.Error())
-		return nil, err
-	}
 
 	return ctx, nil
 }

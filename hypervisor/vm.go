@@ -51,9 +51,6 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 		ctx     *VmContext
 	)
 
-	//if vm.Lazy {
-	//	go LazyVmLoop(vm.Id, PodEvent, Status, b)
-	//} else {
 	ctx, err = InitContext(vm.Id, vmEvent, Status, nil, b)
 	if err != nil {
 		Status <- &types.VmResponse{
