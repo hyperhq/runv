@@ -1108,13 +1108,13 @@ func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 
 func Configure(vmId, requestedIP string, addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
 
-	ip, ipnet, err := net.ParseCIDR(inf.Ip)
+	ip, mask, err := ipParser(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
 		return nil, err
 	}
 
-	maskSize, _ := ipnet.Mask.Size()
+	maskSize, _ := mask.Size()
 
 	/* TODO: Move port maps out of the plugging procedure
 	err = SetupPortMaps(ip.String(), maps)
@@ -1191,4 +1191,19 @@ func Release(vmId, releasedIP string) error {
 	}
 	*/
 	return nil
+}
+
+func ipParser(ipstr string) (net.IP, net.IPMask, error) {
+	glog.V(1).Info("parse IP addr ", ipstr)
+	ip, ipnet, err := net.ParseCIDR(ipstr)
+	if err == nil {
+		return ip, ipnet.Mask, nil
+	}
+
+	ip = net.ParseIP(ipstr)
+	if ip != nil {
+		return ip, ip.DefaultMask(), nil
+	}
+
+	return nil, nil, err
 }
