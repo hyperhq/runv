@@ -109,16 +109,18 @@ func (cc *ContainerContext) configProcess() {
 		envs = append(envs, hyperstartapi.EnvironmentVar{Env: e, Value: v})
 	}
 	cc.process = &hyperstartapi.Process{
-		User:             c.UGI.User,
-		Group:            c.UGI.Group,
-		AdditionalGroups: c.UGI.AdditionalGroups,
-		Terminal:         c.Tty,
-		Stdio:            cc.sandbox.ptys.nextAttachId(),
-		Stderr:           0,
-		Args:             append([]string{c.Path}, c.Args...),
-		Envs:             envs,
-		Workdir:          c.Workdir,
-		Rlimits:          make([]hyperstartapi.Rlimit, len(c.Rlimits)),
+		Terminal: c.Tty,
+		Stdio:    cc.sandbox.ptys.nextAttachId(),
+		Stderr:   0,
+		Args:     append([]string{c.Path}, c.Args...),
+		Envs:     envs,
+		Workdir:  c.Workdir,
+		Rlimits:  make([]hyperstartapi.Rlimit, len(c.Rlimits)),
+	}
+	if c.UGI != nil {
+		cc.process.User = c.UGI.User
+		cc.process.Group = c.UGI.Group
+		cc.process.AdditionalGroups = c.UGI.AdditionalGroups
 	}
 	for i, l := range c.Rlimits {
 		cc.process.Rlimits[i].Type = l.Type
