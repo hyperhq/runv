@@ -148,7 +148,7 @@ func waitPts(ctx *VmContext) {
 		err  error
 	)
 
-	if ctx.Boot.EnableVsock {
+	if ctx.GuestCid > 0 {
 		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockMsgPort)
 	} else {
 		conn, err = utils.UnixSocketConnect(ctx.TtySockName)

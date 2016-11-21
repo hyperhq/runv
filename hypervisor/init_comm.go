@@ -126,7 +126,7 @@ func waitInitReady(ctx *VmContext) {
 		err  error
 	)
 
-	if ctx.Boot.EnableVsock {
+	if ctx.GuestCid > 0 {
 		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
 	} else {
 		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
@@ -179,7 +179,7 @@ func connectToInit(ctx *VmContext) {
 		err  error
 	)
 
-	if ctx.Boot.EnableVsock {
+	if ctx.GuestCid > 0 {
 		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
 	} else {
 		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
