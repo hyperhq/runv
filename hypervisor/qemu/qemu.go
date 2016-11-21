@@ -90,6 +90,7 @@ func (qd *QemuDriver) InitContext(homeDir string) hypervisor.DriverContext {
 	cid, err := qd.getNextVsockCid()
 	if err != nil {
 		glog.Errorf("failed to get vsock cid: %s", err.Error())
+		cid = 0
 	}
 
 	return &QemuContext{
@@ -181,11 +182,25 @@ func (qd *QemuDriver) LoadContext(persisted map[string]interface{}) (hypervisor.
 }
 
 func (qc *QemuContext) Launch(ctx *hypervisor.VmContext) {
+	if ctx.Boot.EnableVsock && (!qc.driver.hasVsock || qc.guestCid == 0) {
+		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "cannot enable vsock, qemu driver does not support it"}
+		return
+	}
+
+	if !ctx.Boot.EnableVsock && qc.driver.hasVsock && qc.guestCid > 0 {
+		qc.driver.ClearCid(qc.guestCid)
+		qc.guestCid = 0
+	}
+	ctx.GuestCid = qc.guestCid
+
 	go launchQemu(qc, ctx)
 	go qmpHandler(ctx)
 }
 
 func (qc *QemuContext) Associate(ctx *hypervisor.VmContext) {
+	if qc.driver.hasVsock && qc.guestCid > 0 {
+		ctx.GuestCid = qc.guestCid
+	}
 	go associateQemu(ctx)
 	go qmpHandler(ctx)
 }
@@ -228,7 +243,7 @@ func (qc *QemuContext) Close() {
 	qc.qemuLogFile.Close()
 	close(qc.qmp)
 	close(qc.wdt)
-	if qc.driver.hasVsock {
+	if qc.driver.hasVsock && qc.guestCid > 0 {
 		qc.driver.ClearCid(qc.guestCid)
 	}
 }

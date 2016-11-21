@@ -124,18 +124,12 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		return
 	}
 
-	if ctx.Boot.EnableVsock && (!qc.driver.hasVsock || qc.guestCid == 0) {
-		ctx.Hub <- &hypervisor.VmStartFailEvent{Message: "cannot enable vsock, qemu driver does not support it"}
-		return
-	}
-
 	args := qc.arguments(ctx)
 	args = append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile.Name)
-	if ctx.Boot.EnableVsock {
+	if ctx.GuestCid > 0 {
 		addr := ctx.NextPciAddr()
-		vsockDev := fmt.Sprintf("vhost-vsock-pci,id=vsock0,bus=pci.0,addr=%x,guest-cid=%d", addr, qc.guestCid)
+		vsockDev := fmt.Sprintf("vhost-vsock-pci,id=vsock0,bus=pci.0,addr=%x,guest-cid=%d", addr, ctx.GuestCid)
 		args = append(args, "-device", vsockDev)
-		ctx.GuestCid = qc.guestCid
 	}
 
 	if glog.V(1) {
