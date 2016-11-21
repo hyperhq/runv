@@ -221,6 +221,13 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 							Code:       int(ps.Code),
 							FinishedAt: time.Now().UTC(),
 						}
+						delete(waiting, ps.Id)
+						select {
+						case ps.Ack <- true:
+							vm.ctx.Log(TRACE, "got shut down msg, acked here")
+						default:
+							vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
+						}
 					}
 				}
 			case <-timeoutChan:

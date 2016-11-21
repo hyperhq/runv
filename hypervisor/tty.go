@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
@@ -311,15 +312,22 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 				//remove exec automatically
 				ctx.DeleteExec(id)
 			}
+			ctx.Log(DEBUG, "found finished exec %s", id)
 		}
 
 		if id != "" {
 			ctx.reportProcessFinished(kind, &types.ProcessFinished{
 				Id: id, Code: code, Ack: ack,
 			})
+			ctx.Log(DEBUG, "report event %d (8:exec/9container) finish, id: %s", kind, id)
 			// TODO: We should have a timeout here
 			// wait for pod handler setting up exitcode for container
-			<-ack
+			select {
+			case <-ack:
+				ctx.Log(TRACE, "report event %s finish: done", id)
+			case <-time.After(5*time.Minute):
+				ctx.Log(TRACE, "report event %s finish: timeout", id)
+			}
 		}
 
 		pts.lock.Lock()
