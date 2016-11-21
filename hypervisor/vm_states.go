@@ -187,7 +187,7 @@ func (ctx *VmContext) poweroffVM(err bool, msg string) {
 		glog.Error("Shutting down because of an exception: ", msg)
 	}
 	//REFACTOR: kill directly instead of DCtx.Shutdown() and send shutdown information
-	ctx.reportVmShutdown()
+	ctx.Log(INFO, "poweroff vm based on command: %s", msg)
 	if ctx != nil && ctx.handler != nil {
 		ctx.DCtx.Kill(ctx)
 	}

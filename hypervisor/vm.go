@@ -357,7 +357,10 @@ func (vm *Vm) Shutdown() api.Result {
 
 // TODO: should we provide a method to force kill vm
 func (vm *Vm) Kill() {
-	go vm.Shutdown()
+	vm.GenericOperation("KillSandbox", func(ctx *VmContext, result chan<- error) {
+		ctx.poweroffVM(false, "API Kill Sandbox")
+		result <- nil
+	}, StateRunning, StateTerminating)
 }
 
 func (vm *Vm) WriteFile(container, target string, data []byte) error {
