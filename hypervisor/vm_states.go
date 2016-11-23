@@ -304,7 +304,6 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		if ack.reply.Code == hyperstartapi.INIT_DESTROYPOD {
 			glog.Info("POD destroyed ", string(ack.msg))
 			ctx.poweroffVM(false, "")
-			ctx.Close()
 		}
 	case ERROR_CMD_FAIL:
 		ack := ev.(*CommandError)
