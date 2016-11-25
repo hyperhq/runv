@@ -165,11 +165,15 @@ func waitPts(ctx *VmContext) {
 			close(ctx.ptys.channel)
 			return
 		}
-		if ta, ok := ctx.ptys.ttys[res.Session]; ok {
-			if len(res.Message) == 0 {
-				glog.V(1).Infof("session %d closed by peer, close pty", res.Session)
+		if len(res.Message) == 0 {
+			glog.V(1).Infof("session %d closed by peer, close pty", res.Session)
+			if ta, ok := ctx.ptys.ttys[res.Session]; ok {
 				ta.closed = true
-			} else if ta.closed {
+			} else {
+				ctx.ptys.addEmptyPty(false, false, true, res.Session, 0)
+			}
+		} else if ta, ok := ctx.ptys.ttys[res.Session]; ok {
+			if ta.closed {
 				var code uint8 = 255
 				if len(res.Message) == 1 {
 					code = uint8(res.Message[0])
@@ -338,6 +342,21 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 		}
 		pts.lock.Unlock()
 	}
+}
+
+func (pts *pseudoTtys) addEmptyPty(persist, isTty, closed bool, stdioSeq, stderrSeq uint64) {
+	pts.lock.Lock()
+	if _, ok := pts.ttys[stdioSeq]; !ok {
+		ta := newAttachmentsWithTty(persist, isTty, nil)
+		ta.stdioSeq = stdioSeq
+		ta.stderrSeq = stderrSeq
+		ta.closed = closed
+		pts.ttys[stdioSeq] = ta
+		if stderrSeq > 0 {
+			pts.ttys[stderrSeq] = ta
+		}
+	}
+	pts.lock.Unlock()
 }
 
 func (pts *pseudoTtys) ptyConnect(persist, isTty bool, stdioSeq, stderrSeq uint64, tty *TtyIO) {
