@@ -18,7 +18,7 @@ func (ctx *VmContext) LogLevel(level hlog.LogLevel) bool {
 
 func (ctx *VmContext) LogPrefix() string {
 	if ctx == nil {
-		return "Sandbox[] "
+		return "SB[] "
 	}
 	return ctx.logPrefix
 }
@@ -29,7 +29,7 @@ func (ctx *VmContext) Log(level hlog.LogLevel, args ...interface{}) {
 
 func (cc *ContainerContext) LogPrefix() string {
 	if cc == nil {
-		return "Sandbox[] Container[] "
+		return "SB[] Con[] "
 	}
 	return cc.logPrefix
 }

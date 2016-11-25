@@ -65,7 +65,7 @@ func waitConsoleOutput(ctx *VmContext) {
 	for {
 		line, ok := <-cout
 		if ok {
-			ctx.Log(DEBUG, "[console] %s", line)
+			ctx.Log(DEBUG, "[CNL] %s", line)
 		} else {
 			ctx.Log(INFO, "console output end")
 			break

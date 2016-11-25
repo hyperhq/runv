@@ -129,7 +129,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		containers: make(map[string]*ContainerContext),
 		networks:   NewNetworkContext(),
 		vmExec:     make(map[string]*hyperstartapi.ExecCommand),
-		logPrefix:  fmt.Sprintf("Sandbox[%s] ", id),
+		logPrefix:  fmt.Sprintf("SB[%s] ", id),
 		lock:       &sync.Mutex{},
 	}
 	ctx.networks.sandbox = ctx
@@ -290,7 +290,7 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		fsmap:                []*hyperstartapi.FsmapDescriptor{},
 		vmVolumes:            []*hyperstartapi.VolumeDescriptor{},
 		sandbox:              ctx,
-		logPrefix:            fmt.Sprintf("Sandbox[%s] Container[%s] ", ctx.Id, c.Id),
+		logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, c.Id),
 	}
 
 	wgDisk := &sync.WaitGroup{}
