@@ -62,13 +62,26 @@ func waitConsoleOutput(ctx *VmContext) {
 	cout := make(chan string, 128)
 	go TtyLiner(tc, cout)
 
+	const ignoreLines = 128
+	for consoleLines := 0 ; consoleLines < ignoreLines; consoleLines++ {
+		line, ok := <-cout
+		if ok {
+			ctx.Log(EXTRA, "[CNL] %s", line)
+		} else {
+			ctx.Log(INFO, "console output end")
+			return
+		}
+	}
+	if !ctx.LogLevel(EXTRA) {
+		ctx.Log(DEBUG, "[CNL] omit the first %d line of console logs", ignoreLines)
+	}
 	for {
 		line, ok := <-cout
 		if ok {
 			ctx.Log(DEBUG, "[CNL] %s", line)
 		} else {
 			ctx.Log(INFO, "console output end")
-			break
+			return
 		}
 	}
 }

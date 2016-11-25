@@ -10,6 +10,7 @@ const (
 	INFO    = hlog.INFO
 	DEBUG   = hlog.DEBUG
 	TRACE   = hlog.TRACE
+	EXTRA   = hlog.EXTRA
 )
 
 func (ctx *VmContext) LogLevel(level hlog.LogLevel) bool {

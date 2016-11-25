@@ -106,7 +106,7 @@
 		},
 		{
 			"ImportPath": "github.com/hyperhq/hypercontainer-utils/hlog",
-			"Rev": "858f20bc00c2e7450d2905bd574e631099aa1001"
+			"Rev": "e979ff3608ee60c3e00d73d8578b57a1eba778c6"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",

@@ -12,7 +12,8 @@ type LogOwner interface {
 }
 
 const (
-	TRACE LogLevel = iota
+	EXTRA LogLevel = iota
+	TRACE
 	DEBUG
 	INFO
 	WARNING
@@ -47,10 +48,11 @@ func IsLogLevel(level LogLevel) bool {
 		return bool(glog.V(1))
 	} else if level == TRACE {
 		return bool(glog.V(4))
+	} else if level == EXTRA {
+		return bool(glog.V(5))
 	}
 	return false
 }
-
 
 type logFunc func(int, ...interface{})
 
@@ -69,6 +71,11 @@ func getLogger(level LogLevel) logFunc {
 		return nil
 	case TRACE:
 		if glog.V(3) {
+			return glog.InfoDepth
+		}
+		return nil
+	case EXTRA:
+		if glog.V(5) {
 			return glog.InfoDepth
 		}
 		return nil
