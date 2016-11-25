@@ -93,6 +93,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			fmt.Printf("runv should be run as root\n")
 			os.Exit(-1)
 		}
+		if container == "" {
+			fmt.Printf("no container id provided\n")
+			os.Exit(-1)
+		}
 		_, err = os.Stat(filepath.Join(root, container))
 		if err == nil {
 			fmt.Printf("Container %s exists\n", container)
