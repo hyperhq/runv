@@ -26,7 +26,6 @@ type ContainerDescription struct {
 	// User content or user specified behavior
 	Labels        map[string]string `json:"labels"`
 	Tty           bool              `json:"tty,omitempty"`
-	RestartPolicy string            `json:"restartPolicy"`
 
 	// Creation Info, got during creation
 	RootVolume *VolumeDescription // The root device of container, previous `Image` field of the ContainerInfo structure. if fstype is `dir`, this should be a path relative to share_dir, which described the mounted aufs or overlayfs dir.
@@ -124,7 +123,6 @@ func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription
 		Image:         "",
 		Labels:        make(map[string]string),
 		Tty:           s.Process.Terminal,
-		RestartPolicy: "never",
 		RootVolume:    nil,
 		MountId:       "",
 		RootPath:      "rootfs",
