@@ -61,13 +61,13 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 			return
 		}
 
-		for _, vc := range vcs {
+		for _, mp := range vcs.MountPoints {
 			if vol.IsDir() {
 				cc.Log(DEBUG, "volume (fs mapping) %s is ready", vn)
 				cc.fsmap = append(cc.fsmap, &hyperstartapi.FsmapDescriptor{
 					Source:       vol.Filename,
-					Path:         vc.Path,
-					ReadOnly:     vc.ReadOnly,
+					Path:         mp.Path,
+					ReadOnly:     mp.ReadOnly,
 					DockerVolume: vol.DockerVolume,
 				})
 			} else {
@@ -75,9 +75,9 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 				cc.vmVolumes = append(cc.vmVolumes, &hyperstartapi.VolumeDescriptor{
 					Device:       vol.DeviceName,
 					Addr:         vol.ScsiAddr,
-					Mount:        vc.Path,
+					Mount:        mp.Path,
 					Fstype:       vol.Fstype,
-					ReadOnly:     vc.ReadOnly,
+					ReadOnly:     mp.ReadOnly,
 					DockerVolume: vol.DockerVolume,
 				})
 			}

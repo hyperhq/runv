@@ -43,7 +43,7 @@ type ContainerDescription struct {
 
 	StopSignal string
 
-	Volumes map[string][]*VolumeReference `json:"volumes"`
+	Volumes map[string]*VolumeReference `json:"volumes"`
 
 	Initialize bool // need to initialize container environment in start
 }
@@ -67,10 +67,14 @@ type VolumeOption struct {
 	Iops        int      `json:"iops"`
 }
 
-type VolumeReference struct {
+type VolumeMount struct {
 	Path     string `json:"path"`
-	Name     string `json:"name"`
 	ReadOnly bool   `json:"readOnly"`
+}
+
+type VolumeReference struct {
+	Name        string `json:"name"`
+	MountPoints []*VolumeMount
 }
 
 type SandboxConfig struct {
