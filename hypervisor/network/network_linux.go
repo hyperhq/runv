@@ -904,8 +904,8 @@ func SetupPortMaps(containerip string, maps []*api.PortDescription) error {
 		}
 
 		natArgs := []string{"-p", proto, "-m", proto, "--dport",
-			strconv.Itoa(m.HostPort), "-j", "DNAT", "--to-destination",
-			net.JoinHostPort(containerip, strconv.Itoa(m.ContainerPort))}
+			strconv.Itoa(int(m.HostPort)), "-j", "DNAT", "--to-destination",
+			net.JoinHostPort(containerip, strconv.Itoa(int(m.ContainerPort)))}
 
 		if iptables.PortMapExists("HYPER", natArgs) {
 			return nil
@@ -920,13 +920,13 @@ func SetupPortMaps(containerip string, maps []*api.PortDescription) error {
 			return err
 		}
 
-		err = PortMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
+		err = PortMapper.AllocateMap(m.Protocol, int(m.HostPort), containerip, int(m.ContainerPort))
 		if err != nil {
 			return err
 		}
 
 		filterArgs := []string{"-d", containerip, "-p", proto, "-m", proto,
-			"--dport", strconv.Itoa(m.ContainerPort), "-j", "ACCEPT"}
+			"--dport", strconv.Itoa(int(m.ContainerPort)), "-j", "ACCEPT"}
 		if output, err := iptables.Raw(append([]string{"-I", "HYPER"}, filterArgs...)...); err != nil {
 			return fmt.Errorf("Unable to setup forward rule in HYPER chain: %s", err)
 		} else if len(output) != 0 {
@@ -944,7 +944,7 @@ func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
 
 	for _, m := range maps {
 		glog.V(1).Infof("release port map %d", m.HostPort)
-		err := PortMapper.ReleaseMap(m.Protocol, m.HostPort)
+		err := PortMapper.ReleaseMap(m.Protocol, int(m.HostPort))
 		if err != nil {
 			continue
 		}
@@ -958,13 +958,13 @@ func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
 		}
 
 		natArgs := []string{"-p", proto, "-m", proto, "--dport",
-			strconv.Itoa(m.HostPort), "-j", "DNAT", "--to-destination",
-			net.JoinHostPort(containerip, strconv.Itoa(m.ContainerPort))}
+			strconv.Itoa(int(m.HostPort)), "-j", "DNAT", "--to-destination",
+			net.JoinHostPort(containerip, strconv.Itoa(int(m.ContainerPort)))}
 
 		iptables.OperatePortMap(iptables.Delete, "HYPER", natArgs)
 
 		filterArgs := []string{"-d", containerip, "-p", proto, "-m", proto,
-			"--dport", strconv.Itoa(m.ContainerPort), "-j", "ACCEPT"}
+			"--dport", strconv.Itoa(int(m.ContainerPort)), "-j", "ACCEPT"}
 		iptables.Raw(append([]string{"-D", "HYPER"}, filterArgs...)...)
 	}
 	/* forbid to map ports twice */

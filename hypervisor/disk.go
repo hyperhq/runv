@@ -54,8 +54,8 @@ func NewDiskContext(ctx *VmContext, vol *api.VolumeDescription) *DiskContext {
 			"user":        vol.Options.User,
 			"keyring":     vol.Options.Keyring,
 			"monitors":    strings.Join(vol.Options.Monitors, ";"),
-			"bytespersec": strconv.Itoa(vol.Options.BytesPerSec),
-			"iops":        strconv.Itoa(vol.Options.Iops),
+			"bytespersec": strconv.Itoa(int(vol.Options.BytesPerSec)),
+			"iops":        strconv.Itoa(int(vol.Options.Iops)),
 		}
 	}
 	return dc
