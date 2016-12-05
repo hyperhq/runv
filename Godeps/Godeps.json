@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v74",
+	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
 	],
@@ -86,23 +86,27 @@
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+			"Rev": "9e6977f30c91c78396e719e164e57f9287fff42c"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes",
-			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+			"Rev": "9e6977f30c91c78396e719e164e57f9287fff42c"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/any",
-			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+			"Rev": "9e6977f30c91c78396e719e164e57f9287fff42c"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/duration",
-			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+			"Rev": "9e6977f30c91c78396e719e164e57f9287fff42c"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/timestamp",
-			"Rev": "1f49d83d9aa00e6ce4fc8258c71cc7786aec968a"
+			"Rev": "9e6977f30c91c78396e719e164e57f9287fff42c"
+		},
+		{
+			"ImportPath": "github.com/hyperhq/hypercontainer-utils/hlog",
+			"Rev": "e979ff3608ee60c3e00d73d8578b57a1eba778c6"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
