@@ -127,7 +127,7 @@ func TestParseVolumes(t *testing.T) {
 		t.Error("vol1 on container 0 should be read only")
 	}
 
-	ref1 := BlockDescriptor{Name: "vol1", Filename: "", Format: "", Fstype: "", DeviceName: ""}
+	ref1 := DiskDescriptor{Name: "vol1", Filename: "", Format: "", Fstype: "", DeviceName: ""}
 	if *vol1.info != ref1 {
 		t.Errorf("info of vol1: %q %q %q %q %q",
 			vol1.info.Name, vol1.info.Filename, vol1.info.Format, vol1.info.Fstype, vol1.info.DeviceName)
@@ -142,7 +142,7 @@ func TestParseVolumes(t *testing.T) {
 		t.Error("vol2 on container 0 should not be read only")
 	}
 
-	ref2 := BlockDescriptor{Name: "vol2", Filename: "/home/whatever", Format: "vfs", Fstype: "dir", DeviceName: ""}
+	ref2 := DiskDescriptor{Name: "vol2", Filename: "/home/whatever", Format: "vfs", Fstype: "dir", DeviceName: ""}
 	if *vol2.info != ref2 {
 		t.Errorf("info of vol2: %q %q %q %q %q",
 			vol2.info.Name, vol2.info.Filename, vol2.info.Format, vol2.info.Fstype, vol2.info.DeviceName)
