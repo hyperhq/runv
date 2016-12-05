@@ -251,8 +251,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 	case EVENT_INIT_CONNECTED:
 		ctx.Log(INFO, "hyperstart is ready to accept vm commands")
 		ctx.reportVmRun()
-	case EVENT_POD_FINISH: // REFACTOR: can i ignore it? OK, will ignore it
-		ctx.Log(INFO, "REFACTOR: ignore EVENT_POD_FINISH")
 	case EVENT_VM_EXIT, ERROR_VM_START_FAILED:
 		ctx.Log(INFO, "VM has exit, or not started at all (%d)", ev.Event())
 		ctx.reportVmShutdown()

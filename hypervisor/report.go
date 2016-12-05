@@ -49,15 +49,6 @@ func (ctx *VmContext) reportPodStopped() {
 	}
 }
 
-func (ctx *VmContext) reportPodFinished(result *PodFinished) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_POD_FINISHED,
-		Cause: "POD run finished",
-		Data:  result.result,
-	}
-}
-
 func (ctx *VmContext) reportProcessFinished(code int, result *types.ProcessFinished) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,

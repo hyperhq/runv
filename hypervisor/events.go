@@ -19,10 +19,6 @@ type VmKilledEvent struct {
 	Success bool
 }
 
-type PodFinished struct {
-	result []uint32
-}
-
 type VmTimeout struct{}
 
 type InitFailedEvent struct {
@@ -198,7 +194,6 @@ func (qe *VmStartFailEvent) Event() int      { return ERROR_VM_START_FAILED }
 func (qe *VmExit) Event() int                { return EVENT_VM_EXIT }
 func (qe *VmKilledEvent) Event() int         { return EVENT_VM_KILL }
 func (qe *VmTimeout) Event() int             { return EVENT_VM_TIMEOUT }
-func (qe *PodFinished) Event() int           { return EVENT_POD_FINISH }
 func (qe *InitConnectedEvent) Event() int    { return EVENT_INIT_CONNECTED }
 func (qe *ContainerCreatedEvent) Event() int { return EVENT_CONTAINER_ADD }
 func (qe *ContainerUnmounted) Event() int    { return EVENT_CONTAINER_DELETE }
