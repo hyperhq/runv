@@ -41,14 +41,6 @@ func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
 	}
 }
 
-func (ctx *VmContext) reportPodStopped() {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_POD_STOPPED,
-		Cause: "All device detached successful",
-	}
-}
-
 func (ctx *VmContext) reportProcessFinished(code int, result *types.ProcessFinished) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
