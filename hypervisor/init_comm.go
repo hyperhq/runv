@@ -82,7 +82,7 @@ func NewVmMessage(m *hyperstartapi.DecodedMessage) []byte {
 	return msg
 }
 
-func ReadVmMessage(conn *net.UnixConn) (*hyperstartapi.DecodedMessage, error) {
+func ReadVmMessage(conn net.Conn) (*hyperstartapi.DecodedMessage, error) {
 	needRead := 8
 	length := 0
 	read := 0
@@ -121,7 +121,16 @@ func ReadVmMessage(conn *net.UnixConn) (*hyperstartapi.DecodedMessage, error) {
 }
 
 func waitInitReady(ctx *VmContext) {
-	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
+	var (
+		conn net.Conn
+		err  error
+	)
+
+	if ctx.GuestCid > 0 {
+		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
+	} else {
+		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
+	}
 	if err != nil {
 		glog.Error("Cannot connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -133,15 +142,15 @@ func waitInitReady(ctx *VmContext) {
 	if ctx.Boot.BootFromTemplate {
 		glog.Info("boot from template")
 		ctx.PauseState = PauseStatePaused
-		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
-		go waitCmdToInit(ctx, conn.(*net.UnixConn))
+		ctx.Hub <- &InitConnectedEvent{conn: conn}
+		go waitCmdToInit(ctx, conn)
 		// TODO call getVMHyperstartAPIVersion(ctx) after unpaused
 		return
 	}
 
 	glog.Info("Wating for init messages...")
 
-	msg, err := ReadVmMessage(conn.(*net.UnixConn))
+	msg, err := ReadVmMessage(conn)
 	if err != nil {
 		glog.Error("read init message failed... ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -150,8 +159,8 @@ func waitInitReady(ctx *VmContext) {
 		conn.Close()
 	} else if msg.Code == hyperstartapi.INIT_READY {
 		glog.Info("Get init ready message")
-		ctx.Hub <- &InitConnectedEvent{conn: conn.(*net.UnixConn)}
-		go waitCmdToInit(ctx, conn.(*net.UnixConn))
+		ctx.Hub <- &InitConnectedEvent{conn: conn}
+		go waitCmdToInit(ctx, conn)
 		if !ctx.Boot.BootToBeTemplate {
 			getVMHyperstartAPIVersion(ctx)
 		}
@@ -165,7 +174,16 @@ func waitInitReady(ctx *VmContext) {
 }
 
 func connectToInit(ctx *VmContext) {
-	conn, err := utils.UnixSocketConnect(ctx.HyperSockName)
+	var (
+		conn net.Conn
+		err  error
+	)
+
+	if ctx.GuestCid > 0 {
+		conn, err = utils.VmSocketConnect(ctx.GuestCid, HyperVsockCtlPort)
+	} else {
+		conn, err = utils.UnixSocketConnect(ctx.HyperSockName)
+	}
 	if err != nil {
 		glog.Error("Cannot re-connect to hyper socket ", err.Error())
 		ctx.Hub <- &InitFailedEvent{
@@ -174,7 +192,7 @@ func connectToInit(ctx *VmContext) {
 		return
 	}
 
-	go waitCmdToInit(ctx, conn.(*net.UnixConn))
+	go waitCmdToInit(ctx, conn)
 	getVMHyperstartAPIVersion(ctx)
 }
 
@@ -200,7 +218,7 @@ func getVMHyperstartAPIVersion(ctx *VmContext) error {
 	return nil
 }
 
-func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
+func waitCmdToInit(ctx *VmContext, init net.Conn) {
 	looping := true
 	cmds := []*hyperstartCmd{}
 
@@ -349,7 +367,7 @@ func waitCmdToInit(ctx *VmContext, init *net.UnixConn) {
 	}
 }
 
-func waitInitAck(ctx *VmContext, init *net.UnixConn) {
+func waitInitAck(ctx *VmContext, init net.Conn) {
 	for {
 		res, err := ReadVmMessage(init)
 		if err != nil {

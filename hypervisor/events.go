@@ -33,7 +33,7 @@ type InitFailedEvent struct {
 }
 
 type InitConnectedEvent struct {
-	conn *net.UnixConn
+	conn net.Conn
 }
 
 type GetPodStatsCommand struct {

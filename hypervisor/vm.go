@@ -399,7 +399,7 @@ func (vm *Vm) AddNic(idx int, name string, info pod.UserInterface) error {
 
 	client := make(chan VmEvent, 1)
 	vm.SendGenericOperation("CreateInterface", func(ctx *VmContext, result chan<- error) {
-		addr := ctx.nextPciAddr()
+		addr := ctx.NextPciAddr()
 		go ctx.ConfigureInterface(idx, addr, name, info, client)
 	}, StateRunning)
 

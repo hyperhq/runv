@@ -32,7 +32,7 @@ type TemplateVmConfig struct {
 	Initrd    string `json:"initrd"`
 }
 
-func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string) (t *TemplateVmConfig, err error) {
+func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd string, vsock bool) (t *TemplateVmConfig, err error) {
 	defer func() {
 		if err != nil {
 			(&TemplateVmConfig{StatePath: statePath}).Destroy()
@@ -64,6 +64,7 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 		HotAddCpuMem:     true,
 		BootToBeTemplate: true,
 		BootFromTemplate: false,
+		EnableVsock:      vsock,
 		MemoryPath:       statePath + "/memory",
 		DevicesStatePath: statePath + "/state",
 		Kernel:           kernel,
