@@ -45,9 +45,11 @@ func (nc *NetworkContext) sandboxInfo() *hyperstartapi.Pod {
 
 	vmSpec.Hostname = nc.Hostname
 	vmSpec.Dns = nc.Dns
-	vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
-		InternalNetworks: nc.Neighbors.InternalNetworks,
-		ExternalNetworks: nc.Neighbors.ExternalNetworks,
+	if nc.Neighbors != nil {
+		vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
+			InternalNetworks: nc.Neighbors.InternalNetworks,
+			ExternalNetworks: nc.Neighbors.ExternalNetworks,
+		}
 	}
 
 	return vmSpec
@@ -291,7 +293,7 @@ func (nc *NetworkContext) getIpAddrs() []string {
 
 func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
 	nc.slotLock.RLock()
-	nc.slotLock.RUnlock()
+	defer nc.slotLock.RUnlock()
 	routes := []hyperstartapi.Route{}
 
 	for _, inf := range nc.idMap {
