@@ -185,9 +185,12 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 		}
 	}
 	if hp == nil {
-		sv.Unlock()
-		hp, err = createHyperPod(sv.Factory, spec, sv.defaultCpus, sv.defaultMemory)
-		sv.Lock()
+		// use 'func() + defer' to ensure we regain the lock when createHyperPod() panic.
+		func() {
+			sv.Unlock()
+			defer sv.Lock()
+			hp, err = createHyperPod(sv.Factory, spec, sv.defaultCpus, sv.defaultMemory)
+		}()
 		glog.Infof("createHyperPod() returns")
 		if err != nil {
 			return nil, err
