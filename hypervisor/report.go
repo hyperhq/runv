@@ -59,14 +59,6 @@ func (ctx *VmContext) reportSuccess(msg string, data interface{}) {
 	}
 }
 
-func (ctx *VmContext) reportBusy(msg string) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_BUSY,
-		Cause: msg,
-	}
-}
-
 // reportUnexpectedRequest send report to daemon, notify about that:
 //   1. unexpected event in current state
 func (ctx *VmContext) reportUnexpectedRequest(ev VmEvent, state string) {
