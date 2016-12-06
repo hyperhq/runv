@@ -32,15 +32,6 @@ func (ctx *VmContext) reportVmShutdown() {
 	}
 }
 
-func (ctx *VmContext) reportPodRunning(msg string, data interface{}) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_POD_RUNNING,
-		Cause: msg,
-		Data:  data,
-	}
-}
-
 func (ctx *VmContext) reportProcessFinished(code int, result *types.ProcessFinished) {
 	ctx.client <- &types.VmResponse{
 		VmId:  ctx.Id,
