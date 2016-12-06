@@ -7,13 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/vishvananda/netlink"
@@ -45,10 +47,10 @@ type HyperPod struct {
 	Containers map[string]*Container
 	Processes  map[string]*Process
 
-	userPod   *pod.UserPod
-	podStatus *hypervisor.PodStatus
-	vm        *hypervisor.Vm
-	sv        *Supervisor
+	//userPod   *pod.UserPod
+	//podStatus *hypervisor.PodStatus
+	vm *hypervisor.Vm
+	sv *Supervisor
 
 	nslistener *nsListener
 }
@@ -165,13 +167,18 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 	}
 
 	glog.Infof("interface configuration of pod ns is %v", infos)
-	for idx, info := range infos {
+	for _, info := range infos {
 		bridge, err := GetBridgeFromIndex(info.PeerIndex)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
-		conf := pod.UserInterface{
+
+		nicId := strconv.Itoa(info.Index)
+
+		conf := &api.InterfaceDescription{
+			Id:     nicId, //ip as an id
+			Lo:     false,
 			Bridge: bridge,
 			Ip:     info.Ip,
 		}
@@ -183,7 +190,8 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		// TODO(hukeping): the name here is always eth1, 2, 3, 4, 5, etc.,
 		// which would not be the proper way to name device name, instead it
 		// should be the same as what we specified in the network namespace.
-		err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
+		//err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
+		err = hp.vm.AddNic(conf)
 		if err != nil {
 			glog.Error(err)
 			return err
@@ -224,7 +232,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			link := update.Veth
 			if link.Attrs().ParentIndex == 0 {
 				glog.Info("The deleted link :", link)
-				err = hp.vm.DeleteNic(link.Attrs().Index)
+				err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
 				if err != nil {
 					glog.Error(err)
 					continue
@@ -261,18 +269,14 @@ func (hp *HyperPod) nsListenerStrap() {
 				continue
 			}
 
-			conf := pod.UserInterface{
+			inf := &api.InterfaceDescription{
+				Id:     strconv.Itoa(link.Attrs().Index),
+				Lo:     false,
 				Bridge: bridge,
 				Ip:     update.Addr.LinkAddress.String(),
 			}
 
-			nicName := hp.vm.GetNextNicNameInVM()
-			if nicName == "" {
-				glog.Errorf("Can not get proper nic name")
-				continue
-			}
-
-			err = hp.vm.AddNic(update.Addr.LinkIndex, nicName, conf)
+			err = hp.vm.AddNic(inf)
 			if err != nil {
 				glog.Error(err)
 				continue
@@ -443,17 +447,10 @@ func chooseInitrd(spec *specs.Spec) (initrd string) {
 }
 
 func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaultMemory int) (*HyperPod, error) {
-	podId := fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
-	userPod := pod.ConvertOCF2PureUserPod(spec)
-	podStatus := hypervisor.NewPod(podId, userPod, nil)
-
 	cpu := defaultCpus
-	if userPod.Resource.Vcpu > 0 {
-		cpu = userPod.Resource.Vcpu
-	}
 	mem := defaultMemory
-	if userPod.Resource.Memory > 0 {
-		mem = userPod.Resource.Memory
+	if spec.Linux != nil && spec.Linux.Resources != nil && spec.Linux.Resources.Memory != nil && spec.Linux.Resources.Memory.Limit != nil {
+		mem = int(*spec.Linux.Resources.Memory.Limit >> 20)
 	}
 
 	kernel := chooseKernel(spec)
@@ -490,17 +487,24 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 		glog.V(3).Infof("Creating VM with specific kernel config")
 	}
 
-	Response := vm.StartPod(podStatus, userPod, nil, nil)
-	if Response.Data == nil {
+	r := make(chan api.Result, 1)
+	go func() {
+		r <- vm.WaitInit()
+	}()
+
+	sandbox := api.SandboxInfoFromOCF(spec)
+	vm.InitSandbox(sandbox)
+
+	rsp := <-r
+
+	if !rsp.IsSuccess() {
 		vm.Kill()
-		glog.V(1).Infof("StartPod fail: QEMU response data is nil\n")
+		glog.V(1).Infof("StartPod fail, response: %v", rsp)
 		return nil, fmt.Errorf("StartPod fail")
 	}
-	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
+	glog.V(1).Infof("%s init sandbox successfully", rsp.ResultId())
 
 	hp := &HyperPod{
-		userPod:    userPod,
-		podStatus:  podStatus,
 		vm:         vm,
 		Containers: make(map[string]*Container),
 		Processes:  make(map[string]*Process),
@@ -517,11 +521,21 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 }
 
 func (hp *HyperPod) reap() {
-	Response := hp.vm.StopPod(hp.podStatus)
-	if Response.Data == nil {
-		glog.V(1).Infof("StopPod fail: QEMU response data is nil\n")
+	result := make(chan api.Result, 1)
+	go func() {
+		result <- hp.vm.Shutdown()
+	}()
+	select {
+	case rsp, ok := <-result:
+		if !ok || !rsp.IsSuccess() {
+			glog.Errorf("StopPod fail: chan: %v, response: %v", ok, rsp)
+			break
+		}
+		glog.V(1).Infof("StopPod successfully")
+	case <-time.After(time.Second * 60):
+		glog.Errorf("StopPod timeout")
 	}
-	glog.V(1).Infof("result: code %d %s\n", Response.Code, Response.Cause)
+
 	hp.stopNsListener()
 	os.RemoveAll(filepath.Join(hypervisor.BaseDir, hp.vm.Id))
 }
