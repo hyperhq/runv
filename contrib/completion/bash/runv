@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# bash completion file for core runv commands
+#
+# This script provides completion of:
+#  - global options
+#  - commands and their options
+# To enalbe the completions:
+# - place this file in /etc/bash_completion.d
+#
+
+
+# Transforms a multiline list of strings into a single line string
+# with the words separated by "|".
+__runv_to_alternatives() {
+	local parts=( $1 )
+	local IFS='|'
+	echo "${parts[*]}"
+}
+
+# Transforms a multiline list of options into an extglob pattern
+# suitable for use in case statements
+__runv_to_extglob() {
+	local extglob=$( __runv_to_alternatives "$1" )
+	echo "@($extglob)"
+}
+
+# global options that may appear after the runv command
+_runv_runv() {
+	local boolean_options="
+		$global_boolean_options
+		--help -h
+		--version -v
+	"
+
+	case "$prev" in
+		$(__runv_to_extglob "$global_options_with_args") )
+			return
+		;;
+	esac
+
+	case "$cur" in
+		-*)
+			COMPREPLY=( $( compgen -W "$boolean_options $global_options_with_args" -- "$cur") )
+			;;
+		*)
+			COMPREPLY=( $( compgen -W "${commands[*]} help" -- "$cur" ) )
+			;;
+	esac
+}
+
+_runv() {
+	local previous_extglob_setting=$(shopt -p extglob)
+	shopt -s extglob
+
+	local commands=(
+		start
+		spec
+		exec
+		kill
+		list
+		state
+		manage
+		supervisord
+	)
+
+	local global_boolean_options="
+		--debug
+	"
+
+	local global_options_with_args="
+		--log_dir
+		--log
+		--log-format
+		--root
+		--driver
+		--default_cpus
+		--default_memory
+		--kernel
+		--initrd
+		--template
+		--vbox
+	"
+
+	COMPREPLY=()
+	local cur prev words cword
+	_get_comp_words_by_ref -n : cur prev words cword
+
+	local command='runv'
+
+	local completions_func=_runv_${command}
+	declare -F $completions_func >/dev/null && $completions_func
+
+	eval "$previous_extglob_setting"
+	return 0
+}
+
+complete -F _runv runv
