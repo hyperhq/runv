@@ -67,16 +67,6 @@ func (ctx *VmContext) reportBusy(msg string) {
 	}
 }
 
-// reportBadRequest send report to daemon, notify about that:
-//   1. anything wrong in the request, such as json format, slice length, etc.
-func (ctx *VmContext) reportBadRequest(cause string) {
-	ctx.client <- &types.VmResponse{
-		VmId:  ctx.Id,
-		Code:  types.E_BAD_REQUEST,
-		Cause: cause,
-	}
-}
-
 // reportUnexpectedRequest send report to daemon, notify about that:
 //   1. unexpected event in current state
 func (ctx *VmContext) reportUnexpectedRequest(ev VmEvent, state string) {
