@@ -541,6 +541,7 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 	execCmd := &hyperstartapi.ExecCommand{
 		Container: container,
 		Process: hyperstartapi.Process{
+			Id:       execId,
 			Terminal: terminal,
 			Args:     args,
 			Envs:     envs,
