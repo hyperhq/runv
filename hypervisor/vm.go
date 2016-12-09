@@ -666,6 +666,9 @@ func (vm *Vm) StartContainer(id string) error {
 }
 
 func (vm *Vm) Tty(containerId, execId string, row, column int) error {
+	if execId == "" {
+		execId = "init"
+	}
 	var ttySizeCommand = &WindowSizeCommand{
 		ContainerId: containerId,
 		ExecId:      execId,

@@ -67,7 +67,7 @@ func (ctx *VmContext) updateInterface(id string, result chan<- error) {
 
 func (ctx *VmContext) setWindowSize(containerId, execId string, size *WindowSize) {
 	var session uint64
-	if execId != "" {
+	if execId != "init" {
 		exec, ok := ctx.vmExec[execId]
 		if !ok {
 			glog.Errorf("cannot find exec %s", execId)
@@ -119,6 +119,12 @@ func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty
 	if !cmd.Process.Terminal {
 		cmd.Process.Stderr = ctx.ptys.nextAttachId()
 	}
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+	if _, existed := ctx.vmExec[execId]; existed || execId == "init" {
+		result <- fmt.Errorf("process id conflicts, the process of the id %s already exists", execId)
+		return
+	}
 	ctx.vmExec[execId] = cmd
 	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.Process.Stderr, tty)
 	ctx.vm <- &hyperstartCmd{
@@ -153,7 +159,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 
 	ctx.attachTty2Container(c.process, cmd)
 	if cmd.Size != nil {
-		ctx.setWindowSize(cmd.Container, "", cmd.Size)
+		ctx.setWindowSize(cmd.Container, "init", cmd.Size)
 	}
 
 	result <- nil
