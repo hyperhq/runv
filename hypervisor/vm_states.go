@@ -65,7 +65,7 @@ func (ctx *VmContext) updateInterface(id string, result chan<- error) {
 	}
 }
 
-func (ctx *VmContext) setWindowSize(containerId, execId string, size *WindowSize) {
+func (ctx *VmContext) setWindowSize4242(containerId, execId string, size *WindowSize) {
 	var session uint64
 	if execId != "init" {
 		exec, ok := ctx.vmExec[execId]
@@ -95,11 +95,28 @@ func (ctx *VmContext) setWindowSize(containerId, execId string, size *WindowSize
 		glog.Error("the session is not a tty, doesn't support resize.")
 		return
 	}
+	cmd := map[string]interface{}{
+		"seq":    session,
+		"row":    size.Row,
+		"column": size.Column,
+	}
 
+	ctx.vm <- &hyperstartCmd{
+		Code:    hyperstartapi.INIT_WINSIZE,
+		Message: cmd,
+	}
+}
+
+func (ctx *VmContext) setWindowSize(containerId, execId string, size *WindowSize) {
+	if ctx.vmHyperstartAPIVersion <= 4242 {
+		ctx.setWindowSize4242(containerId, execId, size)
+		return
+	}
 	cmd := hyperstartapi.WindowSizeMessage{
-		Seq:    session,
-		Row:    size.Row,
-		Column: size.Column,
+		Container: containerId,
+		Process:   execId,
+		Row:       size.Row,
+		Column:    size.Column,
 	}
 
 	ctx.vm <- &hyperstartCmd{
