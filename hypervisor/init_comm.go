@@ -366,6 +366,13 @@ func waitInitAck(ctx *VmContext, init *net.UnixConn) {
 		} else if res.Code == hyperstartapi.INIT_ACK || res.Code == hyperstartapi.INIT_NEXT ||
 			res.Code == hyperstartapi.INIT_ERROR {
 			ctx.vm <- &hyperstartCmd{Code: res.Code, retMsg: res.Message}
+		} else if res.Code == hyperstartapi.INIT_PROCESSASYNCEVENT {
+			var pae hyperstartapi.ProcessAsyncEvent
+			if err := json.Unmarshal(res.Message, &pae); err != nil {
+				glog.V(1).Info("read invalid ProcessAsyncEvent")
+			} else {
+				ctx.handleProcessAsyncEvent(&pae)
+			}
 		}
 	}
 }

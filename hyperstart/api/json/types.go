@@ -50,3 +50,11 @@ type WindowSizeMessage struct {
 	Row       uint16 `json:"row"`
 	Column    uint16 `json:"column"`
 }
+
+type ProcessAsyncEvent struct {
+	Container string `json:"container"`
+	Process   string `json:"process"`
+	Event     string `json:"event"` // curent supported events: finished
+	Info      string `json:"info,omitempty"`
+	Status    int    `json:"status,omitempty"`
+}
