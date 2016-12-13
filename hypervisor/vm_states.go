@@ -139,6 +139,16 @@ func (ctx *VmContext) killCmd(container string, signal syscall.Signal, result ch
 	}
 }
 
+func (ctx *VmContext) removeCmd(container string, result chan<- error) {
+	ctx.vm <- &hyperstartCmd{
+		Code: hyperstartapi.INIT_REMOVECONTAINER,
+		Message: hyperstartapi.RemoveCommand{
+			Container: container,
+		},
+		result: result,
+	}
+}
+
 func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()

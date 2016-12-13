@@ -410,6 +410,12 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	}, StateRunning, StateTerminating, StateDestroying)
 }
 
+func (vm *Vm) RemoveContainer(container string) error {
+	return vm.GenericOperation("RemoveContainer", func(ctx *VmContext, result chan<- error) {
+		ctx.removeCmd(container, result)
+	}, StateRunning)
+}
+
 func (vm *Vm) AddRoute() error {
 	return vm.GenericOperation("AddRoute", func(ctx *VmContext, result chan<- error) {
 		routes := ctx.networks.getRoutes()
