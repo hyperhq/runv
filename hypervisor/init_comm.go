@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -62,7 +63,7 @@ func waitConsoleOutput(ctx *VmContext) {
 	cout := make(chan string, 128)
 	go TtyLiner(tc, cout)
 
-	const ignoreLines = 128
+	ignoreLines := 256
 	for consoleLines := 0; consoleLines < ignoreLines; consoleLines++ {
 		line, ok := <-cout
 		if ok {
@@ -70,6 +71,9 @@ func waitConsoleOutput(ctx *VmContext) {
 		} else {
 			ctx.Log(INFO, "console output end")
 			return
+		}
+		if strings.Contains(line, "Freeing unused kernel memory") {
+			ignoreLines = consoleLines
 		}
 	}
 	if !ctx.LogLevel(EXTRA) {
