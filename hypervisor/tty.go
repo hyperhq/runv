@@ -487,38 +487,6 @@ func (pts *pseudoTtys) closePendingTtys() {
 	pts.pendingTtys = []*AttachCommand{}
 }
 
-func TtyLiner(conn io.Reader, output chan string) {
-	buf := make([]byte, 1)
-	line := []byte{}
-	cr := false
-	emit := false
-	for {
-
-		nr, err := conn.Read(buf)
-		if err != nil || nr < 1 {
-			glog.V(1).Info("Input byte chan closed, close the output string chan")
-			close(output)
-			return
-		}
-		switch buf[0] {
-		case '\n':
-			emit = !cr
-			cr = false
-		case '\r':
-			emit = true
-			cr = true
-		default:
-			cr = false
-			line = append(line, buf[0])
-		}
-		if emit {
-			output <- string(line)
-			line = []byte{}
-			emit = false
-		}
-	}
-}
-
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 	cmd := &AttachCommand{
 		Streams:   tty,
