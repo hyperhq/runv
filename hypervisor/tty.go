@@ -25,13 +25,13 @@ type TtyIO struct {
 }
 
 type ttyAttachments struct {
-	persistent  bool
-	started     bool
-	closed      bool
-	tty         bool
-	stdioSeq    uint64
-	stderrSeq   uint64
-	attachments []*TtyIO
+	persistent bool
+	started    bool
+	closed     bool
+	tty        bool
+	stdioSeq   uint64
+	stderrSeq  uint64
+	ttyio      *TtyIO
 }
 
 type pseudoTtys struct {
@@ -147,20 +147,18 @@ func waitPts(ctx *VmContext) {
 				glog.V(1).Infof("session %d, exit code %d", res.Session, code)
 				ctx.ptys.Remove4242(ctx, res.Session, code)
 			} else {
-				for _, tty := range ta.attachments {
-					if tty.Stdout != nil && res.Session == ta.stdioSeq {
-						_, err := tty.Stdout.Write(res.Message)
-						if err != nil {
-							glog.V(1).Infof("fail to write session %d, close pty attachment", res.Session)
-							ctx.ptys.Detach(ta, tty)
-						}
+				if ta.ttyio.Stdout != nil && res.Session == ta.stdioSeq {
+					_, err := ta.ttyio.Stdout.Write(res.Message)
+					if err != nil {
+						glog.V(1).Infof("fail to write session %d, close stdio", res.Session)
+						ctx.ptys.Remove(ta.stdioSeq)
 					}
-					if tty.Stderr != nil && res.Session == ta.stderrSeq {
-						_, err := tty.Stderr.Write(res.Message)
-						if err != nil {
-							glog.V(1).Infof("fail to write session %d, close pty attachment", res.Session)
-							ctx.ptys.Detach(ta, tty)
-						}
+				}
+				if ta.ttyio.Stderr != nil && res.Session == ta.stderrSeq {
+					_, err := ta.ttyio.Stderr.Write(res.Message)
+					if err != nil {
+						glog.V(1).Infof("fail to write session %d, close stdio", res.Session)
+						ctx.ptys.Remove(ta.stdioSeq)
 					}
 				}
 			}
@@ -169,46 +167,11 @@ func waitPts(ctx *VmContext) {
 }
 
 func newAttachmentsWithTty(persist, isTty bool, tty *TtyIO) *ttyAttachments {
-	ta := &ttyAttachments{
+	return &ttyAttachments{
 		persistent: persist,
 		tty:        isTty,
+		ttyio:      tty,
 	}
-
-	if tty != nil {
-		ta.attach(tty)
-	}
-
-	return ta
-}
-
-func (ta *ttyAttachments) attach(tty *TtyIO) {
-	ta.attachments = append(ta.attachments, tty)
-}
-
-func (ta *ttyAttachments) detach(tty *TtyIO) {
-	at := []*TtyIO{}
-	detached := false
-	for _, t := range ta.attachments {
-		if tty != t {
-			at = append(at, t)
-		} else {
-			detached = true
-		}
-	}
-	if detached {
-		ta.attachments = at
-	}
-}
-
-func (ta *ttyAttachments) close() {
-	for _, t := range ta.attachments {
-		t.Close()
-	}
-	ta.attachments = []*TtyIO{}
-}
-
-func (ta *ttyAttachments) empty() bool {
-	return len(ta.attachments) == 0
 }
 
 func (ta *ttyAttachments) isTty() bool {
@@ -248,20 +211,6 @@ func (pts *pseudoTtys) isTty(session uint64) bool {
 	return false
 }
 
-func (pts *pseudoTtys) Detach(ta *ttyAttachments, tty *TtyIO) {
-	pts.lock.Lock()
-	ta.detach(tty)
-	if !ta.persistent && ta.empty() {
-		delete(pts.ttys, ta.stdioSeq)
-		if ta.stderrSeq > 0 {
-			delete(pts.ttys, ta.stderrSeq)
-		}
-	}
-	pts.lock.Unlock()
-
-	tty.Close()
-}
-
 func (pts *pseudoTtys) Remove4242(ctx *VmContext, session uint64, code uint8) {
 	if ta, ok := pts.ttys[session]; ok {
 		ack := make(chan bool, 1)
@@ -293,7 +242,7 @@ func (pts *pseudoTtys) Remove4242(ctx *VmContext, session uint64, code uint8) {
 		}
 
 		pts.lock.Lock()
-		ta.close()
+		ta.ttyio.Close()
 		delete(pts.ttys, ta.stdioSeq)
 		if ta.stderrSeq > 0 {
 			delete(pts.ttys, ta.stderrSeq)
@@ -306,7 +255,7 @@ func (pts *pseudoTtys) Remove(session uint64) {
 	pts.lock.Lock()
 	defer pts.lock.Unlock()
 	if ta, ok := pts.ttys[session]; ok {
-		ta.close()
+		ta.ttyio.Close()
 		delete(pts.ttys, ta.stdioSeq)
 		if ta.stderrSeq > 0 {
 			delete(pts.ttys, ta.stderrSeq)
@@ -331,9 +280,7 @@ func (pts *pseudoTtys) addEmptyPty(persist, isTty, closed bool, stdioSeq, stderr
 
 func (pts *pseudoTtys) ptyConnect(persist, isTty bool, stdioSeq, stderrSeq uint64, tty *TtyIO) {
 	pts.lock.Lock()
-	if ta, ok := pts.ttys[stdioSeq]; ok {
-		ta.attach(tty)
-	} else {
+	if _, ok := pts.ttys[stdioSeq]; !ok {
 		ta := newAttachmentsWithTty(persist, isTty, tty)
 		ta.stdioSeq = stdioSeq
 		ta.stderrSeq = stderrSeq
@@ -352,9 +299,7 @@ func (pts *pseudoTtys) startStdin(session uint64, isTty bool) {
 	if ok {
 		if !ta.started {
 			ta.started = true
-			for _, tty := range ta.attachments {
-				pts.connectStdin(session, tty)
-			}
+			pts.connectStdin(session, ta.ttyio)
 		}
 	}
 	pts.lock.Unlock()
@@ -383,7 +328,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 						}
 						// don't detach, we need the last output of the container
 					} else if ta, ok := pts.ttys[session]; ok {
-						pts.Detach(ta, tty)
+						pts.Remove(ta.stdioSeq)
 					}
 					return
 				}
