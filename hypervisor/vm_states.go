@@ -143,7 +143,7 @@ func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty
 		return
 	}
 	ctx.vmExec[execId] = cmd
-	ctx.ptys.ptyConnect(false, cmd.Process.Terminal, cmd.Process.Stdio, cmd.Process.Stderr, tty)
+	ctx.ptys.StdioConnect(cmd.Process.Stdio, cmd.Process.Stderr, tty)
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: cmd,
@@ -184,7 +184,7 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 
 func (ctx *VmContext) attachTty2Container(process *hyperstartapi.Process, cmd *AttachCommand) {
 	session := process.Stdio
-	ctx.ptys.ptyConnect(true, process.Terminal, session, process.Stderr, cmd.Streams)
+	ctx.ptys.StdioConnect(session, process.Stderr, cmd.Streams)
 	glog.V(1).Infof("Connecting tty for %s on session %d", cmd.Container, session)
 }
 

@@ -136,7 +136,7 @@ func waitPts(ctx *VmContext) {
 			} else if ta, ok := ctx.ptys.ttys[res.Session]; ok {
 				ta.closed = true
 			} else {
-				ctx.ptys.addEmptyPty(false, false, true, res.Session, 0)
+				ctx.ptys.StdioConnect(res.Session, 0, nil)
 			}
 		} else if ta, ok := ctx.ptys.ttys[res.Session]; ok {
 			if ta.closed {
@@ -163,14 +163,6 @@ func waitPts(ctx *VmContext) {
 				}
 			}
 		}
-	}
-}
-
-func newAttachmentsWithTty(persist, isTty bool, tty *TtyIO) *ttyAttachments {
-	return &ttyAttachments{
-		persistent: persist,
-		tty:        isTty,
-		ttyio:      tty,
 	}
 }
 
@@ -263,33 +255,19 @@ func (pts *pseudoTtys) Remove(session uint64) {
 	}
 }
 
-func (pts *pseudoTtys) addEmptyPty(persist, isTty, closed bool, stdioSeq, stderrSeq uint64) {
+func (pts *pseudoTtys) StdioConnect(stdioSeq, stderrSeq uint64, tty *TtyIO) {
 	pts.lock.Lock()
 	if _, ok := pts.ttys[stdioSeq]; !ok {
-		ta := newAttachmentsWithTty(persist, isTty, nil)
-		ta.stdioSeq = stdioSeq
-		ta.stderrSeq = stderrSeq
-		ta.closed = closed
+		ta := &ttyAttachments{
+			stdioSeq:  stdioSeq,
+			stderrSeq: stderrSeq,
+			ttyio:     tty,
+		}
 		pts.ttys[stdioSeq] = ta
 		if stderrSeq > 0 {
 			pts.ttys[stderrSeq] = ta
 		}
 	}
-	pts.lock.Unlock()
-}
-
-func (pts *pseudoTtys) ptyConnect(persist, isTty bool, stdioSeq, stderrSeq uint64, tty *TtyIO) {
-	pts.lock.Lock()
-	if _, ok := pts.ttys[stdioSeq]; !ok {
-		ta := newAttachmentsWithTty(persist, isTty, tty)
-		ta.stdioSeq = stdioSeq
-		ta.stderrSeq = stderrSeq
-		pts.ttys[stdioSeq] = ta
-		if stderrSeq > 0 {
-			pts.ttys[stderrSeq] = ta
-		}
-	}
-	pts.connectStdin(stdioSeq, tty)
 	pts.lock.Unlock()
 }
 
