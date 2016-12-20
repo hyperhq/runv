@@ -39,7 +39,7 @@ type pseudoTtys struct {
 	channel     chan *hyperstartapi.TtyMessage
 	ttys        map[uint64]*ttyAttachments
 	pendingTtys []*AttachCommand
-	lock        *sync.Mutex
+	lock        sync.Mutex
 }
 
 func newPts() *pseudoTtys {
@@ -48,7 +48,6 @@ func newPts() *pseudoTtys {
 		channel:     make(chan *hyperstartapi.TtyMessage, 256),
 		ttys:        make(map[uint64]*ttyAttachments),
 		pendingTtys: []*AttachCommand{},
-		lock:        &sync.Mutex{},
 	}
 }
 
