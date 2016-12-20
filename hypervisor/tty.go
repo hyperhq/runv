@@ -498,25 +498,3 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 		ctx.attachCmd(cmd, result)
 	}, StateInit, StateStarting, StateRunning)
 }
-
-func (vm *Vm) GetLogOutput(container string, callback chan *types.VmResponse) (io.ReadCloser, io.ReadCloser, error) {
-	stdout, stdoutStub := io.Pipe()
-	stderr, stderrStub := io.Pipe()
-	outIO := &TtyIO{
-		Stdin:    nil,
-		Stdout:   stdoutStub,
-		Stderr:   stderrStub,
-		Callback: callback,
-	}
-
-	cmd := &AttachCommand{
-		Streams:   outIO,
-		Container: container,
-	}
-
-	vm.GenericOperation("Attach", func(ctx *VmContext, result chan<- error) {
-		ctx.attachCmd(cmd, result)
-	}, StateInit, StateStarting, StateRunning)
-
-	return stdout, stderr, nil
-}
