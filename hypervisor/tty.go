@@ -403,24 +403,6 @@ func (pts *pseudoTtys) startStdin(session uint64, isTty bool) {
 	pts.lock.Unlock()
 }
 
-// we close the stdin of the container when the last attached
-// stdin closed. we should move this decision to hyper and use
-// the same policy as docker(stdinOnce)
-func (pts *pseudoTtys) isLastStdin(session uint64) bool {
-	var count int
-
-	pts.lock.Lock()
-	if ta, ok := pts.ttys[session]; ok {
-		for _, tty := range ta.attachments {
-			if tty.Stdin != nil {
-				count++
-			}
-		}
-	}
-	pts.lock.Unlock()
-	return count == 1
-}
-
 func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 	if ta, ok := pts.ttys[session]; !ok || !ta.started {
 		return
@@ -435,7 +417,7 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 				nr, err := tty.Stdin.Read(buf)
 				if err != nil {
 					glog.Info("a stdin closed, ", err.Error())
-					if err == io.EOF && pts.isLastStdin(session) {
+					if err == io.EOF {
 						// send eof to hyperstart
 						glog.V(1).Infof("session %d send eof to hyperstart", session)
 						pts.channel <- &hyperstartapi.TtyMessage{
