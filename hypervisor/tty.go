@@ -25,13 +25,10 @@ type TtyIO struct {
 }
 
 type ttyAttachments struct {
-	persistent bool
-	started    bool
-	closed     bool
-	tty        bool
-	stdioSeq   uint64
-	stderrSeq  uint64
-	ttyio      *TtyIO
+	closed    bool
+	stdioSeq  uint64
+	stderrSeq uint64
+	ttyio     *TtyIO
 }
 
 type pseudoTtys struct {
@@ -166,10 +163,6 @@ func waitPts(ctx *VmContext) {
 	}
 }
 
-func (ta *ttyAttachments) isTty() bool {
-	return ta.tty
-}
-
 func (tty *TtyIO) Close() {
 	glog.V(1).Info("Close tty ")
 
@@ -194,13 +187,6 @@ func (pts *pseudoTtys) nextAttachId() uint64 {
 	pts.attachId++
 	pts.lock.Unlock()
 	return id
-}
-
-func (pts *pseudoTtys) isTty(session uint64) bool {
-	if ta, ok := pts.ttys[session]; ok {
-		return ta.isTty()
-	}
-	return false
 }
 
 func (pts *pseudoTtys) Remove4242(ctx *VmContext, session uint64, code uint8) {
@@ -271,30 +257,21 @@ func (pts *pseudoTtys) StdioConnect(stdioSeq, stderrSeq uint64, tty *TtyIO) {
 	pts.lock.Unlock()
 }
 
-func (pts *pseudoTtys) startStdin(session uint64, isTty bool) {
+func (pts *pseudoTtys) startStdin(session uint64) {
 	pts.lock.Lock()
+	defer pts.lock.Unlock()
 	ta, ok := pts.ttys[session]
-	if ok {
-		if !ta.started {
-			ta.started = true
-			pts.connectStdin(session, ta.ttyio)
-		}
-	}
-	pts.lock.Unlock()
-}
-
-func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
-	if ta, ok := pts.ttys[session]; !ok || !ta.started {
+	if !ok {
 		return
 	}
 
-	if tty.Stdin != nil {
+	if ta.ttyio.Stdin != nil {
 		go func() {
 			buf := make([]byte, 32)
 
 			defer func() { recover() }()
 			for {
-				nr, err := tty.Stdin.Read(buf)
+				nr, err := ta.ttyio.Stdin.Read(buf)
 				if err != nil {
 					glog.Info("a stdin closed, ", err.Error())
 					if err == io.EOF {
@@ -322,8 +299,6 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 			}
 		}()
 	}
-
-	return
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {

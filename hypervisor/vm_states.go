@@ -91,10 +91,6 @@ func (ctx *VmContext) setWindowSize4242(containerId, execId string, size *Window
 		return
 	}
 
-	if !ctx.ptys.isTty(session) {
-		glog.Error("the session is not a tty, doesn't support resize.")
-		return
-	}
 	cmd := map[string]interface{}{
 		"seq":    session,
 		"row":    size.Row,
