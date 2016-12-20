@@ -562,7 +562,7 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 		result <- nil
 	}, StateRunning)
 
-	return tty.WaitForFinish()
+	return nil
 }
 
 func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {

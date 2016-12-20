@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -20,40 +19,9 @@ type WindowSize struct {
 }
 
 type TtyIO struct {
-	Stdin     io.ReadCloser
-	Stdout    io.Writer
-	Stderr    io.Writer
-	OutCloser io.Closer
-	Callback  chan *types.VmResponse
-}
-
-func (tty *TtyIO) WaitForFinish() error {
-	if tty.Callback == nil {
-		return fmt.Errorf("cannot wait on this tty")
-	}
-
-	<-tty.Callback
-
-	glog.V(1).Info("tty is closed")
-	if tty.Stdin != nil {
-		tty.Stdin.Close()
-	}
-	if tty.OutCloser != nil {
-		tty.OutCloser.Close()
-	} else {
-		cf := func(w io.Writer) {
-			if w == nil {
-				return
-			}
-			if c, ok := w.(io.WriteCloser); ok {
-				c.Close()
-			}
-		}
-		cf(tty.Stdout)
-		cf(tty.Stderr)
-	}
-
-	return nil
+	Stdin  io.ReadCloser
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 type ttyAttachments struct {
@@ -253,27 +221,19 @@ func (ta *ttyAttachments) isTty() bool {
 func (tty *TtyIO) Close() {
 	glog.V(1).Info("Close tty ")
 
-	if tty.Callback != nil {
-		close(tty.Callback)
-	} else {
-		if tty.Stdin != nil {
-			tty.Stdin.Close()
+	if tty.Stdin != nil {
+		tty.Stdin.Close()
+	}
+	cf := func(w io.Writer) {
+		if w == nil {
+			return
 		}
-		if tty.OutCloser != nil {
-			tty.OutCloser.Close()
-		} else {
-			cf := func(w io.Writer) {
-				if w == nil {
-					return
-				}
-				if c, ok := w.(io.WriteCloser); ok {
-					c.Close()
-				}
-			}
-			cf(tty.Stdout)
-			cf(tty.Stderr)
+		if c, ok := w.(io.WriteCloser); ok {
+			c.Close()
 		}
 	}
+	cf(tty.Stdout)
+	cf(tty.Stderr)
 }
 
 func (pts *pseudoTtys) nextAttachId() uint64 {

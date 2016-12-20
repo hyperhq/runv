@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -53,10 +52,9 @@ func (p *Process) setupIO() error {
 	}
 
 	p.stdio = &hypervisor.TtyIO{
-		Stdin:    stdin,
-		Stdout:   stdout,
-		Stderr:   stderr,
-		Callback: make(chan *types.VmResponse, 1),
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
 	}
 	glog.Infof("process setupIO() success")
 
