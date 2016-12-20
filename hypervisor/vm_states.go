@@ -262,7 +262,7 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		ctx.Log(DEBUG, "[running] got hyperstart ack to %d", ack.reply.Code)
 		switch ack.reply.Code {
 		case hyperstartapi.INIT_STARTPOD:
-			ctx.Log(INFO, "pod start success ", string(ack.msg))
+			ctx.Log(INFO, "pod start success: %s", string(ack.msg))
 			ctx.reportSuccess("Start POD success", []byte{})
 			//TODO: the payload is the persist info, will deal with this later
 		default:
