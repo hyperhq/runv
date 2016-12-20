@@ -35,19 +35,17 @@ type ttyAttachments struct {
 }
 
 type pseudoTtys struct {
-	attachId    uint64 //next available attachId for attached tty
-	channel     chan *hyperstartapi.TtyMessage
-	ttys        map[uint64]*ttyAttachments
-	pendingTtys []*AttachCommand
-	lock        sync.Mutex
+	attachId uint64 //next available attachId for attached tty
+	channel  chan *hyperstartapi.TtyMessage
+	ttys     map[uint64]*ttyAttachments
+	lock     sync.Mutex
 }
 
 func newPts() *pseudoTtys {
 	return &pseudoTtys{
-		attachId:    1,
-		channel:     make(chan *hyperstartapi.TtyMessage, 256),
-		ttys:        make(map[uint64]*ttyAttachments),
-		pendingTtys: []*AttachCommand{},
+		attachId: 1,
+		channel:  make(chan *hyperstartapi.TtyMessage, 256),
+		ttys:     make(map[uint64]*ttyAttachments),
 	}
 }
 
@@ -403,13 +401,6 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 	}
 
 	return
-}
-
-func (pts *pseudoTtys) closePendingTtys() {
-	for _, tty := range pts.pendingTtys {
-		tty.Streams.Close()
-	}
-	pts.pendingTtys = []*AttachCommand{}
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
