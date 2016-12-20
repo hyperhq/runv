@@ -11,7 +11,6 @@ import (
 	"github.com/golang/glog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
-	"github.com/hyperhq/runv/lib/term"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
@@ -430,28 +429,13 @@ func (pts *pseudoTtys) connectStdin(session uint64, tty *TtyIO) {
 	if tty.Stdin != nil {
 		go func() {
 			buf := make([]byte, 32)
-			keys, _ := term.ToBytes(DetachKeys)
-			isTty := pts.isTty(session)
 
 			defer func() { recover() }()
 			for {
 				nr, err := tty.Stdin.Read(buf)
-				if nr == 1 && isTty {
-					for i, key := range keys {
-						if nr != 1 || buf[0] != key {
-							break
-						}
-						if i == len(keys)-1 {
-							glog.Info("got stdin detach keys, exit term")
-							pts.Detach(pts.ttys[session], tty)
-							return
-						}
-						nr, err = tty.Stdin.Read(buf)
-					}
-				}
 				if err != nil {
 					glog.Info("a stdin closed, ", err.Error())
-					if err == io.EOF && !isTty && pts.isLastStdin(session) {
+					if err == io.EOF && pts.isLastStdin(session) {
 						// send eof to hyperstart
 						glog.V(1).Infof("session %d send eof to hyperstart", session)
 						pts.channel <- &hyperstartapi.TtyMessage{
