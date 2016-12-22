@@ -304,5 +304,5 @@ func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
 
 	return vm.GenericOperation("Attach", func(ctx *VmContext, result chan<- error) {
 		ctx.attachCmd(cmd, result)
-	}, StateInit, StateStarting, StateRunning)
+	}, StateRunning)
 }
