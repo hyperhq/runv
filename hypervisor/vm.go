@@ -78,15 +78,15 @@ func (vm *Vm) AssociateVm(data []byte) error {
 	var (
 		PodEvent = make(chan VmEvent, 128)
 		Status   = make(chan *types.VmResponse, 128)
+		err      error
 	)
 
-	VmAssociate(vm.Id, PodEvent, Status, data)
-
-	ass := <-Status
-	if ass.Code != types.E_OK {
-		glog.Errorf("cannot associate with vm: %s, error status %d (%s)", vm.Id, ass.Code, ass.Cause)
-		return errors.New("load vm status failed")
+	vm.ctx, err = VmAssociate(vm.Id, PodEvent, Status, data)
+	if err != nil {
+		glog.Errorf("cannot associate with vm: %v", err)
+		return err
 	}
+
 	//	go vm.handlePodEvent(mypod)
 	//
 	vm.Hub = PodEvent
