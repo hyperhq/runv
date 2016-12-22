@@ -407,7 +407,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 			return
 		}
 		ctx.killCmd(container, signal, result)
-	}, StateRunning, StateTerminating, StateDestroying)
+	}, StateRunning, StateTerminating)
 }
 
 func (vm *Vm) AddRoute() error {
@@ -475,7 +475,7 @@ func (vm *Vm) SetCpus(cpus int) error {
 
 	err := vm.GenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.SetCpus(ctx, cpus, result)
-	}, StateInit)
+	}, StateRunning)
 
 	if err == nil {
 		vm.Cpu = cpus
@@ -491,7 +491,7 @@ func (vm *Vm) AddMem(totalMem int) error {
 	size := totalMem - vm.Mem
 	err := vm.GenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
 		ctx.DCtx.AddMem(ctx, 1, size, result)
-	}, StateInit)
+	}, StateRunning)
 
 	if err == nil {
 		vm.Mem = totalMem
@@ -647,7 +647,7 @@ func (vm *Vm) StartContainer(id string) error {
 
 	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
 		ctx.newContainer(id, result)
-	}, StateInit, StateRunning)
+	}, StateRunning)
 
 	if err != nil {
 		return fmt.Errorf("Create new container failed: %v", err)
@@ -658,7 +658,7 @@ func (vm *Vm) StartContainer(id string) error {
 			ctx.ptys.startStdin(cc.process.Stdio)
 		}
 		result <- nil
-	}, StateInit, StateRunning)
+	}, StateRunning)
 
 	vm.ctx.Log(DEBUG, "container %s start: done.", id)
 	return nil
@@ -735,7 +735,7 @@ func (vm *Vm) Pause(pause bool) error {
 		ctx.PauseState = PauseStateBusy
 		/* FIXME: only support pause whole vm now */
 		ctx.DCtx.Pause(ctx, pause, result)
-	}, StateInit, StateRunning)
+	}, StateRunning)
 
 	if oldPauseState == pauseState {
 		return nil
@@ -746,7 +746,7 @@ func (vm *Vm) Pause(pause bool) error {
 	vm.GenericOperation(command+" result", func(ctx *VmContext, result chan<- error) {
 		ctx.PauseState = pauseState
 		result <- nil
-	}, StateInit, StateRunning)
+	}, StateRunning)
 	return err
 }
 
@@ -757,7 +757,7 @@ func (vm *Vm) Save(path string) error {
 		} else {
 			result <- fmt.Errorf("the vm should paused on non-live Save()")
 		}
-	}, StateInit, StateRunning)
+	}, StateRunning)
 }
 
 func (vm *Vm) GetIPAddrs() []string {

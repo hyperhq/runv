@@ -12,13 +12,8 @@ import (
 
 // states
 const (
-	StateInit        = "INIT"
-	StatePreparing   = "PREPARING"
-	StateStarting    = "STARTING"
 	StateRunning     = "RUNNING"
-	StateCleaning    = "CLEANING"
 	StateTerminating = "TERMINATING"
-	StateDestroying  = "DESTROYING"
 	StateNone        = "NONE"
 )
 
