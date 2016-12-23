@@ -18,10 +18,14 @@ func (f Factory) GetVm(cpu, mem int) (*hypervisor.Vm, error) {
 	if config.CPU > cpu || config.Memory > mem {
 		// also strip unrelated option from @config
 		boot := &hypervisor.BootConfig{
-			CPU:    cpu,
-			Memory: mem,
-			Kernel: config.Kernel,
-			Initrd: config.Initrd,
+			CPU:             cpu,
+			Memory:          mem,
+			Kernel:          config.Kernel,
+			Initrd:          config.Initrd,
+			InboundAverage:  config.InboundAverage,
+			InboundPeak:     config.InboundPeak,
+			OutboundAverage: config.OutboundAverage,
+			OutboundPeak:    config.OutboundPeak,
 		}
 		return hypervisor.GetVm("", boot, false, false)
 	}

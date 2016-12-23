@@ -28,21 +28,21 @@ type FactoryConfig struct {
 	Memory   int  `json:"memory"`
 }
 
-func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
+func NewFromConfigs(bootconfig *hypervisor.BootConfig, configs []FactoryConfig) Factory {
 	bases := make([]base.Factory, len(configs))
 	for i, c := range configs {
 		var b base.Factory
 		if c.Template {
-			b = template.New(hypervisor.BaseDir+"/template", c.Cpu, c.Memory, kernel, initrd)
+			b = template.New(hypervisor.BaseDir+"/template", c.Cpu, c.Memory, bootconfig)
 		} else {
-			b = direct.New(c.Cpu, c.Memory, kernel, initrd)
+			b = direct.New(c.Cpu, c.Memory, bootconfig.Kernel, bootconfig.Initrd)
 		}
 		bases[i] = cache.New(c.Cache, b)
 	}
 
 	if len(bases) == 0 {
 		// skip GetVm from the base factory
-		return single.New(direct.New(1000000, 1000000, kernel, initrd))
+		return single.New(direct.New(1000000, 1000000, bootconfig.Kernel, bootconfig.Initrd))
 	} else if len(bases) == 1 {
 		return single.New(bases[0])
 	} else {
@@ -52,12 +52,12 @@ func NewFromConfigs(kernel, initrd string, configs []FactoryConfig) Factory {
 
 // vmFactoryPolicy = [FactoryConfig,]*FactoryConfig
 // FactoryConfig   = {["cache":NUMBER,]["template":true|false,]"cpu":NUMBER,"memory":NUMBER}
-func NewFromPolicy(kernel, initrd string, policy string) Factory {
+func NewFromPolicy(bootconfig *hypervisor.BootConfig, policy string) Factory {
 	var configs []FactoryConfig
 	jsonString := "[" + policy + "]"
 	err := json.Unmarshal([]byte(jsonString), &configs)
 	if err != nil && policy != "none" {
 		glog.Errorf("Incorrect policy: %s", policy)
 	}
-	return NewFromConfigs(kernel, initrd, configs)
+	return NewFromConfigs(bootconfig, configs)
 }
