@@ -64,7 +64,6 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 
 	go ctx.Launch()
 	vm.ctx = ctx
-	//}
 
 	vm.Hub = vmEvent
 	vm.clients = CreateFanout(Status, 128, false)
@@ -102,85 +101,76 @@ func (vm *Vm) AssociateVm(data []byte) error {
 	return nil
 }
 
-func (vm *Vm) ReleaseVm() (int, error) {
-	var Response *types.VmResponse
+type matchResponse func(response *types.VmResponse) (error, bool)
 
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return -1, err
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	if vm.ctx.current == StateRunning {
-		releasePodEvent := &ReleaseVMCommand{}
-		vm.Hub <- releasePodEvent
-		for {
-			Response = <-Status
-			if Response.Code == types.E_VM_SHUTDOWN ||
-				Response.Code == types.E_OK {
-				break
-			}
-			if Response.Code == types.E_BUSY {
-				return types.E_BUSY, fmt.Errorf("VM busy")
-			}
-		}
-	}
-
-	return types.E_OK, nil
-}
-
-func (vm *Vm) WaitVm(timeout int) <-chan bool {
-	var (
-		result      = make(chan bool)
-		timeoutChan <-chan time.Time
-	)
-
-	if timeout >= 0 {
-		timeoutChan = time.After(time.Duration(timeout) * time.Second)
-	} else {
-		timeoutChan = make(chan time.Time, 1)
-	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		vm.ctx.Log(ERROR, "fail to get response channel: %v", err)
-		return nil
-	}
-
+func (vm *Vm) WaitResponse(match matchResponse, timeout int) chan error {
+	result := make(chan error)
 	go func() {
+		var timeoutChan <-chan time.Time
+		if timeout >= 0 {
+			timeoutChan = time.After(time.Duration(timeout) * time.Second)
+		} else {
+			timeoutChan = make(chan time.Time, 1)
+		}
+
+		Status, err := vm.GetResponseChan()
+		if err != nil {
+			result <- err
+			return
+		}
 		defer vm.ReleaseResponseChan(Status)
+
 		for {
 			select {
 			case response, ok := <-Status:
 				if !ok {
-					vm.ctx.Log(WARNING, "status chan broken during waiting vm, it should be closed")
-					result <- false
+					result <- fmt.Errorf("Response Chan is broken")
 					return
 				}
-				if response.Code == types.E_VM_SHUTDOWN {
-					vm.ctx.Log(INFO, "wait vm: vm exited")
-					result <- true
+				if err, exit := match(response); exit {
+					result <- err
 					return
-
 				}
 			case <-timeoutChan:
-				vm.ctx.Log(WARNING, "timeout while waiting vm")
-				close(result)
+				result <- fmt.Errorf("timeout for waiting response")
 				return
 			}
 		}
-
 	}()
-
 	return result
+}
+
+func (vm *Vm) ReleaseVm() error {
+	if vm.ctx.current != StateRunning {
+		return nil
+	}
+
+	result := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+		if response.Code == types.E_VM_SHUTDOWN || response.Code == types.E_OK {
+			return nil, true
+		}
+		return nil, false
+	}, -1)
+
+	releasePodEvent := &ReleaseVMCommand{}
+	vm.Hub <- releasePodEvent
+	return <-result
+}
+
+func (vm *Vm) WaitVm(timeout int) <-chan error {
+	return vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+		if response.Code == types.E_VM_SHUTDOWN {
+			return nil, true
+		}
+		return nil, false
+	}, timeout)
 }
 
 func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
 	var (
-		waiting     = make(map[string]struct{})
-		result      = make(chan *api.ProcessExit, len(ids))
-		timeoutChan <-chan time.Time
-		waitEvent   = types.E_CONTAINER_FINISHED
+		waiting   = make(map[string]struct{})
+		result    = make(chan *api.ProcessExit, len(ids))
+		waitEvent = types.E_CONTAINER_FINISHED
 	)
 
 	if !isContainer {
@@ -191,52 +181,40 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 		waiting[id] = struct{}{}
 	}
 
-	if timeout >= 0 {
-		timeoutChan = time.After(time.Duration(timeout) * time.Second)
-	} else {
-		timeoutChan = make(chan time.Time, 1)
-	}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		vm.ctx.Log(ERROR, "fail to get response channel: %v", err)
-		return nil
-	}
-
-	go func() {
-		defer vm.ReleaseResponseChan(Status)
-		for len(waiting) > 0 {
+	resChan := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+		if response.Code == types.E_VM_SHUTDOWN {
+			return fmt.Errorf("get shutdown event"), true
+		}
+		if response.Code != waitEvent {
+			return nil, false
+		}
+		ps, _ := response.Data.(*types.ProcessFinished)
+		if _, ok := waiting[ps.Id]; ok {
+			result <- &api.ProcessExit{
+				Id:         ps.Id,
+				Code:       int(ps.Code),
+				FinishedAt: time.Now().UTC(),
+			}
 			select {
-			case response, ok := <-Status:
-				if !ok || response.Code == types.E_VM_SHUTDOWN {
-					vm.ctx.Log(WARNING, "status chan broken during waiting containers: %#v", waiting)
-					close(result)
-					return
-				}
-				if response.Code == waitEvent {
-					ps, _ := response.Data.(*types.ProcessFinished)
-					if _, ok := waiting[ps.Id]; ok {
-						result <- &api.ProcessExit{
-							Id:         ps.Id,
-							Code:       int(ps.Code),
-							FinishedAt: time.Now().UTC(),
-						}
-						delete(waiting, ps.Id)
-						select {
-						case ps.Ack <- true:
-							vm.ctx.Log(TRACE, "got shut down msg, acked here")
-						default:
-							vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
-						}
-					}
-				}
-			case <-timeoutChan:
-				vm.ctx.Log(WARNING, "timeout while waiting result of containers: %#v", waiting)
-				close(result)
-				return
+			case ps.Ack <- true:
+				vm.ctx.Log(TRACE, "got shut down msg, acked here")
+			default:
+				vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
+			}
+			delete(waiting, ps.Id)
+			if len(waiting) == 0 {
+				// got all of processexit event, exit
+				return nil, true
 			}
 		}
-		close(result)
+		// continue to wait other processexit event
+		return nil, false
+	}, timeout)
+
+	go func() {
+		if err := <-resChan; err != nil {
+			close(result)
+		}
 	}()
 
 	return result
@@ -305,51 +283,37 @@ func (vm *Vm) InitSandbox(config *api.SandboxConfig) {
 }
 
 func (vm *Vm) WaitInit() api.Result {
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		vm.ctx.Log(ERROR, "failed to get status chan to monitor startpod: %v", err)
+	if err := <-vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+		if response.Code == types.E_OK {
+			return nil, true
+		}
+		if response.Code == types.E_FAILED || response.Code == types.E_VM_SHUTDOWN {
+			return fmt.Errorf("got failed event when wait init message"), true
+		}
+		return nil, false
+	}, -1); err != nil {
 		return api.NewResultBase(vm.Id, false, err.Error())
 	}
-	defer vm.ReleaseResponseChan(Status)
-
-	for {
-		s, ok := <-Status
-		if !ok {
-			return api.NewResultBase(vm.Id, false, "status channel broken")
-		}
-
-		switch s.Code {
-		case types.E_OK:
-			return api.NewResultBase(vm.Id, true, "set sandbox config successfully")
-		case types.E_FAILED, types.E_VM_SHUTDOWN:
-			return api.NewResultBase(vm.Id, false, "set sandbox config failed")
-		default:
-			vm.ctx.Log(DEBUG, "got message %#v while waiting start pod command finish")
-		}
-	}
+	return api.NewResultBase(vm.Id, true, "wait init message successfully")
 }
 
 func (vm *Vm) Shutdown() api.Result {
 	if vm.ctx.current != StateRunning {
 		return api.NewResultBase(vm.Id, false, "not in running state")
 	}
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return api.NewResultBase(vm.Id, false, "fail to get response chan")
-	}
-	defer vm.ReleaseResponseChan(Status)
+
+	result := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+		if response.Code == types.E_VM_SHUTDOWN {
+			return nil, true
+		}
+		return nil, false
+	}, -1)
 
 	vm.Hub <- &ShutdownCommand{}
-	for {
-		Response, ok := <-Status
-		if !ok {
-			return api.NewResultBase(vm.Id, false, "status channel broken")
-		}
-		glog.V(1).Infof("Got response: %d: %s", Response.Code, Response.Cause)
-		if Response.Code == types.E_VM_SHUTDOWN {
-			return api.NewResultBase(vm.Id, true, "set sandbox config successfully")
-		}
+	if err := <-result; err != nil {
+		return api.NewResultBase(vm.Id, false, err.Error())
 	}
+	return api.NewResultBase(vm.Id, true, "shutdown vm successfully")
 }
 
 // TODO: should we provide a method to force kill vm
@@ -789,42 +753,35 @@ func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
 	}
 }
 
-func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (vm *Vm, err error) {
+func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (*Vm, error) {
 	id := vmId
 	if id == "" {
 		for {
 			id = fmt.Sprintf("vm-%s", utils.RandStr(10, "alpha"))
-			if _, err = os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
+			if _, err := os.Stat(BaseDir + "/" + id); os.IsNotExist(err) {
 				break
 			}
 		}
 	}
 
-	vm = NewVm(id, b.CPU, b.Memory, lazy)
-	if err = vm.Launch(b); err != nil {
+	vm := NewVm(id, b.CPU, b.Memory, lazy)
+	if err := vm.Launch(b); err != nil {
 		return nil, err
 	}
 
 	if waitStarted {
-		// wait init connected
-		Status, err := vm.GetResponseChan()
-		if err != nil {
+		if err := <-vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
+			if response.Code == types.E_FAILED {
+				return fmt.Errorf("vm start failed"), true
+			}
+			if response.Code == types.E_VM_RUNNING {
+				return nil, true
+			}
+			return nil, false
+		}, -1); err != nil {
 			vm.Kill()
-			return nil, err
-		}
-		defer vm.ReleaseResponseChan(Status)
-		for {
-			vmResponse, ok := <-Status
-			if !ok || vmResponse.Code == types.E_FAILED {
-				vm.Kill()
-				return nil, err
-			}
-
-			if vmResponse.Code == types.E_VM_RUNNING {
-				break
-			}
 		}
 	}
-	return vm, nil
 
+	return vm, nil
 }
