@@ -678,40 +678,18 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	return nil
 }
 
-func (vm *Vm) Stats() *types.VmResponse {
-	var response *types.VmResponse
+func (vm *Vm) Stats() *types.PodStats {
+	ctx := vm.ctx
 
-	//if nil == vm.Pod || vm.Pod.Status != types.S_POD_RUNNING {
-	//	return errorResponse("The pod is not running, can not get stats for it")
-	//}
+	if ctx.current != StateRunning {
+		return nil
+	}
 
-	Status, err := vm.GetResponseChan()
+	stats, err := ctx.DCtx.Stats(ctx)
 	if err != nil {
-		return errorResponse(err.Error())
+		return nil
 	}
-	defer vm.ReleaseResponseChan(Status)
-
-	getPodStatsEvent := &GetPodStatsCommand{
-		Id: vm.Id,
-	}
-	vm.Hub <- getPodStatsEvent
-
-	// wait for the VM response
-	for {
-		response = <-Status
-		if response == nil {
-			continue
-		}
-		glog.V(1).Infof("Got response, Code %d, VM id %s!", response.Code, response.VmId)
-		if response.Reply != getPodStatsEvent {
-			continue
-		}
-		if response.VmId == vm.Id {
-			break
-		}
-	}
-
-	return response
+	return stats
 }
 
 func (vm *Vm) Pause(pause bool) error {

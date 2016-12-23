@@ -238,8 +238,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 	case COMMAND_WINDOWSIZE:
 		cmd := ev.(*WindowSizeCommand)
 		ctx.setWindowSize(cmd.ContainerId, cmd.ExecId, cmd.Size)
-	case COMMAND_GET_POD_STATS:
-		ctx.reportPodStats(ev)
 	case COMMAND_SHUTDOWN:
 		ctx.Log(INFO, "got shutdown command, shutting down")
 		ctx.shutdownVM(false, "")
