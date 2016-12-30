@@ -1,7 +1,6 @@
 package hypervisor
 
 import (
-	"net"
 	"os"
 )
 
@@ -25,9 +24,7 @@ type InitFailedEvent struct {
 	Reason string
 }
 
-type InitConnectedEvent struct {
-	conn *net.UnixConn
-}
+type InitConnectedEvent struct{}
 
 type OnlineCpuMemCommand struct{}
 
@@ -43,8 +40,7 @@ type AttachCommand struct {
 }
 
 type CommandAck struct {
-	reply *hyperstartCmd
-	msg   []byte
+	msg []byte
 }
 
 type CommandError CommandAck
