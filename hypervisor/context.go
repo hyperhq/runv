@@ -191,7 +191,7 @@ func (ctx *VmContext) nextScsiId() int {
 	return id
 }
 
-func (ctx *VmContext) nextPciAddr() int {
+func (ctx *VmContext) NextPciAddr() int {
 	ctx.idLock.Lock()
 	addr := ctx.pciAddr
 	ctx.pciAddr++
