@@ -1,9 +1,11 @@
 package hypervisor
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
@@ -481,6 +483,47 @@ func (vm *Vm) OnlineCpuMem() error {
 	return nil
 }
 
+func (vm *Vm) hyperstartExecSync(cmd []string, stdin []byte) (stdout, stderr []byte, err error) {
+	if len(cmd) == 0 {
+		return nil, nil, fmt.Errorf("'hyperstart-exec' without command")
+	}
+
+	execId := fmt.Sprintf("hyperstart-exec-%s", utils.RandStr(10, "alpha"))
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	tty := &TtyIO{
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
+	}
+	tty.Stdin = ioutil.NopCloser(bytes.NewReader(stdin))
+
+	err = vm.AddProcess(hyperstartapi.HYPERSTART_EXEC_CONTAINER, execId, false, cmd, []string{}, "/", tty)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	result := vm.WaitProcess(false, []string{execId}, -1)
+	if result == nil {
+		err = fmt.Errorf("can not wait hyperstart-exec %q", execId)
+		glog.Error(err)
+		return nil, nil, err
+	}
+
+	r, ok := <-result
+	if !ok {
+		err = fmt.Errorf("wait hyperstart-exec %q interrupted", execId)
+		glog.Error(err)
+		return nil, nil, err
+	}
+
+	glog.V(3).Infof("hyperstart-exec %q terminated at %v with code %d", execId, r.FinishedAt, r.Code)
+	if r.Code == 0 {
+		return stdoutBuf.Bytes(), stderrBuf.Bytes(), nil
+	} else {
+		return stdoutBuf.Bytes(), stderrBuf.Bytes(), fmt.Errorf("exit with error code:%d", r.Code)
+	}
+}
+
 func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
 	var command []string
 
@@ -572,6 +615,70 @@ func (vm *Vm) RemoveContainers(ids ...string) (bool, map[string]api.Result) {
 
 func (vm *Vm) RemoveVolumes(names ...string) (bool, map[string]api.Result) {
 	return vm.batchWaitResult(names, vm.ctx.RemoveVolume)
+}
+
+func (vm *Vm) GetIPVSService() ([]byte, error) {
+	cmd := []string{"ipvsadm", "-Ln"}
+	stdout, stderr, err := vm.hyperstartExecSync(cmd, nil)
+	if err != nil {
+		glog.Errorf("get ipvs service from vm failed: %v, %s", err, stderr)
+		return nil, err
+	}
+
+	return stdout, nil
+}
+
+func (vm *Vm) ApplyIPVSService(patch []byte, clearFirst bool) error {
+	glog.Infof("Apply IPVS service patch: \n%s", string(patch))
+
+	saveData, err := vm.GetIPVSService()
+	if err != nil {
+		return err
+	}
+
+	clear := func() error {
+		cmd := []string{"ipvsadm", "-C"}
+		_, stderr, err := vm.hyperstartExecSync(cmd, nil)
+		if err != nil {
+			glog.Errorf("clear ipvs rules failed: %v, %s", err, stderr)
+			return err
+		}
+
+		return nil
+	}
+
+	apply := func(rules []byte) error {
+		cmd := []string{"ipvsadm", "-R"}
+		_, stderr, err := vm.hyperstartExecSync(cmd, rules)
+		if err != nil {
+			glog.Errorf("apply ipvs rules failed: %v, %s", err, stderr)
+			return err
+		}
+
+		return nil
+	}
+
+	if clearFirst {
+		if err = clear(); err != nil {
+			return err
+		}
+	}
+
+	if err = apply(patch); err != nil {
+		// restore original ipvs services
+		err1 := clear()
+		if err1 != nil {
+			glog.Errorf("restore original ipvs services failed in clear stage: %v", err1)
+			return err
+		}
+		err1 = apply(saveData)
+		if err1 != nil {
+			glog.Errorf("restore original ipvs services failed in apply stage: %v", err1)
+		}
+		return err
+	}
+
+	return nil
 }
 
 type waitResultOp func(string, chan<- api.Result)
