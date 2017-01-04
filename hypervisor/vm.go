@@ -617,6 +617,70 @@ func (vm *Vm) RemoveVolumes(names ...string) (bool, map[string]api.Result) {
 	return vm.batchWaitResult(names, vm.ctx.RemoveVolume)
 }
 
+func (vm *Vm) GetIPVSService() ([]byte, error) {
+	cmd := []string{"ipvsadm", "-Ln"}
+	stdout, stderr, err := vm.hyperstartExecSync(cmd, nil)
+	if err != nil {
+		glog.Errorf("get ipvs service from vm failed: %v, %s", err, stderr)
+		return nil, err
+	}
+
+	return stdout, nil
+}
+
+func (vm *Vm) ApplyIPVSService(patch []byte, clearFirst bool) error {
+	glog.Infof("Apply IPVS service patch: \n%s", string(patch))
+
+	saveData, err := vm.GetIPVSService()
+	if err != nil {
+		return err
+	}
+
+	clear := func() error {
+		cmd := []string{"ipvsadm", "-C"}
+		_, stderr, err := vm.hyperstartExecSync(cmd, nil)
+		if err != nil {
+			glog.Errorf("clear ipvs rules failed: %v, %s", err, stderr)
+			return err
+		}
+
+		return nil
+	}
+
+	apply := func(rules []byte) error {
+		cmd := []string{"ipvsadm", "-R"}
+		_, stderr, err := vm.hyperstartExecSync(cmd, rules)
+		if err != nil {
+			glog.Errorf("apply ipvs rules failed: %v, %s", err, stderr)
+			return err
+		}
+
+		return nil
+	}
+
+	if clearFirst {
+		if err = clear(); err != nil {
+			return err
+		}
+	}
+
+	if err = apply(patch); err != nil {
+		// restore original ipvs services
+		err1 := clear()
+		if err1 != nil {
+			glog.Errorf("restore original ipvs services failed in clear stage: %v", err1)
+			return err
+		}
+		err1 = apply(saveData)
+		if err1 != nil {
+			glog.Errorf("restore original ipvs services failed in apply stage: %v", err1)
+		}
+		return err
+	}
+
+	return nil
+}
+
 type waitResultOp func(string, chan<- api.Result)
 
 func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string]api.Result) {
