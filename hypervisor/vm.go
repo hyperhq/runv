@@ -1,9 +1,11 @@
 package hypervisor
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
@@ -479,6 +481,47 @@ func (vm *Vm) OnlineCpuMem() error {
 	vm.Hub <- onlineCmd
 
 	return nil
+}
+
+func (vm *Vm) HyperstartExecSync(cmd []string, stdin []byte) (stdout, stderr []byte, err error) {
+	if len(cmd) == 0 {
+		return nil, nil, fmt.Errorf("'hyperstart-exec' without command")
+	}
+
+	execId := fmt.Sprintf("hyperstart-exec-%s", utils.RandStr(10, "alpha"))
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	tty := &TtyIO{
+		Stdin:  ioutil.NopCloser(bytes.NewReader(stdin)),
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
+	}
+
+	result := vm.WaitProcess(false, []string{execId}, -1)
+	if result == nil {
+		err = fmt.Errorf("can not wait hyperstart-exec %q", execId)
+		glog.Error(err)
+		return nil, nil, err
+	}
+
+	err = vm.AddProcess(hyperstartapi.HYPERSTART_EXEC_CONTAINER, execId, false, cmd, []string{}, "/", tty)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	r, ok := <-result
+	if !ok {
+		err = fmt.Errorf("wait hyperstart-exec %q interrupted", execId)
+		glog.Error(err)
+		return nil, nil, err
+	}
+
+	glog.V(3).Infof("hyperstart-exec %q terminated at %v with code %d", execId, r.FinishedAt, r.Code)
+
+	if r.Code != 0 {
+		return stdoutBuf.Bytes(), stderrBuf.Bytes(), fmt.Errorf("exit with error code:%d", r.Code)
+	}
+	return stdoutBuf.Bytes(), stderrBuf.Bytes(), nil
 }
 
 func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
