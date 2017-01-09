@@ -338,7 +338,9 @@ func (vm *Vm) WriteFile(container, target string, data []byte) error {
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_WRITEFILE,
 			Message: writeCmd,
-			result:  result,
+			callback: func(err error, data []byte) {
+				result <- err
+			},
 		}
 	}, StateRunning)
 }
@@ -348,6 +350,8 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		return nil, fmt.Errorf("'read' without file")
 	}
 
+	var content []byte
+
 	cmd := hyperstartCmd{
 		Code: hyperstartapi.INIT_READFILE,
 		Message: &hyperstartapi.FileCommand{
@@ -356,11 +360,14 @@ func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
 		},
 	}
 	err := vm.GenericOperation("ReadFile", func(ctx *VmContext, result chan<- error) {
-		cmd.result = result
+		cmd.callback = func(err error, data []byte) {
+			content = data
+			result <- err
+		}
 		ctx.vm <- &cmd
 	}, StateRunning)
 
-	return cmd.retMsg, err
+	return content, err
 }
 
 func (vm *Vm) SignalProcess(container, process string, signal syscall.Signal) error {
@@ -385,7 +392,9 @@ func (vm *Vm) AddRoute() error {
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_SETUPROUTE,
 			Message: hyperstartapi.Routes{Routes: routes},
-			result:  result,
+			callback: func(err error, data []byte) {
+				result <- err
+			},
 		}
 	}, StateRunning)
 }
