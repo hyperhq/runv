@@ -35,7 +35,9 @@ func (ctx *VmContext) newContainer(id string, result chan<- error) {
 		ctx.vm <- &hyperstartCmd{
 			Code:    hyperstartapi.INIT_NEWCONTAINER,
 			Message: c.VmSpec(),
-			result:  result,
+			callback: func(err error, data []byte) {
+				result <- err
+			},
 		}
 		glog.Infof("sent INIT_NEWCONTAINER")
 	} else {
@@ -55,7 +57,9 @@ func (ctx *VmContext) updateInterface(id string, result chan<- error) {
 				IpAddress: inf.IpAddr,
 				NetMask:   inf.NetMask,
 			},
-			result: result,
+			callback: func(err error, data []byte) {
+				result <- err
+			},
 		}
 	}
 }
@@ -138,7 +142,9 @@ func (ctx *VmContext) execCmd(execId string, cmd *hyperstartapi.ExecCommand, tty
 	ctx.vm <- &hyperstartCmd{
 		Code:    hyperstartapi.INIT_EXECCMD,
 		Message: cmd,
-		result:  result,
+		callback: func(err error, data []byte) {
+			result <- err
+		},
 	}
 }
 
@@ -151,7 +157,9 @@ func (ctx *VmContext) signalProcess(container, process string, signal syscall.Si
 					Container: container,
 					Signal:    signal,
 				},
-				result: result,
+				callback: func(err error, data []byte) {
+					result <- err
+				},
 			}
 		} else {
 			result <- fmt.Errorf("only the init process of the container can be signaled")
@@ -165,7 +173,9 @@ func (ctx *VmContext) signalProcess(container, process string, signal syscall.Si
 			Process:   process,
 			Signal:    signal,
 		},
-		result: result,
+		callback: func(err error, data []byte) {
+			result <- err
+		},
 	}
 }
 
