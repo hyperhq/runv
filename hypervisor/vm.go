@@ -609,14 +609,7 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	if execId == "" {
 		execId = "init"
 	}
-	var ttySizeCommand = &WindowSizeCommand{
-		ContainerId: containerId,
-		ExecId:      execId,
-		Size:        &WindowSize{Row: uint16(row), Column: uint16(column)},
-	}
-
-	vm.Hub <- ttySizeCommand
-	return nil
+	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {

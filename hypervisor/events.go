@@ -43,12 +43,6 @@ type CommandAck struct {
 
 type CommandError CommandAck
 
-type WindowSizeCommand struct {
-	ContainerId string
-	ExecId      string
-	Size        *WindowSize
-}
-
 type VolumeInfo struct {
 	Name         string //volumen name in spec
 	Filepath     string //block dev absolute path, or dir path relative to share dir
@@ -159,7 +153,6 @@ func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
-func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
 func (qe *CommandAck) Event() int            { return COMMAND_ACK }
