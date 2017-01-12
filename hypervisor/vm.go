@@ -423,17 +423,7 @@ func (vm *Vm) AddMem(totalMem int) error {
 }
 
 func (vm *Vm) OnlineCpuMem() error {
-	onlineCmd := &OnlineCpuMemCommand{}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- onlineCmd
-
-	return nil
+	return vm.ctx.hyperstart.OnlineCpuMem()
 }
 
 func (vm *Vm) HyperstartExecSync(cmd []string, stdin []byte) (stdout, stderr []byte, err error) {
@@ -619,14 +609,7 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	if execId == "" {
 		execId = "init"
 	}
-	var ttySizeCommand = &WindowSizeCommand{
-		ContainerId: containerId,
-		ExecId:      execId,
-		Size:        &WindowSize{Row: uint16(row), Column: uint16(column)},
-	}
-
-	vm.Hub <- ttySizeCommand
-	return nil
+	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {

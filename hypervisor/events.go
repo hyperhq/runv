@@ -26,8 +26,6 @@ type InitFailedEvent struct {
 
 type InitConnectedEvent struct{}
 
-type OnlineCpuMemCommand struct{}
-
 type ShutdownCommand struct {
 	Wait bool
 }
@@ -44,12 +42,6 @@ type CommandAck struct {
 }
 
 type CommandError CommandAck
-
-type WindowSizeCommand struct {
-	ContainerId string
-	ExecId      string
-	Size        *WindowSize
-}
 
 type VolumeInfo struct {
 	Name         string //volumen name in spec
@@ -160,9 +152,7 @@ func (qe *BlockdevInsertedEvent) Event() int { return EVENT_BLOCK_INSERTED }
 func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
-func (qe *OnlineCpuMemCommand) Event() int   { return COMMAND_ONLINECPUMEM }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
-func (qe *WindowSizeCommand) Event() int     { return COMMAND_WINDOWSIZE }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
 func (qe *CommandAck) Event() int            { return COMMAND_ACK }
