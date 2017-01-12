@@ -645,11 +645,13 @@ func (vm *Vm) Stats() *types.PodStats {
 	ctx := vm.ctx
 
 	if ctx.current != StateRunning {
+		vm.ctx.Log(WARNING, "could not get stats from non-running pod")
 		return nil
 	}
 
 	stats, err := ctx.DCtx.Stats(ctx)
 	if err != nil {
+		vm.ctx.Log(WARNING, "failed to get stats: %v", err)
 		return nil
 	}
 	return stats
