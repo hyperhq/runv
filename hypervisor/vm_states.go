@@ -210,8 +210,6 @@ func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 
 func stateRunning(ctx *VmContext, ev VmEvent) {
 	switch ev.Event() {
-	case COMMAND_ONLINECPUMEM:
-		ctx.hyperstart.OnlineCpuMem() //TODO check return value
 	case COMMAND_WINDOWSIZE:
 		cmd := ev.(*WindowSizeCommand)
 		ctx.hyperstart.TtyWinResize(cmd.ContainerId, cmd.ExecId, cmd.Size.Row, cmd.Size.Column)

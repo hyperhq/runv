@@ -423,17 +423,7 @@ func (vm *Vm) AddMem(totalMem int) error {
 }
 
 func (vm *Vm) OnlineCpuMem() error {
-	onlineCmd := &OnlineCpuMemCommand{}
-
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return nil
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vm.Hub <- onlineCmd
-
-	return nil
+	return vm.ctx.hyperstart.OnlineCpuMem()
 }
 
 func (vm *Vm) HyperstartExecSync(cmd []string, stdin []byte) (stdout, stderr []byte, err error) {
