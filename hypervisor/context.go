@@ -132,6 +132,22 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	return ctx, nil
 }
 
+// SendVmEvent enqueues a VmEvent onto the context. Returns an error if there is
+// no handler associated with the context. VmEvent handling happens in a
+// separate goroutine, so this is thread-safe and asynchronous.
+func (ctx *VmContext) SendVmEvent(ev VmEvent) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	if ctx.handler == nil {
+		return fmt.Errorf("VmContext(%s): event handler already shutdown.", ctx.Id)
+	}
+
+	ctx.Hub <- ev
+
+	return nil
+}
+
 func (ctx *VmContext) setTimeout(seconds int) {
 	if ctx.timer != nil {
 		ctx.unsetTimeout()
