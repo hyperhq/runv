@@ -332,10 +332,7 @@ func (vm *Vm) Shutdown() api.Result {
 
 // TODO: should we provide a method to force kill vm
 func (vm *Vm) Kill() {
-	vm.GenericOperation("KillSandbox", func(ctx *VmContext, result chan<- error) {
-		ctx.poweroffVM(false, "API Kill Sandbox")
-		result <- nil
-	}, StateRunning, StateTerminating)
+	vm.ctx.poweroffVM(false, "vm.Kill()")
 }
 
 func (vm *Vm) WriteFile(container, target string, data []byte) error {
@@ -795,7 +792,6 @@ func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (*Vm, error) {
 			glog.Error("VM never started")
 			return nil, false
 		}, -1); err != nil {
-
 			vm.Kill()
 		}
 	}
