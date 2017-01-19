@@ -106,20 +106,20 @@ func (vm *Vm) AssociateVm(data []byte) error {
 type matchResponse func(response *types.VmResponse) (error, bool)
 
 func (vm *Vm) WaitResponse(match matchResponse, timeout int) chan error {
-	result := make(chan error)
-	go func() {
-		var timeoutChan <-chan time.Time
-		if timeout >= 0 {
-			timeoutChan = time.After(time.Duration(timeout) * time.Second)
-		} else {
-			timeoutChan = make(chan time.Time, 1)
-		}
+	result := make(chan error, 1)
+	var timeoutChan <-chan time.Time
+	if timeout >= 0 {
+		timeoutChan = time.After(time.Duration(timeout) * time.Second)
+	} else {
+		timeoutChan = make(chan time.Time, 1)
+	}
 
-		Status, err := vm.GetResponseChan()
-		if err != nil {
-			result <- err
-			return
-		}
+	Status, err := vm.GetResponseChan()
+	if err != nil {
+		result <- err
+		return result
+	}
+	go func() {
 		defer vm.ReleaseResponseChan(Status)
 
 		for {
