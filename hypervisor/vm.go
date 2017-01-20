@@ -72,32 +72,22 @@ func (vm *Vm) Launch(b *BootConfig) (err error) {
 }
 
 // This function will only be invoked during daemon start
-func (vm *Vm) AssociateVm(data []byte) error {
-	glog.V(1).Infof("Associate the POD(%s) with VM(%s)", vm.Id)
+func AssociateVm(vmId string, data []byte) (*Vm, error) {
 	var (
 		PodEvent = make(chan VmEvent, 128)
 		Status   = make(chan *types.VmResponse, 128)
 		err      error
 	)
 
+	vm := newVm(vmId, 0, 0)
 	vm.ctx, err = VmAssociate(vm.Id, PodEvent, Status, data)
 	if err != nil {
 		glog.Errorf("cannot associate with vm: %v", err)
-		return err
+		return nil, err
 	}
 
-	//	go vm.handlePodEvent(mypod)
-	//
 	vm.clients = CreateFanout(Status, 128, false)
-
-	//	mypod.Status = types.S_POD_RUNNING
-	//	mypod.StartedAt = time.Now().Format("2006-01-02T15:04:05Z")
-	//	mypod.SetContainerStatus(types.S_POD_RUNNING)
-	//
-	//	//vm.Status = types.S_VM_ASSOCIATED
-	//	//vm.Pod = mypod
-	//
-	return nil
+	return vm, nil
 }
 
 type matchResponse func(response *types.VmResponse) (error, bool)
