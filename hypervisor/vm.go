@@ -143,10 +143,6 @@ func (vm *Vm) ReleaseVm() error {
 
 	releasePodEvent := &ReleaseVMCommand{}
 
-	if vm.ctx == nil {
-		return fmt.Errorf("ReleaseVm(%s) failed: VmContext is nil", vm.Id)
-	}
-
 	if err := vm.ctx.SendVmEvent(releasePodEvent); err != nil {
 		return err
 	}
@@ -270,11 +266,6 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 //}
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig) {
-	if vm.ctx == nil {
-		vm.ctx.Log(ERROR, "%v", NewNotReadyError(vm.Id))
-		return
-	}
-
 	vm.ctx.SetNetworkEnvironment(config)
 	vm.ctx.startPod()
 }
@@ -305,10 +296,6 @@ func (vm *Vm) Shutdown() api.Result {
 		}
 		return nil, false
 	}, -1)
-
-	if vm.ctx == nil {
-		return api.NewResultBase(vm.Id, false, "internal error - context == nil")
-	}
 
 	if err := vm.ctx.SendVmEvent(&ShutdownCommand{}); err != nil {
 		return api.NewResultBase(vm.Id, false, "vm context already exited")
@@ -507,7 +494,7 @@ func (vm *Vm) AddProcess(container, execId string, terminal bool, args []string,
 }
 
 func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
-	if vm.ctx == nil || vm.ctx.current != StateRunning {
+	if vm.ctx.current != StateRunning {
 		glog.Errorf("VM is not ready for insert volume %#v", vol)
 		return NewNotReadyError(vm.Id)
 	}
@@ -518,7 +505,7 @@ func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
 }
 
 func (vm *Vm) AddContainer(c *api.ContainerDescription) api.Result {
-	if vm.ctx == nil || vm.ctx.current != StateRunning {
+	if vm.ctx.current != StateRunning {
 		return NewNotReadyError(vm.Id)
 	}
 
@@ -705,12 +692,6 @@ func (vm *Vm) GetIPAddrs() []string {
 // is in position to handle it.
 func (vm *Vm) sendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
 	result := make(chan error, 1)
-
-	// Check vm context is available
-	if vm.ctx == nil {
-		result <- fmt.Errorf("sendGenericOperation(%s) failed: VmContext is nil", name)
-		return result
-	}
 
 	// Setup the generic operation
 	goe := &GenericOperation{
