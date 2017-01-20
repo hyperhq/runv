@@ -585,11 +585,6 @@ func (vm *Vm) StartContainer(id string) error {
 	return nil
 }
 
-type WindowSize struct {
-	Row    uint16 `json:"row"`
-	Column uint16 `json:"column"`
-}
-
 func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	if execId == "" {
 		execId = "init"
@@ -597,10 +592,9 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
 }
 
-func (vm *Vm) Attach(tty *TtyIO, container string, size *WindowSize) error {
+func (vm *Vm) Attach(tty *TtyIO, container string) error {
 	cmd := &AttachCommand{
 		Streams:   tty,
-		Size:      size,
 		Container: container,
 	}
 

@@ -150,7 +150,7 @@ func (c *Container) start(p *Process) error {
 		return err
 	}
 
-	err = c.ownerPod.vm.Attach(p.stdio, c.Id, nil)
+	err = c.ownerPod.vm.Attach(p.stdio, c.Id)
 	if err != nil {
 		glog.V(1).Infof("StartPod fail: fail to set up tty connection.\n")
 		return err

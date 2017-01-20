@@ -33,7 +33,6 @@ type ReleaseVMCommand struct{}
 
 type AttachCommand struct {
 	Streams   *TtyIO
-	Size      *WindowSize
 	Container string
 }
 
