@@ -23,7 +23,7 @@ func (f Factory) GetVm(cpu, mem int) (*hypervisor.Vm, error) {
 			Kernel: config.Kernel,
 			Initrd: config.Initrd,
 		}
-		return hypervisor.GetVm("", boot, false, false)
+		return hypervisor.GetVm("", boot, false)
 	}
 
 	vm, err := f.GetBaseVm()

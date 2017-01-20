@@ -752,17 +752,15 @@ func errorResponse(cause string) *types.VmResponse {
 	}
 }
 
-func NewVm(vmId string, cpu, memory int, lazy bool) *Vm {
+func newVm(vmId string, cpu, memory int) *Vm {
 	return &Vm{
-		Id: vmId,
-		//Pod:    nil,
-		Lazy: lazy,
-		Cpu:  cpu,
-		Mem:  memory,
+		Id:  vmId,
+		Cpu: cpu,
+		Mem: memory,
 	}
 }
 
-func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (*Vm, error) {
+func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 	id := vmId
 	if id == "" {
 		for {
@@ -773,7 +771,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted, lazy bool) (*Vm, error) {
 		}
 	}
 
-	vm := NewVm(id, b.CPU, b.Memory, lazy)
+	vm := newVm(id, b.CPU, b.Memory)
 	if err := vm.Launch(b); err != nil {
 		return nil, err
 	}

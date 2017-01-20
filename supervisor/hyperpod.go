@@ -479,7 +479,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 			Initrd: initrd,
 		}
 
-		vm, err = hypervisor.GetVm("", boot, true, false)
+		vm, err = hypervisor.GetVm("", boot, true)
 		if err != nil {
 			glog.V(1).Infof("Create VM failed: %s", err.Error())
 			return nil, err
