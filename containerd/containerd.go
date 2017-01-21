@@ -23,6 +23,8 @@ import (
 	"github.com/hyperhq/runv/supervisor"
 	templatecore "github.com/hyperhq/runv/template"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 const (
@@ -149,7 +151,7 @@ func daemon(sv *supervisor.Supervisor, address string) error {
 	for ss := range s {
 		switch ss {
 		case syscall.SIGCHLD:
-			if _, err := osutils.Reap(); err != nil {
+			if _, err := osutils.Reap(false); err != nil {
 				glog.Infof("containerd: reap child processes")
 			}
 		default:
@@ -188,6 +190,9 @@ func startServer(address string, sv *supervisor.Supervisor) (*grpc.Server, error
 	}
 	s := grpc.NewServer()
 	types.RegisterAPIServer(s, server.NewServer(sv))
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, healthServer)
+
 	go func() {
 		glog.Infof("containerd: grpc api on %s", address)
 		if err := s.Serve(l); err != nil {

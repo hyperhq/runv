@@ -67,11 +67,11 @@ func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stde
 	return c, c.Processes["init"], nil
 }
 
-func (sv *Supervisor) AddProcess(container, processId, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
+func (sv *Supervisor) AddProcess(container, processId string, terminal bool, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
 	sv.Lock()
 	defer sv.Unlock()
 	if c, ok := sv.Containers[container]; ok {
-		return c.addProcess(processId, stdin, stdout, stderr, spec)
+		return c.addProcess(processId, terminal, stdin, stdout, stderr, spec)
 	}
 	return nil, fmt.Errorf("container %s is not found for AddProcess()", container)
 }

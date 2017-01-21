@@ -12,12 +12,13 @@ import (
 )
 
 type Process struct {
-	Id     string
-	Stdin  string
-	Stdout string
-	Stderr string
-	Spec   *specs.Process
-	ProcId int
+	Id       string
+	Terminal bool
+	Stdin    string
+	Stdout   string
+	Stderr   string
+	Spec     *specs.Process
+	ProcId   int
 
 	// inerId is Id or container id + "-init"
 	// pass to hypervisor package and HyperPod.Processes
@@ -29,7 +30,8 @@ type Process struct {
 }
 
 func (p *Process) setupIO() error {
-	glog.Infof("process setupIO: stdin %s, stdout %s, stderr %s", p.Stdin, p.Stdout, p.Stderr)
+	glog.Infof("process setupIO: terminal: %v, stdin %s, stdout %s, stderr %s",
+		p.Terminal, p.Stdin, p.Stdout, p.Stderr)
 
 	// use a new go routine to avoid deadlock when stdin is fifo
 	go func() {
@@ -46,9 +48,12 @@ func (p *Process) setupIO() error {
 	if err != nil {
 		return err
 	}
-	stderr, err := os.OpenFile(p.Stderr, syscall.O_RDWR, 0)
-	if err != nil {
-		return err
+	var stderr io.Writer = nil
+	if !p.Terminal {
+		stderr, err = os.OpenFile(p.Stderr, syscall.O_RDWR, 0)
+		if err != nil {
+			return err
+		}
 	}
 
 	p.stdio = &hypervisor.TtyIO{

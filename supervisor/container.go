@@ -199,7 +199,7 @@ func (c *Container) wait(p *Process, result <-chan *api.ProcessExit) (*api.Proce
 	return exit, nil
 }
 
-func (c *Container) addProcess(processId, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
+func (c *Container) addProcess(processId string, terminal bool, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
 	if _, ok := c.ownerPod.Processes[processId]; ok {
 		return nil, fmt.Errorf("conflict process ID")
 	}
@@ -214,12 +214,13 @@ func (c *Container) addProcess(processId, stdin, stdout, stderr string, spec *sp
 	}
 
 	p := &Process{
-		Id:     processId,
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Spec:   spec,
-		ProcId: -1,
+		Id:       processId,
+		Terminal: terminal,
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Spec:     spec,
+		ProcId:   -1,
 
 		inerId:    processId,
 		ownerCont: c,

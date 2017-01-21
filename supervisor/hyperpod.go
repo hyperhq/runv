@@ -394,12 +394,13 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	}
 
 	p := &Process{
-		Id:     "init",
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Spec:   &spec.Process,
-		ProcId: c.ownerPod.getNsPid(),
+		Id:       "init",
+		Terminal: spec.Process.Terminal,
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		Spec:     &spec.Process,
+		ProcId:   c.ownerPod.getNsPid(),
 
 		inerId:    inerProcessId,
 		ownerCont: c,
