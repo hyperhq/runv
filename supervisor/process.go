@@ -38,17 +38,27 @@ func (p *Process) setupIO() error {
 		}
 	}()
 
-	stdin, err := os.OpenFile(p.Stdin, syscall.O_RDONLY, 0)
+	var stdin, stdout, stderr *os.File
+	var err error
+
+	stdin, err = os.OpenFile(p.Stdin, syscall.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
-	stdout, err := os.OpenFile(p.Stdout, syscall.O_RDWR, 0)
+
+	stdout, err = os.OpenFile(p.Stdout, syscall.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
-	stderr, err := os.OpenFile(p.Stderr, syscall.O_RDWR, 0)
-	if err != nil {
-		return err
+
+	// Docker does not create stderr if it's a terminal process since at least 1.13+
+	// github.com/docker/containerd/containerd-shim/process.go:239
+	// This stanza keeps the API somewhat consistent
+	if st, err := os.Stat(p.Stderr); st != nil || !p.Spec.Terminal {
+		stderr, err = os.OpenFile(p.Stderr, syscall.O_RDWR, 0)
+		if err != nil {
+			return err
+		}
 	}
 
 	p.stdio = &hypervisor.TtyIO{
