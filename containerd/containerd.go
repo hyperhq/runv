@@ -12,7 +12,6 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/containerd/api/grpc/types"
-	"github.com/docker/containerd/osutils"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/server"
 	"github.com/hyperhq/runv/driverloader"
@@ -137,28 +136,17 @@ var ContainerdCommand = cli.Command{
 }
 
 func daemon(sv *supervisor.Supervisor, address string) error {
-	// setup a standard reaper so that we don't leave any zombies if we are still alive
-	// this is just good practice because we are spawning new processes
 	s := make(chan os.Signal, 2048)
-	signal.Notify(s, syscall.SIGCHLD, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	signal.Notify(s, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	server, err := startServer(address, sv)
 	if err != nil {
 		return err
 	}
-	for ss := range s {
-		switch ss {
-		case syscall.SIGCHLD:
-			if _, err := osutils.Reap(); err != nil {
-				glog.Infof("containerd: reap child processes")
-			}
-		default:
-			glog.Infof("stopping containerd after receiving %s", ss)
-			time.Sleep(3 * time.Second) // TODO: fix it by proper way
-			server.Stop()
-			return nil
-		}
-	}
+	sig := <-s
+	glog.Infof("stopping containerd after receiving %s", sig)
+	time.Sleep(3 * time.Second) // TODO: fix it by proper way
+	server.Stop()
 	return nil
 }
 
