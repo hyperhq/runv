@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/hyperhq/runv/supervisord/api/grpc/types"
 	netcontext "golang.org/x/net/context"
 )
 

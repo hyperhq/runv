@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/gosigar"
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperhq/runv/supervisor"
+	"github.com/hyperhq/runv/supervisord/api/grpc/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"
 )
@@ -33,7 +33,7 @@ func (s *apiServer) GetServerVersion(ctx context.Context, c *types.GetServerVers
 		Major:    0,
 		Minor:    6,
 		Patch:    2,
-		Revision: "runv-containerd",
+		Revision: "runv-supervisord",
 	}, nil
 }
 

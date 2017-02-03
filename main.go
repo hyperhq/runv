@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/hyperhq/runv/containerd"
 	_ "github.com/hyperhq/runv/supervisor/proxy" // for proxy.init()
+	"github.com/hyperhq/runv/supervisord"
+	"github.com/hyperhq/runv/supervisord/api/grpc/types"
 	netcontext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -121,7 +121,7 @@ func main() {
 		listCommand,
 		stateCommand,
 		manageCommand,
-		containerd.ContainerdCommand,
+		supervisord.SupervisordCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Printf("%s\n", err.Error())

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/hyperhq/runv/supervisord/api/grpc/types"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	netcontext "golang.org/x/net/context"
@@ -202,8 +202,8 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				}
 			}
 			args = append(args,
-				"containerd", "--solo-namespaced",
-				"--containerd-dir", namespace,
+				"supervisord", "--solo-namespaced",
+				"--supervisord-dir", namespace,
 				"--state-dir", root,
 				"--listen", filepath.Join(namespace, "namespaced.sock"),
 			)
@@ -217,7 +217,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			}
 			err = cmd.Start()
 			if err != nil {
-				fmt.Printf("failed to launch runv containerd, error:%v\n", err)
+				fmt.Printf("failed to launch runv supervisord, error:%v\n", err)
 				os.Exit(-1)
 			}
 			address = filepath.Join(namespace, "namespaced.sock")

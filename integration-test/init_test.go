@@ -117,5 +117,5 @@ func (s *RunVSuite) TearDownTest(c *check.C) {
 	// after kill/delete functions are stable
 	exec.Command("pkill", "-9", "runv-namespaced").Run()
 	exec.Command("pkill", "-9", "qemu").Run()
-	exec.Command("pkill", "-9", "containerd-nslistener")
+	exec.Command("pkill", "-9", "supervisord-nslistener")
 }

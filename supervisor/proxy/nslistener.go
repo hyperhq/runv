@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	reexec.Register("containerd-nslistener", setupNsListener)
+	reexec.Register("supervisord-nslistener", setupNsListener)
 }
 
 func setupNsListener() {
@@ -31,7 +31,7 @@ func setupNsListener() {
 	enc := gob.NewEncoder(childPipe)
 	dec := gob.NewDecoder(childPipe)
 
-	/* notify containerd to execute prestart hooks */
+	/* notify supervisord to execute prestart hooks */
 	if err := enc.Encode("init"); err != nil {
 		glog.Error(err)
 		return
@@ -49,7 +49,7 @@ func setupNsListener() {
 		return
 	}
 
-	// Get network namespace info for the first time and send to the containerd
+	// Get network namespace info for the first time and send to the supervisord
 	/* get route info before link down */
 	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 	if err != nil {
@@ -57,7 +57,7 @@ func setupNsListener() {
 		return
 	}
 
-	/* send interface info to containerd */
+	/* send interface info to supervisord */
 	infos := collectionInterfaceInfo()
 	if err := enc.Encode(infos); err != nil {
 		glog.Error(err)
@@ -70,14 +70,14 @@ func setupNsListener() {
 	}
 
 	// This is a call back function.
-	// Use to send netlink update informations to containerd.
-	netNs2Containerd := func(netlinkUpdate supervisor.NetlinkUpdate) {
+	// Use to send netlink update informations to supervisord.
+	netNs2Supervisord := func(netlinkUpdate supervisor.NetlinkUpdate) {
 		if err := enc.Encode(netlinkUpdate); err != nil {
 			glog.Info("err Encode(netlinkUpdate) is :", err)
 		}
 	}
-	// Keep collecting network namespace info and sending to the containerd
-	setupNetworkNsTrap(netNs2Containerd)
+	// Keep collecting network namespace info and sending to the supervisord
+	setupNetworkNsTrap(netNs2Supervisord)
 }
 
 func collectionInterfaceInfo() []supervisor.InterfaceInfo {
@@ -119,7 +119,7 @@ func collectionInterfaceInfo() []supervisor.InterfaceInfo {
 
 // This function should be put into the main process or somewhere that can be
 // use to init the network namespace trap.
-func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
+func setupNetworkNsTrap(netNs2Supervisord func(supervisor.NetlinkUpdate)) {
 
 	// Subscribe for links change event
 	chLink := make(chan netlink.LinkUpdate)
@@ -148,11 +148,11 @@ func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
 	for {
 		select {
 		case updateLink := <-chLink:
-			handleLink(updateLink, netNs2Containerd)
+			handleLink(updateLink, netNs2Supervisord)
 		case updateAddr := <-chAddr:
-			handleAddr(updateAddr, netNs2Containerd)
+			handleAddr(updateAddr, netNs2Supervisord)
 		case updateRoute := <-chRoute:
-			handleRoute(updateRoute, netNs2Containerd)
+			handleRoute(updateRoute, netNs2Supervisord)
 		}
 	}
 }

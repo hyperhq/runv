@@ -54,7 +54,7 @@ func (se *SvEvents) setupEventLog(logDir string) error {
 			glog.Infof("write event log: %v", e)
 			se.eventLog = append(se.eventLog, e)
 			if err := enc.Encode(e); err != nil {
-				glog.Infof("containerd: fail to write event to journal")
+				glog.Infof("supervisord: fail to write event to journal")
 			}
 		}
 	}()
