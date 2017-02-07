@@ -188,7 +188,7 @@ func (c *Container) wait(p *Process, result <-chan *api.ProcessExit) (*api.Proce
 	exit, ok := <-result
 	if !ok {
 		exit = nil
-		glog.V(1).Infof("get exit code failed %s\n", err.Error())
+		glog.V(1).Info("get exit code failed (channel already closed)")
 	}
 
 	err = execPoststopHooks(c.Spec, state)
