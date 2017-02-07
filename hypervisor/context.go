@@ -378,8 +378,8 @@ func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan api.Resu
 
 	dc := NewDiskContext(ctx, vol)
 
-	if vol.IsDir() {
-		ctx.Log(INFO, "return volume add success for dir %s", vol.Name)
+	if vol.IsDir() || vol.IsNas() {
+		ctx.Log(INFO, "return volume add success for dir/nas %s", vol.Name)
 		result <- api.NewResultBase(vol.Name, true, "")
 	} else {
 		ctx.Log(DEBUG, "insert disk for volume %s", vol.Name)
