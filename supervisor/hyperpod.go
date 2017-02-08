@@ -366,7 +366,12 @@ func (hp *HyperPod) startNsListener() (err error) {
 
 func (hp *HyperPod) stopNsListener() {
 	if hp.nslistener != nil {
-		hp.nslistener.cmd.Process.Kill()
+		hp.nslistener.cmd.Process.Signal(syscall.SIGTERM)
+		timer := time.AfterFunc(time.Second*1, func() {
+			hp.nslistener.cmd.Process.Kill()
+		})
+		hp.nslistener.cmd.Wait()
+		timer.Stop()
 	}
 }
 
