@@ -66,11 +66,11 @@ func (h *serialBasedHyperstart) Close() {
 		for pk := range h.procs {
 			h.processAsyncEvents <- hyperstartapi.ProcessAsyncEvent{Container: pk.c, Process: pk.p, Event: "finished", Status: 255}
 		}
-		h.procs = nil
+		h.procs = make(map[pKey]*pState)
 		for _, out := range h.streamOuts {
 			out.Close()
 		}
-		h.streamOuts = nil
+		h.streamOuts = make(map[uint64]streamOut)
 		close(h.ctlChan)
 		close(h.streamChan)
 		close(h.processAsyncEvents)
