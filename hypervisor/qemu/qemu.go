@@ -304,7 +304,7 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result 
 	}
 }
 
-func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, result chan<- error) {
+func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string) error {
 	commands := make([]*QmpCommand, 2)
 
 	commands[0] = &QmpCommand{
@@ -328,11 +328,14 @@ func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string, result chan<
 		commands = commands[1:]
 	}
 
+	result := make(chan error, 1)
 	// TODO: use query-migrate to query until completed
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond:  func(err error) { result <- err },
 	}
+
+	return <-result
 }
 
 func (qc *QemuDriver) SupportLazyMode() bool {
