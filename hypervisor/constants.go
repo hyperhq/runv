@@ -40,14 +40,12 @@ const (
 	COMMAND_SHUTDOWN
 	COMMAND_RELEASE
 	COMMAND_ATTACH
-	COMMAND_ACK
 	COMMAND_PAUSEVM
 	GENERIC_OPERATION
 	ERROR_VM_START_FAILED
 	ERROR_INIT_FAIL
 	ERROR_QMP_FAIL
 	ERROR_INTERRUPTED
-	ERROR_CMD_FAIL
 )
 
 func EventString(ev int) string {
@@ -70,8 +68,6 @@ func EventString(ev int) string {
 		return "COMMAND_RELEASE"
 	case COMMAND_ATTACH:
 		return "COMMAND_ATTACH"
-	case COMMAND_ACK:
-		return "COMMAND_ACK"
 	case GENERIC_OPERATION:
 		return "GENERIC_OPERATION"
 	case ERROR_INIT_FAIL:
@@ -80,8 +76,6 @@ func EventString(ev int) string {
 		return "ERROR_QMP_FAIL"
 	case ERROR_INTERRUPTED:
 		return "ERROR_INTERRUPTED"
-	case ERROR_CMD_FAIL:
-		return "ERROR_CMD_FAIL"
 	}
 	return "UNKNOWN"
 }

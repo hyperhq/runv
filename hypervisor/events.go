@@ -33,15 +33,8 @@ type ReleaseVMCommand struct{}
 
 type AttachCommand struct {
 	Streams   *TtyIO
-	Size      *WindowSize
 	Container string
 }
-
-type CommandAck struct {
-	msg []byte
-}
-
-type CommandError CommandAck
 
 type VolumeInfo struct {
 	Name         string //volumen name in spec
@@ -155,9 +148,7 @@ func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
 func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
-func (qe *CommandAck) Event() int            { return COMMAND_ACK }
 func (qe *GenericOperation) Event() int      { return GENERIC_OPERATION }
 func (qe *InitFailedEvent) Event() int       { return ERROR_INIT_FAIL }
 func (qe *DeviceFailed) Event() int          { return ERROR_QMP_FAIL }
 func (qe *Interrupted) Event() int           { return ERROR_INTERRUPTED }
-func (qe *CommandError) Event() int          { return ERROR_CMD_FAIL }

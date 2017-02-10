@@ -69,7 +69,7 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 		Kernel:           kernel,
 		Initrd:           initrd,
 	}
-	vm, err := hypervisor.GetVm(vmName, b, true, false)
+	vm, err := hypervisor.GetVm(vmName, b, true)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 
 // boot vm from template, the returned vm is paused
 func (t *TemplateVmConfig) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
-	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), true, false)
+	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), true)
 }
 
 func (t *TemplateVmConfig) Destroy() {
