@@ -685,13 +685,13 @@ func (vm *Vm) Pause(pause bool) error {
 }
 
 func (vm *Vm) Save(path string) error {
-	return vm.GenericOperation("Save", func(ctx *VmContext, result chan<- error) {
-		if ctx.PauseState == PauseStatePaused {
-			ctx.DCtx.Save(ctx, path, result)
-		} else {
-			result <- fmt.Errorf("the vm should paused on non-live Save()")
-		}
-	}, StateRunning)
+	ctx := vm.ctx
+
+	if ctx == nil || ctx.current != StateRunning || ctx.PauseState != PauseStatePaused {
+		return NewNotReadyError(vm.Id)
+	}
+
+	return ctx.DCtx.Save(ctx, path)
 }
 
 func (vm *Vm) GetIPAddrs() []string {
