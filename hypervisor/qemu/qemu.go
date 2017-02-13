@@ -248,15 +248,13 @@ func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	newNetworkDelSession(ctx, qc, n.DeviceName, callback, result)
 }
 
-func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
+func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int) error {
 	currcpus := qc.cpus
 
 	if cpus < currcpus {
-		result <- fmt.Errorf("can't reduce cpus number from %d to %d", currcpus, cpus)
-		return
+		return fmt.Errorf("can't reduce cpus number from %d to %d", currcpus, cpus)
 	} else if cpus == currcpus {
-		result <- nil
-		return
+		return nil
 	}
 
 	commands := make([]*QmpCommand, cpus-currcpus)
@@ -269,6 +267,7 @@ func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<
 		}
 	}
 
+	result := make(chan error, 1)
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: func(err error) {
@@ -278,9 +277,10 @@ func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<
 			result <- err
 		},
 	}
+	return <-result
 }
 
-func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
+func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int) error {
 	commands := make([]*QmpCommand, 2)
 	commands[0] = &QmpCommand{
 		Execute: "object-add",
@@ -298,10 +298,12 @@ func (qc *QemuContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result 
 			"memdev": "mem" + strconv.Itoa(slot),
 		},
 	}
+	result := make(chan error, 1)
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond:  func(err error) { result <- err },
 	}
+	return <-result
 }
 
 func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string) error {

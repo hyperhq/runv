@@ -386,12 +386,12 @@ func (vc *VBoxContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Interf
 	}()
 }
 
-func (vc *VBoxContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
-	result <- fmt.Errorf("SetCpus is unsupported on virtualbox driver")
+func (vc *VBoxContext) SetCpus(ctx *hypervisor.VmContext, cpus int) error {
+	return fmt.Errorf("SetCpus is unsupported on virtualbox driver")
 }
 
-func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
-	result <- fmt.Errorf("AddMem is unsupported on virtualbox driver")
+func (vc *VBoxContext) AddMem(ctx *hypervisor.VmContext, slot, size int) error {
+	return fmt.Errorf("AddMem is unsupported on virtualbox driver")
 }
 
 func (vc *VBoxContext) Save(ctx *hypervisor.VmContext, path string) error {

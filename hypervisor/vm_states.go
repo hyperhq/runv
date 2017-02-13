@@ -25,7 +25,7 @@ func (ctx *VmContext) timedKill(seconds int) {
 	})
 }
 
-func (ctx *VmContext) newContainer(id string, result chan<- error) {
+func (ctx *VmContext) newContainer(id string) error {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -37,10 +37,10 @@ func (ctx *VmContext) newContainer(id string, result chan<- error) {
 		if err == nil && c.tty != nil {
 			go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
 		}
-		result <- err
 		glog.Infof("sent INIT_NEWCONTAINER")
+		return err
 	} else {
-		result <- fmt.Errorf("container %s not exist", id)
+		return fmt.Errorf("container %s not exist", id)
 	}
 }
 
@@ -53,7 +53,7 @@ func (ctx *VmContext) updateInterface(id string) error {
 }
 
 // TODO remove attachCmd and move streamCopy to hyperd
-func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
+func (ctx *VmContext) attachCmd(cmd *AttachCommand) error {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
@@ -61,20 +61,18 @@ func (ctx *VmContext) attachCmd(cmd *AttachCommand, result chan<- error) {
 	if !ok {
 		estr := fmt.Sprintf("cannot find container %s to attach", cmd.Container)
 		ctx.Log(ERROR, estr)
-		result <- errors.New(estr)
-		return
+		return errors.New(estr)
 	}
 
 	if c.tty != nil {
-		result <- fmt.Errorf("we can attach only once")
-		return
+		return fmt.Errorf("we can attach only once")
 	}
 	c.tty = cmd.Streams
 	if c.stdinPipe != nil {
 		go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
 	}
 
-	result <- nil
+	return nil
 }
 
 // TODO move this logic to hyperd
