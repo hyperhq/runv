@@ -334,10 +334,12 @@ func (vm *Vm) AddRoute() error {
 }
 
 func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
+
 	client := make(chan api.Result, 1)
-	vm.sendGenericOperation("CreateInterface", func(ctx *VmContext, result chan<- error) {
-		go ctx.AddInterface(info, client)
-	}, StateRunning)
+	vm.ctx.AddInterface(info, client)
 
 	ev, ok := <-client
 	if !ok {
@@ -355,10 +357,12 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 }
 
 func (vm *Vm) DeleteNic(id string) error {
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
+
 	client := make(chan api.Result, 1)
-	vm.sendGenericOperation("NetDevRemovedEvent", func(ctx *VmContext, result chan<- error) {
-		ctx.RemoveInterface(id, client)
-	}, StateRunning)
+	vm.ctx.RemoveInterface(id, client)
 
 	ev, ok := <-client
 	if !ok {
@@ -381,10 +385,11 @@ func (vm *Vm) SetCpus(cpus int) error {
 		return nil
 	}
 
-	err := vm.GenericOperation("SetCpus", func(ctx *VmContext, result chan<- error) {
-		ctx.DCtx.SetCpus(ctx, cpus, result)
-	}, StateRunning)
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
 
+	err := vm.ctx.DCtx.SetCpus(vm.ctx, cpus)
 	if err == nil {
 		vm.Cpu = cpus
 	}
@@ -397,10 +402,11 @@ func (vm *Vm) AddMem(totalMem int) error {
 	}
 
 	size := totalMem - vm.Mem
-	err := vm.GenericOperation("AddMem", func(ctx *VmContext, result chan<- error) {
-		ctx.DCtx.AddMem(ctx, 1, size, result)
-	}, StateRunning)
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
 
+	err := vm.ctx.DCtx.AddMem(vm.ctx, 1, size)
 	if err == nil {
 		vm.Mem = totalMem
 	}
@@ -572,11 +578,11 @@ func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string
 }
 
 func (vm *Vm) StartContainer(id string) error {
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
 
-	err := vm.GenericOperation("NewContainer", func(ctx *VmContext, result chan<- error) {
-		ctx.newContainer(id, result)
-	}, StateRunning)
-
+	err := vm.ctx.newContainer(id)
 	if err != nil {
 		return fmt.Errorf("Create new container failed: %v", err)
 	}
@@ -593,14 +599,15 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 }
 
 func (vm *Vm) Attach(tty *TtyIO, container string) error {
+	if vm.ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
+
 	cmd := &AttachCommand{
 		Streams:   tty,
 		Container: container,
 	}
-
-	return vm.GenericOperation("Attach", func(ctx *VmContext, result chan<- error) {
-		ctx.attachCmd(cmd, result)
-	}, StateRunning)
+	return vm.ctx.attachCmd(cmd)
 }
 
 func (vm *Vm) Stats() *types.PodStats {
@@ -658,7 +665,7 @@ func (vm *Vm) Pause(pause bool) error {
 func (vm *Vm) Save(path string) error {
 	ctx := vm.ctx
 
-	if ctx == nil || ctx.current != StateRunning || ctx.PauseState != PauseStatePaused {
+	if ctx.current != StateRunning || ctx.PauseState != PauseStatePaused {
 		return NewNotReadyError(vm.Id)
 	}
 
@@ -668,16 +675,13 @@ func (vm *Vm) Save(path string) error {
 func (vm *Vm) GetIPAddrs() []string {
 	ips := []string{}
 
-	err := vm.GenericOperation("GetIP", func(ctx *VmContext, result chan<- error) {
-		res := ctx.networks.getIpAddrs()
-		ips = append(ips, res...)
-
-		result <- nil
-	}, StateRunning)
-
-	if err != nil {
-		glog.Errorf("get pod ip failed: %v", err)
+	if vm.ctx.current != StateRunning {
+		glog.Errorf("get pod ip failed: %v", NewNotReadyError(vm.Id))
+		return ips
 	}
+
+	res := vm.ctx.networks.getIpAddrs()
+	ips = append(ips, res...)
 
 	return ips
 }

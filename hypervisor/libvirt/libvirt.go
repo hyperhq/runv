@@ -1083,27 +1083,23 @@ func (lc *LibvirtContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.Int
 	result <- callback
 }
 
-func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int, result chan<- error) {
+func (lc *LibvirtContext) SetCpus(ctx *hypervisor.VmContext, cpus int) error {
 	glog.V(3).Infof("setcpus %d", cpus)
 	if lc.domain == nil {
-		result <- fmt.Errorf("Cannot find domain")
-		return
+		return fmt.Errorf("Cannot find domain")
 	}
 
-	err := lc.domain.SetVcpusFlags(uint(cpus), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
-	result <- err
+	return lc.domain.SetVcpusFlags(uint(cpus), libvirtgo.VIR_DOMAIN_VCPU_LIVE)
 }
 
-func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int, result chan<- error) {
+func (lc *LibvirtContext) AddMem(ctx *hypervisor.VmContext, slot, size int) error {
 	memdevXml := fmt.Sprintf("<memory model='dimm'><target><size unit='MiB'>%d</size><node>0</node></target></memory>", size)
 	glog.V(3).Infof("memdevXml: %s", memdevXml)
 	if lc.domain == nil {
-		result <- fmt.Errorf("Cannot find domain")
-		return
+		return fmt.Errorf("Cannot find domain")
 	}
 
-	err := lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
-	result <- err
+	return lc.domain.AttachDeviceFlags(memdevXml, libvirtgo.VIR_DOMAIN_DEVICE_MODIFY_LIVE)
 }
 
 func (lc *LibvirtContext) Save(ctx *hypervisor.VmContext, path string) error {
