@@ -130,24 +130,20 @@ func (vm *Vm) WaitResponse(match matchResponse, timeout int) chan error {
 }
 
 func (vm *Vm) ReleaseVm() error {
-	if vm.ctx.current != StateRunning {
+	ctx := vm.ctx
+	if ctx.current != StateRunning {
+		glog.Infof("Ignore ReleaseVm request in state %q", ctx.current)
 		return nil
 	}
 
-	result := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
-		if response.Code == types.E_VM_SHUTDOWN || response.Code == types.E_OK {
-			return nil, true
-		}
-		return nil, false
-	}, -1)
+	orig := ctx.current
+	ctx.lock.Lock()
+	ctx.current = StateNone
+	ctx.handler = nil
+	ctx.lock.Unlock()
+	glog.V(3).Infof("ReleaseVm, state changed from %q to %q", orig, ctx.current)
 
-	releasePodEvent := &ReleaseVMCommand{}
-
-	if err := vm.ctx.SendVmEvent(releasePodEvent); err != nil {
-		return err
-	}
-
-	return <-result
+	return nil
 }
 
 func (vm *Vm) WaitVm(timeout int) <-chan error {
