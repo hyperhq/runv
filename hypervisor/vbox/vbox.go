@@ -179,10 +179,10 @@ func (vc *VBoxContext) Dump() (map[string]interface{}, error) {
 	}, nil
 }
 
-func (vc *VBoxContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {
+func (vc *VBoxContext) Pause(ctx *hypervisor.VmContext, pause bool) error {
 	err := fmt.Errorf("doesn't support pause for vbox right now")
 	glog.Warning(err)
-	result <- err
+	return err
 }
 
 func (vc *VBoxContext) Shutdown(ctx *hypervisor.VmContext) {
