@@ -682,33 +682,6 @@ func (vm *Vm) GetIPAddrs() []string {
 	return ips
 }
 
-// sendGenericOperation queues a generic operation onto the VM's context if it
-// is in position to handle it.
-func (vm *Vm) sendGenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) <-chan error {
-	result := make(chan error, 1)
-
-	// Setup the generic operation
-	goe := &GenericOperation{
-		OpName: name,
-		State:  states,
-		OpFunc: op,
-		Result: result,
-	}
-
-	// Try and send it - if we fail here, discard the channel and immediately
-	// push the failure state instead (goe isn't sent, so the result channel
-	// isn't used).
-	if err := vm.ctx.SendVmEvent(goe); err != nil {
-		result <- err
-	}
-
-	return result
-}
-
-func (vm *Vm) GenericOperation(name string, op func(ctx *VmContext, result chan<- error), states ...string) error {
-	return <-vm.sendGenericOperation(name, op, states...)
-}
-
 func errorResponse(cause string) *types.VmResponse {
 	return &types.VmResponse{
 		Code:  -1,

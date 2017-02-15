@@ -181,19 +181,6 @@ func (ctx *VmContext) poweroffVM(err bool, msg string) {
 	}
 }
 
-func (ctx *VmContext) handleGenericOperation(goe *GenericOperation) {
-	for _, allowd := range goe.State {
-		if ctx.current == allowd {
-			glog.V(3).Infof("handle GenericOperation(%s) on state(%s)", goe.OpName, ctx.current)
-			goe.OpFunc(ctx, goe.Result)
-			return
-		}
-	}
-
-	glog.V(3).Infof("GenericOperation(%s) is unsupported on state(%s)", goe.OpName, ctx.current)
-	goe.Result <- fmt.Errorf("GenericOperation(%s) is unsupported on state(%s)", goe.OpName, ctx.current)
-}
-
 // state machine
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
@@ -234,8 +221,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		glog.Info("Connection interrupted, quit...")
 		ctx.poweroffVM(true, "connection to vm broken")
 		ctx.Close()
-	case GENERIC_OPERATION:
-		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
 		unexpectedEventHandler(ctx, ev, "pod running")
 	}
@@ -260,8 +245,6 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 	case ERROR_INTERRUPTED:
 		interruptEv := ev.(*Interrupted)
 		glog.V(1).Info("Connection interrupted while terminating: %s", interruptEv.Reason)
-	case GENERIC_OPERATION:
-		ctx.handleGenericOperation(ev.(*GenericOperation))
 	default:
 		unexpectedEventHandler(ctx, ev, "terminating")
 	}
