@@ -627,39 +627,35 @@ func (vm *Vm) Stats() *types.PodStats {
 }
 
 func (vm *Vm) Pause(pause bool) error {
+	ctx := vm.ctx
+	if ctx.current != StateRunning {
+		return NewNotReadyError(vm.Id)
+	}
+
 	command := "Pause"
 	pauseState := PauseStatePaused
-	oldPauseState := PauseStateUnpaused
 	if !pause {
 		pauseState = PauseStateUnpaused
 		command = "Unpause"
 	}
 
-	err := vm.GenericOperation(command, func(ctx *VmContext, result chan<- error) {
-		oldPauseState = ctx.PauseState
-		if ctx.PauseState == PauseStateBusy {
-			result <- fmt.Errorf("%s fails: earlier Pause or Unpause operation has not finished", command)
-			return
-		} else if ctx.PauseState == pauseState {
-			result <- nil
-			return
-		}
-		ctx.PauseState = PauseStateBusy
+	var err error
+	ctx.pauseLock.Lock()
+	defer ctx.pauseLock.Unlock()
+	if ctx.PauseState != pauseState {
 		/* FIXME: only support pause whole vm now */
-		ctx.DCtx.Pause(ctx, pause, result)
-	}, StateRunning)
+		// should not change pause state inside ctx.DCtx.Pause!
+		err = ctx.DCtx.Pause(ctx, pause)
+		if err != nil {
+			glog.Errorf("%s sandbox failed: %v", command, err)
+			return err
+		}
 
-	if oldPauseState == pauseState {
-		return nil
+		glog.V(3).Infof("sandbox state turn to %s now", command)
+		ctx.PauseState = pauseState // change the state.
 	}
-	if err != nil {
-		pauseState = oldPauseState // recover the state
-	}
-	vm.GenericOperation(command+" result", func(ctx *VmContext, result chan<- error) {
-		ctx.PauseState = pauseState
-		result <- nil
-	}, StateRunning)
-	return err
+
+	return nil
 }
 
 func (vm *Vm) Save(path string) error {

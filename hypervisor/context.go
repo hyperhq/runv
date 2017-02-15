@@ -20,7 +20,6 @@ type VmHwStatus struct {
 
 const (
 	PauseStateUnpaused = iota
-	PauseStateBusy
 	PauseStatePaused
 )
 
@@ -66,8 +65,9 @@ type VmContext struct {
 
 	logPrefix string
 
-	lock   sync.Mutex //protect update of context
-	idLock sync.Mutex
+	lock      sync.Mutex //protect update of context
+	idLock    sync.Mutex
+	pauseLock sync.Mutex
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)

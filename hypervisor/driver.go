@@ -80,7 +80,7 @@ type DriverContext interface {
 	Shutdown(ctx *VmContext)
 	Kill(ctx *VmContext)
 
-	Pause(ctx *VmContext, pause bool, result chan<- error)
+	Pause(ctx *VmContext, pause bool) error
 
 	ConfigureNetwork(vmId, requestedIP string, config *api.InterfaceDescription) (*network.Settings, error)
 	AllocateNetwork(vmId, requestedIP string) (*network.Settings, error)
@@ -156,7 +156,7 @@ func (ec *EmptyContext) Shutdown(ctx *VmContext) {}
 
 func (ec *EmptyContext) Kill(ctx *VmContext) {}
 
-func (ec *EmptyContext) Pause(ctx *VmContext, pause bool, result chan<- error) {}
+func (ec *EmptyContext) Pause(ctx *VmContext, pause bool) error { return nil }
 
 func (ec *EmptyContext) BuildinNetwork() bool { return false }
 

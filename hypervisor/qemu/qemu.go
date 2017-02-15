@@ -184,7 +184,7 @@ func (qc *QemuContext) Close() {
 	close(qc.wdt)
 }
 
-func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {
+func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool) error {
 	commands := make([]*QmpCommand, 1)
 
 	if pause {
@@ -197,12 +197,14 @@ func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<
 		}
 	}
 
+	result := make(chan error, 1)
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: func(err error) {
 			result <- err
 		},
 	}
+	return <-result
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.DiskDescriptor, result chan<- hypervisor.VmEvent) {

@@ -659,17 +659,15 @@ func (lc *LibvirtContext) Close() {
 	lc.domain = nil
 }
 
-func (lc *LibvirtContext) Pause(ctx *hypervisor.VmContext, pause bool, result chan<- error) {
+func (lc *LibvirtContext) Pause(ctx *hypervisor.VmContext, pause bool) error {
 	if lc.domain == nil {
-		result <- fmt.Errorf("Cannot find domain")
-		return
+		return fmt.Errorf("Cannot find domain")
 	}
 
 	if pause {
-		result <- lc.domain.Suspend()
-	} else {
-		result <- lc.domain.Resume()
+		return lc.domain.Suspend()
 	}
+	return lc.domain.Resume()
 }
 
 type diskdriver struct {
