@@ -12,13 +12,20 @@ LIBVIRT_BUILD_TAG=
 endif
 
 HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
+
 all-local: build-runv
 clean-local:
 	-rm -f runv
 install-exec-local: 
 	$(INSTALL_PROGRAM) runv $(bindir)
 
-build-runv:
+.bin/stringer:
+	mkdir -p .bin
+	go get -v golang.org/x/tools/cmd/stringer
+	go build -o .bin/stringer golang.org/x/tools/cmd/stringer
+	
+build-runv: .bin/stringer
+	export PATH=$(abs_top_builddir)/.bin:$$PATH ; go generate ./...
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
 test-integration:
 	cd integration-test/test_data && make

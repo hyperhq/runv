@@ -32,7 +32,7 @@ type Routes struct {
 
 // Message
 type DecodedMessage struct {
-	Code    uint32
+	Code    HyperstartCode
 	Message []byte
 }
 
