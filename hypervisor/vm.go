@@ -661,6 +661,8 @@ func (vm *Vm) Pause(pause bool) error {
 func (vm *Vm) Save(path string) error {
 	ctx := vm.ctx
 
+	ctx.pauseLock.Lock()
+	defer ctx.pauseLock.Unlock()
 	if ctx.current != StateRunning || ctx.PauseState != PauseStatePaused {
 		return NewNotReadyError(vm.Id)
 	}
