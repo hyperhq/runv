@@ -3,10 +3,13 @@ package hypervisor
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type PersistVolumeInfo struct {
@@ -21,6 +24,7 @@ type PersistVolumeInfo struct {
 }
 
 type PersistNetworkInfo struct {
+	Id         string
 	Index      int
 	PciAddr    int
 	DeviceName string
@@ -28,12 +32,14 @@ type PersistNetworkInfo struct {
 }
 
 type PersistInfo struct {
-	Id          string
-	DriverInfo  map[string]interface{}
-	VmSpec      *hyperstartapi.Pod
-	HwStat      *VmHwStatus
-	VolumeList  []*PersistVolumeInfo
-	NetworkList []*PersistNetworkInfo
+	Id            string
+	DriverInfo    map[string]interface{}
+	VmSpec        *hyperstartapi.Pod
+	HwStat        *VmHwStatus
+	VolumeList    []*PersistVolumeInfo
+	NetworkList   []*PersistNetworkInfo
+	PortList      []*api.PortDescription
+	ContainerList []*PersistContainerInfo
 }
 
 func (ctx *VmContext) dump() (*PersistInfo, error) {
@@ -42,48 +48,54 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		return nil, err
 	}
 
+	nc := ctx.networks
 	info := &PersistInfo{
-		Id:         ctx.Id,
-		DriverInfo: dr,
-		//UserSpec:    ctx.userSpec,
-		//VmSpec:      ctx.vmSpec,
-		HwStat: ctx.dumpHwInfo(),
-		//VolumeList:  make([]*PersistVolumeInfo, len(ctx.devices.imageMap)+len(ctx.devices.volumeMap)),
-		//NetworkList: make([]*PersistNetworkInfo, len(ctx.devices.networkMap)),
+		Id:            ctx.Id,
+		DriverInfo:    dr,
+		VmSpec:        ctx.networks.sandboxInfo(),
+		HwStat:        ctx.dumpHwInfo(),
+		VolumeList:    make([]*PersistVolumeInfo, len(ctx.volumes)),
+		NetworkList:   make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
+		PortList:      make([]*api.PortDescription, len(nc.ports)),
+		ContainerList: make([]*PersistContainerInfo, len(ctx.containers)),
 	}
 
-	//vid := 0
-	//for _, image := range ctx.devices.imageMap {
-	//	info.VolumeList[vid] = image.info.dump()
-	//	info.VolumeList[vid].Containers = []int{image.pos}
-	//	info.VolumeList[vid].MontPoints = []string{"/"}
-	//	vid++
-	//}
-	//
-	//for _, vol := range ctx.devices.volumeMap {
-	//	info.VolumeList[vid] = vol.info.dump()
-	//	mps := len(vol.pos)
-	//	info.VolumeList[vid].Containers = make([]int, mps)
-	//	info.VolumeList[vid].MontPoints = make([]string, mps)
-	//	i := 0
-	//	for idx, mp := range vol.pos {
-	//		info.VolumeList[vid].Containers[i] = idx
-	//		info.VolumeList[vid].MontPoints[i] = mp
-	//		i++
-	//	}
-	//	vid++
-	//}
-	//
-	//nid := 0
-	//for _, nic := range ctx.devices.networkMap {
-	//	info.NetworkList[nid] = &PersistNetworkInfo{
-	//		Index:      nic.Index,
-	//		PciAddr:    nic.PCIAddr,
-	//		DeviceName: nic.DeviceName,
-	//		IpAddr:     nic.IpAddr,
-	//	}
-	//	nid++
-	//}
+	vid := 0
+	for _, vol := range ctx.volumes {
+		info.VolumeList[vid] = vol.dump()
+		vid++
+	}
+
+	for i, p := range nc.ports {
+		info.PortList[i] = &api.PortDescription{
+			HostPort:      p.HostPort,
+			ContainerPort: p.ContainerPort,
+			Protocol:      p.Protocol,
+		}
+	}
+	nid := 0
+	for _, nic := range nc.lo {
+		info.NetworkList[nid] = &PersistNetworkInfo{
+			Id:         nic.Id,
+			Index:      nic.Index,
+			PciAddr:    nic.PCIAddr,
+			DeviceName: nic.DeviceName,
+			IpAddr:     nic.IpAddr,
+		}
+		nid++
+	}
+	nc.slotLock.RLock()
+	for _, nic := range nc.eth {
+		info.NetworkList[nid] = &PersistNetworkInfo{
+			Id:         nic.Id,
+			Index:      nic.Index,
+			PciAddr:    nic.PCIAddr,
+			DeviceName: nic.DeviceName,
+			IpAddr:     nic.IpAddr,
+		}
+		nid++
+	}
+	defer nc.slotLock.RUnlock()
 
 	return info, nil
 }
@@ -132,6 +144,44 @@ func (vol *PersistVolumeInfo) blockInfo() *DiskDescriptor {
 	}
 }
 
+func (nc *NetworkContext) load(pinfo *PersistInfo) {
+	nc.SandboxConfig = &api.SandboxConfig{
+		Hostname: pinfo.VmSpec.Hostname,
+		Dns:      pinfo.VmSpec.Dns,
+	}
+	portWhilteList := pinfo.VmSpec.PortmappingWhiteLists
+	if portWhilteList != nil {
+		nc.Neighbors = &api.NeighborNetworks{
+			InternalNetworks: portWhilteList.InternalNetworks,
+			ExternalNetworks: portWhilteList.ExternalNetworks,
+		}
+	}
+
+	for i, p := range pinfo.PortList {
+		nc.ports[i] = p
+	}
+	for _, pi := range pinfo.NetworkList {
+		ifc := &InterfaceCreated{
+			Id:         pi.Id,
+			Index:      pi.Index,
+			PCIAddr:    pi.PciAddr,
+			DeviceName: pi.DeviceName,
+			IpAddr:     pi.IpAddr,
+		}
+		// if empty, may be old data, generate one for compatibility.
+		if ifc.Id == "" {
+			ifc.Id = utils.RandStr(8, "alpha")
+		}
+		// use device name distinguish from lo and eth
+		if ifc.DeviceName == DEFAULT_LO_DEVICE_NAME {
+			nc.lo[pi.IpAddr] = ifc
+		} else {
+			nc.eth[pi.Index] = ifc
+		}
+		nc.idMap[pi.Id] = ifc
+	}
+}
+
 func vmDeserialize(s []byte) (*PersistInfo, error) {
 	info := &PersistInfo{}
 	err := json.Unmarshal(s, info)
@@ -155,49 +205,38 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 		return nil, err
 	}
 
-	//ctx.vmSpec = pinfo.VmSpec
-	//ctx.userSpec = pinfo.UserSpec
-	//ctx.wg = wg
-
 	err = ctx.loadHwStatus(pinfo)
 	if err != nil {
 		return nil, err
 	}
 
-	//for _, vol := range pinfo.VolumeList {
-	//	binfo := vol.blockInfo()
-	//	if len(vol.Containers) != len(vol.MontPoints) {
-	//		return nil, errors.New("persistent data corrupt, volume info mismatch")
-	//	}
-	//	if len(vol.MontPoints) == 1 && vol.MontPoints[0] == "/" {
-	//		img := &imageInfo{
-	//			info: binfo,
-	//			pos:  vol.Containers[0],
-	//		}
-	//		ctx.devices.imageMap[vol.Name] = img
-	//	} else {
-	//		v := &volume{
-	//			info:     binfo,
-	//			pos:      make(map[int]string),
-	//			readOnly: make(map[int][]bool),
-	//		}
-	//		for i := 0; i < len(vol.Containers); i++ {
-	//			idx := vol.Containers[i]
-	//			v.pos[idx] = vol.MontPoints[i]
-	//			v.readOnly[idx] = ctx.vmSpec.Containers[idx].RoLookup(vol.MontPoints[i])
-	//		}
-	//		ctx.devices.volumeMap[vol.Name] = v
-	//	}
-	//}
-	//
-	//for _, nic := range pinfo.NetworkList {
-	//	ctx.devices.networkMap[nic.Index] = &InterfaceCreated{
-	//		Index:      nic.Index,
-	//		PCIAddr:    nic.PciAddr,
-	//		DeviceName: nic.DeviceName,
-	//		IpAddr:     nic.IpAddr,
-	//	}
-	//}
+	ctx.networks.load(pinfo)
+
+	oldVersionVolume := false
+	if len(pinfo.VolumeList) > 0 && (len(pinfo.VolumeList[0].Containers) > 0 || len(pinfo.VolumeList[0].MontPoints) > 0) {
+		oldVersionVolume = true
+	}
+	imageMap := make(map[string]*DiskDescriptor)
+	for _, vol := range pinfo.VolumeList {
+		binfo := vol.blockInfo()
+		if oldVersionVolume {
+			if len(vol.Containers) != len(vol.MontPoints) {
+				return nil, fmt.Error("persistent data corrupt, volume info mismatch")
+			}
+			if len(vol.MontPoints) == 1 && vol.MontPoints[0] == "/" {
+				imageMap[vol.Name] = binfo
+				continue
+			}
+		}
+		ctx.volumes[binfo.Name] = &DiskContext{
+			DiskDescriptor: binfo,
+			sandbox:        ctx,
+			observers:      make(map[string]*sync.WaitGroup),
+			lock:           &sync.RWMutex{},
+			// FIXME: is there any trouble if we set it as ready when restoring from persistence
+			ready: true,
+		}
+	}
 
 	return ctx, nil
 }
