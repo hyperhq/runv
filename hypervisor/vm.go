@@ -684,6 +684,15 @@ func (vm *Vm) GetIPAddrs() []string {
 	return ips
 }
 
+func (vm *Vm) Dump() ([]byte, error) {
+	pinfo, err := vm.ctx.dump()
+	if err != nil {
+		return nil, err
+	}
+
+	return pinfo.serialize()
+}
+
 func errorResponse(cause string) *types.VmResponse {
 	return &types.VmResponse{
 		Code:  -1,
