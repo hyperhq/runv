@@ -12,6 +12,14 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
+type PersistContainerInfo struct {
+	Description *api.ContainerDescription
+	Root        *PersistVolumeInfo
+	Process     *hyperstartapi.Process
+	Fsmap       []*hyperstartapi.FsmapDescriptor
+	VmVolumes   []*hyperstartapi.VolumeDescriptor
+}
+
 type PersistVolumeInfo struct {
 	Name       string
 	Filename   string
@@ -96,6 +104,12 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		nid++
 	}
 	defer nc.slotLock.RUnlock()
+
+	cid := 0
+	for _, c := range ctx.containers {
+		info.ContainerList[cid] = c.dump()
+		cid++
+	}
 
 	return info, nil
 }
@@ -182,6 +196,16 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 	}
 }
 
+func (cc *ContainerContext) dump() *PersistContainerInfo {
+	return &PersistContainerInfo{
+		Description: cc.ContainerDescription,
+		Root:        cc.root.dump(),
+		Process:     cc.process,
+		Fsmap:       cc.fsmap,
+		VmVolumes:   cc.vmVolumes,
+	}
+}
+
 func vmDeserialize(s []byte) (*PersistInfo, error) {
 	info := &PersistInfo{}
 	err := json.Unmarshal(s, info)
@@ -236,6 +260,39 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			// FIXME: is there any trouble if we set it as ready when restoring from persistence
 			ready: true,
 		}
+	}
+
+	for _, pc := range pinfo.ContainerList {
+		c := pc.Description
+		cc := &ContainerContext{
+			ContainerDescription: c,
+			fsmap:                pc.Fsmap,
+			vmVolumes:            pc.VmVolumes,
+			process:              pc.Process,
+			sandbox:              ctx,
+			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, c.Id),
+			root: &DiskContext{
+				DiskDescriptor: pc.Root.blockInfo(),
+				sandbox:        ctx,
+				isRootVol:      true,
+				ready:          true,
+				observers:      make(map[string]*sync.WaitGroup),
+				lock:           &sync.RWMutex{},
+			},
+		}
+		// restore wg for volumes attached to container
+		wgDisk := &sync.WaitGroup{}
+		for vn := range c.Volumes {
+			entry, ok := ctx.volumes[vn]
+			if !ok {
+				cc.Log(ERROR, "restoring container volume does not exist in volume map, skip")
+				continue
+			}
+			entry.wait(c.Id, wgDisk)
+		}
+		cc.root.wait(c.Id, wgDisk)
+
+		ctx.containers[c.Id] = cc
 	}
 
 	return ctx, nil
