@@ -12,6 +12,8 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
+const CURRENT_PERSIST_VERSION = 20170224
+
 type PersistContainerInfo struct {
 	Description *api.ContainerDescription
 	Root        *PersistVolumeInfo
@@ -40,14 +42,15 @@ type PersistNetworkInfo struct {
 }
 
 type PersistInfo struct {
-	Id            string
-	DriverInfo    map[string]interface{}
-	VmSpec        *hyperstartapi.Pod
-	HwStat        *VmHwStatus
-	VolumeList    []*PersistVolumeInfo
-	NetworkList   []*PersistNetworkInfo
-	PortList      []*api.PortDescription
-	ContainerList []*PersistContainerInfo
+	PersistVersion int
+	Id             string
+	DriverInfo     map[string]interface{}
+	VmSpec         *hyperstartapi.Pod
+	HwStat         *VmHwStatus
+	VolumeList     []*PersistVolumeInfo
+	NetworkList    []*PersistNetworkInfo
+	PortList       []*api.PortDescription
+	ContainerList  []*PersistContainerInfo
 }
 
 func (ctx *VmContext) dump() (*PersistInfo, error) {
@@ -58,14 +61,15 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 
 	nc := ctx.networks
 	info := &PersistInfo{
-		Id:            ctx.Id,
-		DriverInfo:    dr,
-		VmSpec:        ctx.networks.sandboxInfo(),
-		HwStat:        ctx.dumpHwInfo(),
-		VolumeList:    make([]*PersistVolumeInfo, len(ctx.volumes)),
-		NetworkList:   make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
-		PortList:      make([]*api.PortDescription, len(nc.ports)),
-		ContainerList: make([]*PersistContainerInfo, len(ctx.containers)),
+		PersistVersion: CURRENT_PERSIST_VERSION,
+		Id:             ctx.Id,
+		DriverInfo:     dr,
+		VmSpec:         ctx.networks.sandboxInfo(),
+		HwStat:         ctx.dumpHwInfo(),
+		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)),
+		NetworkList:    make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
+		PortList:       make([]*api.PortDescription, len(nc.ports)),
+		ContainerList:  make([]*PersistContainerInfo, len(ctx.containers)),
 	}
 
 	vid := 0
@@ -217,6 +221,7 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 }
 
 func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse) (*VmContext, error) {
+	oldVersion := pinfo.PersistVersion < CURRENT_PERSIST_VERSION
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
 	if err != nil {
