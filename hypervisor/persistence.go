@@ -14,23 +14,17 @@ import (
 
 const CURRENT_PERSIST_VERSION = 20170224
 
-type PersistContainerInfo struct {
-	Description *api.ContainerDescription
-	Root        *PersistVolumeInfo
-	Process     *hyperstartapi.Process
-	Fsmap       []*hyperstartapi.FsmapDescriptor
-	VmVolumes   []*hyperstartapi.VolumeDescriptor
-}
-
 type PersistVolumeInfo struct {
-	Name       string
-	Filename   string
-	Format     string
-	Fstype     string
-	DeviceName string
-	ScsiId     int
-	Containers []int
-	MontPoints []string
+	Name         string
+	Filename     string
+	Format       string
+	Fstype       string
+	DeviceName   string
+	ScsiId       int
+	ContainerIds []string
+	IsRootVol    bool
+	Containers   []int // deprecated
+	MontPoints   []string
 }
 
 type PersistNetworkInfo struct {
@@ -50,7 +44,6 @@ type PersistInfo struct {
 	VolumeList     []*PersistVolumeInfo
 	NetworkList    []*PersistNetworkInfo
 	PortList       []*api.PortDescription
-	ContainerList  []*PersistContainerInfo
 }
 
 func (ctx *VmContext) dump() (*PersistInfo, error) {
@@ -66,15 +59,18 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		DriverInfo:     dr,
 		VmSpec:         ctx.networks.sandboxInfo(),
 		HwStat:         ctx.dumpHwInfo(),
-		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)),
+		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)+len(ctx.containers)),
 		NetworkList:    make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
 		PortList:       make([]*api.PortDescription, len(nc.ports)),
-		ContainerList:  make([]*PersistContainerInfo, len(ctx.containers)),
 	}
 
 	vid := 0
 	for _, vol := range ctx.volumes {
-		info.VolumeList[vid] = vol.dump()
+		v := vol.dump()
+		for id := range vol.observers {
+			v.ContainerIds = append(v.ContainerIds, id)
+		}
+		info.VolumeList[vid] = v
 		vid++
 	}
 
@@ -110,8 +106,14 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	defer nc.slotLock.RUnlock()
 
 	cid := 0
+	info.VmSpec.DeprecatedContainers = make([]hyperstartapi.Container, len(ctx.containers))
 	for _, c := range ctx.containers {
-		info.ContainerList[cid] = c.dump()
+		info.VmSpec.DeprecatedContainers[cid] = *c.VmSpec()
+		rootVolume := c.root.dump()
+		rootVolume.ContainerIds = []string{c.Id}
+		rootVolume.IsRootVol = true
+		info.VolumeList[vid] = rootVolume
+		vid++
 		cid++
 	}
 
@@ -200,16 +202,6 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 	}
 }
 
-func (cc *ContainerContext) dump() *PersistContainerInfo {
-	return &PersistContainerInfo{
-		Description: cc.ContainerDescription,
-		Root:        cc.root.dump(),
-		Process:     cc.process,
-		Fsmap:       cc.fsmap,
-		VmVolumes:   cc.vmVolumes,
-	}
-}
-
 func vmDeserialize(s []byte) (*PersistInfo, error) {
 	info := &PersistInfo{}
 	err := json.Unmarshal(s, info)
@@ -241,19 +233,27 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 
 	ctx.networks.load(pinfo)
 
-	oldVersionVolume := false
-	if len(pinfo.VolumeList) > 0 && (len(pinfo.VolumeList[0].Containers) > 0 || len(pinfo.VolumeList[0].MontPoints) > 0) {
-		oldVersionVolume = true
-	}
+	// map container id to image DiskDescriptor
 	imageMap := make(map[string]*DiskDescriptor)
+	// map container id to volume DiskContext list
+	volumeMap := make(map[string][]*DiskContext)
+	pcList := pinfo.VmSpec.DeprecatedContainers
 	for _, vol := range pinfo.VolumeList {
 		binfo := vol.blockInfo()
-		if oldVersionVolume {
+		if oldVersion {
 			if len(vol.Containers) != len(vol.MontPoints) {
-				return nil, fmt.Error("persistent data corrupt, volume info mismatch")
+				return nil, fmt.Errorf("persistent data corrupt, volume info mismatch")
 			}
 			if len(vol.MontPoints) == 1 && vol.MontPoints[0] == "/" {
-				imageMap[vol.Name] = binfo
+				imageMap[pcList[vol.Containers[0]].Id] = binfo
+				continue
+			}
+		} else {
+			if vol.IsRootVol {
+				if len(vol.ContainerIds) != 1 {
+					return nil, fmt.Errorf("persistent data corrupt, root volume mismatch")
+				}
+				imageMap[vol.ContainerIds[0]] = binfo
 				continue
 			}
 		}
@@ -265,19 +265,43 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			// FIXME: is there any trouble if we set it as ready when restoring from persistence
 			ready: true,
 		}
+		if oldVersion {
+			for _, idx := range vol.Containers {
+				volumeMap[pcList[idx].Id] = append(volumeMap[pcList[idx].Id], ctx.volumes[binfo.Name])
+			}
+		} else {
+			for _, id := range vol.ContainerIds {
+				volumeMap[id] = append(volumeMap[id], ctx.volumes[binfo.Name])
+			}
+		}
 	}
 
-	for _, pc := range pinfo.ContainerList {
-		c := pc.Description
+	for _, pc := range pcList {
+		bInfo, ok := imageMap[pc.Id]
+		if !ok {
+			return nil, fmt.Errorf("persistent data corrupt, lack of container root volume")
+		}
 		cc := &ContainerContext{
-			ContainerDescription: c,
-			fsmap:                pc.Fsmap,
-			vmVolumes:            pc.VmVolumes,
-			process:              pc.Process,
-			sandbox:              ctx,
-			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, c.Id),
+			ContainerDescription: &api.ContainerDescription{
+				Id:         pc.Id,
+				RootPath:   pc.Rootfs,
+				Initialize: pc.Initialize,
+				Sysctl:     pc.Sysctl,
+				RootVolume: &api.VolumeDescription{
+					Name:         bInfo.Name,
+					Source:       bInfo.Filename,
+					Format:       bInfo.Format,
+					Fstype:       bInfo.Fstype,
+					DockerVolume: bInfo.DockerVolume,
+				},
+			},
+			fsmap:     pc.Fsmap,
+			process:   pc.Process,
+			vmVolumes: pc.Volumes,
+			sandbox:   ctx,
+			logPrefix: fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
 			root: &DiskContext{
-				DiskDescriptor: pc.Root.blockInfo(),
+				DiskDescriptor: bInfo,
 				sandbox:        ctx,
 				isRootVol:      true,
 				ready:          true,
@@ -285,19 +309,23 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 				lock:           &sync.RWMutex{},
 			},
 		}
+		if cc.process.Id == "" {
+			cc.process.Id = "init"
+		}
 		// restore wg for volumes attached to container
 		wgDisk := &sync.WaitGroup{}
-		for vn := range c.Volumes {
-			entry, ok := ctx.volumes[vn]
-			if !ok {
-				cc.Log(ERROR, "restoring container volume does not exist in volume map, skip")
-				continue
+		volList, ok := volumeMap[pc.Id]
+		if ok {
+			cc.Volumes = make(map[string]*api.VolumeReference, len(volList))
+			for _, vol := range volList {
+				// for unwait attached volumes when removing container
+				cc.Volumes[vol.Name] = &api.VolumeReference{}
+				vol.wait(cc.Id, wgDisk)
 			}
-			entry.wait(c.Id, wgDisk)
 		}
-		cc.root.wait(c.Id, wgDisk)
+		cc.root.wait(cc.Id, wgDisk)
 
-		ctx.containers[c.Id] = cc
+		ctx.containers[cc.Id] = cc
 	}
 
 	return ctx, nil
