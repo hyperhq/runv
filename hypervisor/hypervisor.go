@@ -8,6 +8,7 @@ import (
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 func (ctx *VmContext) loop() {
@@ -78,10 +79,10 @@ func (ctx *VmContext) Launch() {
 	if ctx.Boot.BootFromTemplate {
 		glog.Info("boot from template")
 		ctx.PauseState = PauseStatePaused
-		ctx.hyperstart = libhyperstart.NewSerialJsonBasedHyperstart(ctx.HyperSockName, ctx.TtySockName, 1, false)
+		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(utils.UNIX_SOCKET_PREFIX+ctx.HyperSockName, utils.UNIX_SOCKET_PREFIX+ctx.TtySockName, 1, false)
 		ctx.Hub <- &InitConnectedEvent{}
 	} else {
-		ctx.hyperstart = libhyperstart.NewSerialJsonBasedHyperstart(ctx.HyperSockName, ctx.TtySockName, 1, true)
+		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(utils.UNIX_SOCKET_PREFIX+ctx.HyperSockName, utils.UNIX_SOCKET_PREFIX+ctx.TtySockName, 1, true)
 		go ctx.watchHyperstart(true)
 	}
 	if glog.V(1) {
@@ -112,7 +113,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		return nil, err
 	}
 
-	context.hyperstart = libhyperstart.NewSerialJsonBasedHyperstart(context.HyperSockName, context.TtySockName, pinfo.HwStat.AttachId, false)
+	context.hyperstart = libhyperstart.NewJsonBasedHyperstart(utils.UNIX_SOCKET_PREFIX+context.HyperSockName, utils.UNIX_SOCKET_PREFIX+context.TtySockName, pinfo.HwStat.AttachId, false)
 	context.DCtx.Associate(context)
 
 	if glog.V(1) {
