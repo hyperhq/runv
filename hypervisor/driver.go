@@ -7,6 +7,7 @@ import (
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/vsock"
 )
 
 type BootConfig struct {
@@ -62,6 +63,7 @@ type HypervisorDriver interface {
 }
 
 var HDriver HypervisorDriver
+var VsockCidManager vsock.VsockCidAllocator
 
 type DriverContext interface {
 	Launch(ctx *VmContext)

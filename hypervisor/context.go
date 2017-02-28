@@ -16,6 +16,7 @@ type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
 	ScsiId   int    //next available scsi id for scsi hotplug
 	AttachId uint64 //next available attachId for attached tty
+	GuestCid uint32 //vsock guest cid
 }
 
 const (
@@ -42,6 +43,7 @@ type VmContext struct {
 	TtySockName     string
 	ConsoleSockName string
 	ShareDir        string
+	GuestCid        uint32
 
 	pciAddr int //next available pci addr for pci hotplug
 	scsiId  int //next available scsi id for scsi hotplug
@@ -87,6 +89,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		consoleSockName = homeDir + ConsoleSockName
 		shareDir        = homeDir + ShareDirTag
 		ctx             *VmContext
+		cid             uint32
 	)
 
 	err := os.MkdirAll(shareDir, 0755)
@@ -104,12 +107,26 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		}
 	}
 
+	if boot.EnableVsock {
+		if !HDriver.SupportVmSocket() {
+			err := fmt.Errorf("vsock feature requested but not supported")
+			ctx.Log(ERROR, "%v", err)
+			return nil, err
+		}
+		cid, err = VsockCidManager.GetCid()
+		if err != nil {
+			ctx.Log(ERROR, "failed to get vsock guest cid: %v", err)
+			return nil, err
+		}
+	}
+
 	ctx = &VmContext{
 		Id:              id,
 		Boot:            boot,
 		PauseState:      PauseStateUnpaused,
 		pciAddr:         PciAddrFrom,
 		scsiId:          0,
+		GuestCid:        cid,
 		Hub:             hub,
 		client:          client,
 		DCtx:            dc,
@@ -243,6 +260,10 @@ func (ctx *VmContext) Close() {
 	os.Remove(ctx.ShareDir)
 	ctx.handler = nil
 	ctx.current = "None"
+	if ctx.Boot.EnableVsock && ctx.GuestCid > 0 {
+		VsockCidManager.ReleaseCid(ctx.GuestCid)
+		ctx.GuestCid = 0
+	}
 }
 
 func (ctx *VmContext) Become(handler stateHandler, desc string) {
