@@ -80,6 +80,10 @@ func (ld *LibvirtDriver) SupportLazyMode() bool {
 	return false
 }
 
+func (ld *LibvirtDriver) SupportVmSocket() bool {
+	return false
+}
+
 func (ld *LibvirtDriver) checkConnection() error {
 	if alive, _ := ld.conn.IsAlive(); !alive {
 		glog.V(1).Info("libvirt disconnected, reconnect")

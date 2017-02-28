@@ -57,6 +57,7 @@ type HypervisorDriver interface {
 	InitNetwork(bIface, bIP string, disableIptables bool) error
 
 	SupportLazyMode() bool
+	SupportVmSocket() bool
 }
 
 var HDriver HypervisorDriver
@@ -124,6 +125,10 @@ func (ed *EmptyDriver) LoadContext(persisted map[string]interface{}) (DriverCont
 }
 
 func (ed *EmptyDriver) SupportLazyMode() bool {
+	return false
+}
+
+func (ed *EmptyDriver) SupportVmSocket() bool {
 	return false
 }
 

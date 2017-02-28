@@ -353,3 +353,7 @@ func (qc *QemuContext) Save(ctx *hypervisor.VmContext, path string) error {
 func (qc *QemuDriver) SupportLazyMode() bool {
 	return false
 }
+
+func (qc *QemuDriver) SupportVmSocket() bool {
+	return qc.hasVsock
+}
