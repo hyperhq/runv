@@ -23,7 +23,8 @@ var LibvirtdAddress = "qemu:///system"
 
 type LibvirtDriver struct {
 	sync.Mutex
-	conn libvirtgo.VirConnection
+	conn     libvirtgo.VirConnection
+	hasVsock bool
 }
 
 type LibvirtContext struct {
@@ -40,8 +41,15 @@ func InitDriver() *LibvirtDriver {
 		return nil
 	}
 
+	var hasVsock bool
+	_, err = exec.Command("/sbin/modprobe", "vhost_vsock").Output()
+	if err == nil {
+		hasVsock = true
+	}
+
 	return &LibvirtDriver{
-		conn: conn,
+		conn:     conn,
+		hasVsock: hasVsock,
 	}
 }
 
@@ -81,7 +89,7 @@ func (ld *LibvirtDriver) SupportLazyMode() bool {
 }
 
 func (ld *LibvirtDriver) SupportVmSocket() bool {
-	return false
+	return ld.hasVsock
 }
 
 func (ld *LibvirtDriver) checkConnection() error {
@@ -360,21 +368,31 @@ type seclab struct {
 	Type string `xml:"type,attr"`
 }
 
+type qemucmd struct {
+	Value string `xml:"value,attr"`
+}
+
+type commandlines struct {
+	Cmds []qemucmd `xml:"qemu:arg"`
+}
+
 type domain struct {
-	XMLName    xml.Name `xml:"domain"`
-	Type       string   `xml:"type,attr"`
-	Name       string   `xml:"name"`
-	Memory     memory   `xml:"memory"`
-	MaxMem     *maxmem  `xml:"maxMemory,omitempty"`
-	VCpu       vcpu     `xml:"vcpu"`
-	OS         domainos `xml:"os"`
-	Features   features `xml:"features"`
-	CPU        cpu      `xml:"cpu"`
-	OnPowerOff string   `xml:"on_poweroff"`
-	OnReboot   string   `xml:"on_reboot"`
-	OnCrash    string   `xml:"on_crash"`
-	Devices    device   `xml:"devices"`
-	SecLabel   seclab   `xml:"seclabel"`
+	XMLName     xml.Name     `xml:"domain"`
+	Type        string       `xml:"type,attr"`
+	XmlnsQemu   string       `xml:"xmlns:qemu,attr,omitempty"`
+	Name        string       `xml:"name"`
+	Memory      memory       `xml:"memory"`
+	MaxMem      *maxmem      `xml:"maxMemory,omitempty"`
+	VCpu        vcpu         `xml:"vcpu"`
+	OS          domainos     `xml:"os"`
+	Features    features     `xml:"features"`
+	CPU         cpu          `xml:"cpu"`
+	OnPowerOff  string       `xml:"on_poweroff"`
+	OnReboot    string       `xml:"on_reboot"`
+	OnCrash     string       `xml:"on_crash"`
+	Devices     device       `xml:"devices"`
+	SecLabel    seclab       `xml:"seclabel"`
+	CommandLine commandlines `xml:"qemu:commandline"`
 }
 
 func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
@@ -430,6 +448,14 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		cells[0].Unit = "KiB"
 
 		dom.CPU.Numa = &numa{Cell: cells}
+	}
+
+	if ctx.Boot.EnableVsock {
+		dom.XmlnsQemu = "http://libvirt.org/schemas/domain/qemu/1.0"
+		dom.CommandLine.Cmds = append(dom.CommandLine.Cmds, qemucmd{Value: "-device"})
+		vsockDev := fmt.Sprintf("vhost-vsock-pci,id=vsock0,bus=pci.0,addr=%x,guest-cid=%d", ctx.NextPciAddr(), ctx.GuestCid)
+		dom.CommandLine.Cmds = append(dom.CommandLine.Cmds, qemucmd{Value: vsockDev})
+		glog.Infof("vsock cmds xml: %v", dom.CommandLine)
 	}
 
 	cmd, err := exec.LookPath("qemu-system-x86_64")
