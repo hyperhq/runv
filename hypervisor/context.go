@@ -3,6 +3,7 @@ package hypervisor
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/utils"
 )
 
 type VmHwStatus struct {
@@ -430,4 +432,20 @@ func (ctx *VmContext) RemoveVolume(name string, result chan<- api.Result) {
 	ctx.Log(INFO, "remove disk %s", name)
 	delete(ctx.volumes, name)
 	disk.remove(result)
+}
+
+func (ctx *VmContext) ctlSockAddr() string {
+	if ctx.Boot.EnableVsock {
+		return utils.VSOCK_SOCKET_PREFIX + strconv.FormatUint(uint64(ctx.GuestCid), 10) + ":" + strconv.FormatInt(hyperstartapi.HYPER_VSOCK_CTL_PORT, 10)
+	} else {
+		return utils.UNIX_SOCKET_PREFIX + ctx.HyperSockName
+	}
+}
+
+func (ctx *VmContext) ttySockAddr() string {
+	if ctx.Boot.EnableVsock {
+		return utils.VSOCK_SOCKET_PREFIX + strconv.FormatUint(uint64(ctx.GuestCid), 10) + ":" + strconv.FormatInt(hyperstartapi.HYPER_VSOCK_MSG_PORT, 10)
+	} else {
+		return utils.UNIX_SOCKET_PREFIX + ctx.TtySockName
+	}
 }
