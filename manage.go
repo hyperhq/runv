@@ -80,7 +80,7 @@ var createTemplateCommand = cli.Command{
 			os.Exit(-1)
 		}
 
-		if _, err := templatecore.CreateTemplateVM(template, "", context.Int("cpu"), context.Int("mem"), kernel, initrd); err != nil {
+		if _, err := templatecore.CreateTemplateVM(template, "", context.Int("cpu"), context.Int("mem"), kernel, initrd, context.GlobalBool("vsock")); err != nil {
 			fmt.Printf("Failed to create the template: %v\n", err)
 			os.Exit(-1)
 		}

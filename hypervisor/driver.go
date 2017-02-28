@@ -15,6 +15,7 @@ type BootConfig struct {
 	HotAddCpuMem     bool
 	BootToBeTemplate bool
 	BootFromTemplate bool
+	EnableVsock      bool
 	MemoryPath       string
 	DevicesStatePath string
 	Kernel           string
