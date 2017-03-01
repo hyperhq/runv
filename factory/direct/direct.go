@@ -10,11 +10,12 @@ type directFactory struct {
 	config hypervisor.BootConfig
 }
 
-func New(cpu, mem int, kernel, initrd string) base.Factory {
+func New(cpu, mem int, kernel, initrd string, vsock bool) base.Factory {
 	b := hypervisor.BootConfig{
 		CPU:          cpu,
 		Memory:       mem,
 		HotAddCpuMem: true,
+		EnableVsock:  vsock,
 		Kernel:       kernel,
 		Initrd:       initrd,
 	}

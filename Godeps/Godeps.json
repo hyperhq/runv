@@ -205,8 +205,22 @@
 			"Rev": "ab0be5212fb225475f2087566eded7da5d727960"
 		},
 		{
+			"ImportPath": "github.com/RoaringBitmap/roaring",
+			"Comment": "v0.2.8-7-gc3e090c",
+			"Rev": "c3e090c41e857e2efc2b85af31c3c23bde0e9574"
+		},
+		{
 			"ImportPath": "google.golang.org/grpc/transport",
 			"Rev": "ab0be5212fb225475f2087566eded7da5d727960"
+		},
+		{
+			"ImportPath": "github.com/mschoch/smat",
+			"Rev": "90eadee771aeab36e8bf796039b8c261bebebe4f"
+		},
+		{
+			"ImportPath": "github.com/willf/bitset",
+			"Comment": "v1.0.0-64-g85301ea",
+			"Rev": "85301ea3894aa6d640cbc2afccc0994239444300"
 		}
 	]
 }

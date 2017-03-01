@@ -443,6 +443,10 @@ func (vc *VBoxDriver) SupportLazyMode() bool {
 	return true
 }
 
+func (vc *VBoxDriver) SupportVmSocket() bool {
+	return false
+}
+
 func scsiId2Name(id int) string {
 	return "sd" + utils.DiskId2Name(id)
 }

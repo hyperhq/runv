@@ -59,6 +59,7 @@ var ContainerdCommand = cli.Command{
 		driver := context.GlobalString("driver")
 		kernel := context.GlobalString("kernel")
 		initrd := context.GlobalString("initrd")
+		vsock := context.GlobalBool("vsock")
 		template := context.GlobalString("template")
 		stateDir := context.String("state-dir")
 		containerdDir := context.String("containerd-dir")
@@ -111,7 +112,7 @@ var ContainerdCommand = cli.Command{
 		if template != "" {
 			f = singlefactory.New(templatefactory.NewFromExisted(tconfig))
 		} else {
-			f = factory.NewFromConfigs(kernel, initrd, nil)
+			f = factory.NewFromConfigs(kernel, initrd, vsock, nil)
 		}
 		sv, err := supervisor.New(stateDir, containerdDir, f,
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))

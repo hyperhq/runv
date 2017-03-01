@@ -7,6 +7,7 @@ import (
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
+	"github.com/hyperhq/runv/lib/vsock"
 )
 
 type BootConfig struct {
@@ -15,6 +16,7 @@ type BootConfig struct {
 	HotAddCpuMem     bool
 	BootToBeTemplate bool
 	BootFromTemplate bool
+	EnableVsock      bool
 	MemoryPath       string
 	DevicesStatePath string
 	Kernel           string
@@ -57,9 +59,11 @@ type HypervisorDriver interface {
 	InitNetwork(bIface, bIP string, disableIptables bool) error
 
 	SupportLazyMode() bool
+	SupportVmSocket() bool
 }
 
 var HDriver HypervisorDriver
+var VsockCidManager vsock.VsockCidAllocator
 
 type DriverContext interface {
 	Launch(ctx *VmContext)
@@ -124,6 +128,10 @@ func (ed *EmptyDriver) LoadContext(persisted map[string]interface{}) (DriverCont
 }
 
 func (ed *EmptyDriver) SupportLazyMode() bool {
+	return false
+}
+
+func (ed *EmptyDriver) SupportVmSocket() bool {
 	return false
 }
 
