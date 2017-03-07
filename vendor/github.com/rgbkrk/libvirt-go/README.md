@@ -1,6 +1,11 @@
 # libvirt-go [![Build Status](https://travis-ci.org/rgbkrk/libvirt-go.svg?branch=master)](https://travis-ci.org/rgbkrk/libvirt-go) [![GoDoc](https://godoc.org/gopkg.in/alexzorin/libvirt-go.v2?status.svg)](http://godoc.org/gopkg.in/alexzorin/libvirt-go.v2)
 
-Go bindings for libvirt.
+Go bindings for libvirt. These bindings are **deprecated**. Please,
+migrate to the
+[new official version](https://github.com/libvirt/libvirt-go).
+You'll have to do
+[some minor adjustments](https://www.berrange.com/posts/2016/12/15/announce-new-libvirt-project-go-language-bindings/)
+to your code.
 
 Make sure to have `libvirt-dev` package (or the development files otherwise somewhere in your include path)
 
@@ -54,8 +59,8 @@ Integration tests are available where functionality isn't provided by the test d
 
 A `Vagrantfile` is included to run the integration tests:
 
-* `cd ./vagrant/{branch}` (i.e `./vagrant/master`, where you will find a `Vagrantfile` for the `master` branch)
+* `cd ./vagrant`
 * `vagrant up` to provision the virtual machine
 * `vagrant ssh` to login to the virtual machine
 
-Once inside, `sudo su -`, `cd /libvirt-go` and `go test -tags integration`.
+Once inside, `sudo su -` and `go test -tags integration libvirt`.

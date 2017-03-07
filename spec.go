@@ -45,7 +45,7 @@ var specCommand = cli.Command{
 			},
 			Hostname: "shell",
 			Linux: &specs.Linux{
-				Resources: &specs.Resources{},
+				Resources: &specs.LinuxResources{},
 			},
 		}
 

@@ -133,10 +133,10 @@ func (c *Container) start(p *Process) error {
 	}
 
 	state := &specs.State{
-		Version:    c.Spec.Version,
-		ID:         c.Id,
-		Pid:        c.ownerPod.getNsPid(),
-		BundlePath: c.BundlePath,
+		Version: c.Spec.Version,
+		ID:      c.Id,
+		Pid:     c.ownerPod.getNsPid(),
+		Bundle:  c.BundlePath,
 	}
 	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
@@ -174,10 +174,10 @@ func (c *Container) start(p *Process) error {
 
 func (c *Container) wait(p *Process, result <-chan *api.ProcessExit) (*api.ProcessExit, error) {
 	state := &specs.State{
-		Version:    c.Spec.Version,
-		ID:         c.Id,
-		Pid:        -1,
-		BundlePath: c.BundlePath,
+		Version: c.Spec.Version,
+		ID:      c.Id,
+		Pid:     -1,
+		Bundle:  c.BundlePath,
 	}
 
 	err := execPoststartHooks(c.Spec, state)
@@ -288,6 +288,9 @@ func execHook(hook specs.Hook, state *specs.State) error {
 }
 
 func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
+	if rt.Hooks == nil {
+		return nil
+	}
 	for _, hook := range rt.Hooks.Prestart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -299,6 +302,9 @@ func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
 }
 
 func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
+	if rt.Hooks == nil {
+		return nil
+	}
 	for _, hook := range rt.Hooks.Poststart {
 		err := execHook(hook, state)
 		if err != nil {
@@ -310,6 +316,9 @@ func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
 }
 
 func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
+	if rt.Hooks == nil {
+		return nil
+	}
 	for _, hook := range rt.Hooks.Poststop {
 		err := execHook(hook, state)
 		if err != nil {

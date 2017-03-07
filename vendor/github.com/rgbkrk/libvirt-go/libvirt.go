@@ -64,6 +64,14 @@ func releaseConnectionData(c *VirConnection) {
 	delete(connections, c.ptr)
 }
 
+func GetVersion() (uint32, error) {
+	var version C.ulong
+	if err := C.virGetVersion(&version, nil, nil); err < 0 {
+		return 0, GetLastError()
+	}
+	return uint32(version), nil
+}
+
 func NewVirConnection(uri string) (VirConnection, error) {
 	var cUri *C.char
 	if uri != "" {

@@ -381,10 +381,8 @@ func callDomainCallbackId(goCallbackId int, c *VirConnection, d *VirDomain,
 	}
 }
 
-// BUG(vincentbernat): The returned value of DomainEventRegister,
-// DomainEventDeregister, EventRegisterDefaultImpl and
-// EventRunDefaultImpl should be an error instead of an int, for
-// coherence with other functions.
+// BUG(vincentbernat): The returned value of DomainEventRegister, should be an
+// error instead of an int, for uniformity with other functions.
 
 func (c *VirConnection) DomainEventRegister(dom VirDomain,
 	eventId int,
@@ -438,17 +436,26 @@ func (c *VirConnection) DomainEventRegister(dom VirDomain,
 	return int(ret)
 }
 
-func (c *VirConnection) DomainEventDeregister(callbackId int) int {
+func (c *VirConnection) DomainEventDeregister(callbackId int) error {
 	// Deregister the callback
-	return int(C.virConnectDomainEventDeregisterAny(c.ptr, C.int(callbackId)))
+	if i := int(C.virConnectDomainEventDeregisterAny(c.ptr, C.int(callbackId))); i != 0 {
+		return GetLastError()
+	}
+	return nil
 }
 
-func EventRegisterDefaultImpl() int {
-	return int(C.virEventRegisterDefaultImpl())
+func EventRegisterDefaultImpl() error {
+	if i := int(C.virEventRegisterDefaultImpl()); i != 0 {
+		return GetLastError()
+	}
+	return nil
 }
 
-func EventRunDefaultImpl() int {
-	return int(C.virEventRunDefaultImpl())
+func EventRunDefaultImpl() error {
+	if i := int(C.virEventRunDefaultImpl()); i != 0 {
+		return GetLastError()
+	}
+	return nil
 }
 
 func (e DomainLifecycleEvent) String() string {
@@ -593,8 +600,38 @@ func (e DomainIOErrorReasonEvent) String() string {
 }
 
 func (e DomainBlockJobEvent) String() string {
-	return fmt.Sprintf("Block job disk=%q status=%d type=%d",
-		e.Disk, e.Status, e.Type)
+
+	var status, _type string
+
+	switch e.Status {
+	case VIR_DOMAIN_BLOCK_JOB_COMPLETED:
+		status = "completed"
+	case VIR_DOMAIN_BLOCK_JOB_FAILED:
+		status = "failed"
+	case VIR_DOMAIN_BLOCK_JOB_CANCELED:
+		status = "canceled"
+	case VIR_DOMAIN_BLOCK_JOB_READY:
+		status = "ready"
+	default:
+		status = "unknown"
+	}
+
+	switch e.Type {
+	case VIR_DOMAIN_BLOCK_JOB_TYPE_PULL:
+		_type = "block pull (job ends on completion)"
+	case VIR_DOMAIN_BLOCK_JOB_TYPE_COPY:
+		_type = "block copy (job exists as long as mirroring is active)"
+	case VIR_DOMAIN_BLOCK_JOB_TYPE_COMMIT:
+		_type = "block commit (job ends on completion)"
+	// TODO Post 1.2.4, enable later
+	// case VIR_DOMAIN_BLOCK_JOB_TYPE_ACTIVE_COMMIT:
+	//	_type = "active block commit (job exists as long as sync is active)"
+	default:
+		_type = "unknown"
+	}
+
+	return fmt.Sprintf("Block job disk=%q status='%s' type='%s'",
+		e.Disk, status, _type)
 }
 
 func (e DomainDiskChangeEvent) String() string {

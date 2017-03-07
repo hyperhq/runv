@@ -12,6 +12,7 @@ package libvirt
 import "C"
 
 import (
+	"errors"
 	"reflect"
 	"unsafe"
 )
@@ -69,4 +70,70 @@ func (d *VirDomain) ListAllInterfaceAddresses(src uint) ([]VirDomainInterface, e
 	}
 	C.free(unsafe.Pointer(cList))
 	return ifaces, nil
+}
+
+func (dest *VirTypedParameters) loadToCPtr() (params C.virTypedParameterPtr, nParams C.int, err error) {
+
+	var maxParams C.int = 0
+	params = nil
+
+	for _, param := range *dest {
+
+		switch param.Name {
+		case VIR_DOMAIN_BLOCK_COPY_GRANULARITY:
+			value, ok := param.Value.(uint)
+			if !ok {
+				err = errors.New("Mismatched parameter value type")
+				return
+			}
+
+			cName := C.CString(param.Name)
+			defer C.free(unsafe.Pointer(cName))
+
+			result := C.virTypedParamsAddUInt(&params, &nParams, &maxParams, cName, C.uint(value))
+			if result == -1 {
+				err = GetLastError()
+				return
+			}
+		case VIR_DOMAIN_BLOCK_COPY_BANDWIDTH, VIR_DOMAIN_BLOCK_COPY_BUF_SIZE:
+			value, ok := param.Value.(uint64)
+			if !ok {
+				err = errors.New("Mismatched parameter value type")
+				return
+			}
+
+			cName := C.CString(param.Name)
+			defer C.free(unsafe.Pointer(cName))
+
+			result := C.virTypedParamsAddULLong(&params, &nParams, &maxParams, cName, C.ulonglong(value))
+			if result == -1 {
+				err = GetLastError()
+				return
+			}
+		default:
+			err = errors.New("Unknown parameter name: " + param.Name)
+			return
+		}
+	}
+	return
+}
+
+func (d *VirDomain) BlockCopy(disk string, destXML string, params VirTypedParameters, flags uint32) error {
+
+	cDisk := C.CString(disk)
+	defer C.free(unsafe.Pointer(cDisk))
+	cDestXML := C.CString(destXML)
+	defer C.free(unsafe.Pointer(cDestXML))
+	if cParams, cnParams, err := params.loadToCPtr(); err != nil {
+		C.virTypedParamsFree(cParams, cnParams)
+		return err
+	} else {
+		defer C.virTypedParamsFree(cParams, cnParams)
+
+		result := int(C.virDomainBlockCopy(d.ptr, cDisk, cDestXML, cParams, cnParams, C.uint(flags)))
+		if result == -1 {
+			return GetLastError()
+		}
+	}
+	return nil
 }

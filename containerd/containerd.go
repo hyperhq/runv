@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/server"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/factory"
 	singlefactory "github.com/hyperhq/runv/factory/single"

@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/linuxsignal"
 	netcontext "golang.org/x/net/context"
 )

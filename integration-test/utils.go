@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/docker/docker/pkg/integration/checker"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -39,7 +39,7 @@ func ProcessExitCode(err error) (exitCode int) {
 }
 
 func (s *RunVSuite) runvCommandWithError(args ...string) (string, int, error) {
-	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath}
+	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath, "--debug"}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command(s.binaryPath, cmdArgs...)
 	out, err := cmd.CombinedOutput()

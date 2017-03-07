@@ -131,7 +131,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 	}
 
 	// container has no prestart hooks, means no net for this container
-	if len(c.Spec.Hooks.Prestart) == 0 {
+	if c.Spec.Hooks == nil || len(c.Spec.Hooks.Prestart) == 0 {
 		// FIXME: need receive interface settting?
 		return nil
 	}

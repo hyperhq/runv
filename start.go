@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
