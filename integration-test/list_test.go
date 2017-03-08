@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/pkg/integration/checker"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )

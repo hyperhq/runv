@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"encoding/json"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"testing"
 )
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/docker/containerd/api/grpc/types"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	netcontext "golang.org/x/net/context"
@@ -111,7 +111,7 @@ following will output a list of processes running in the container:
 			fmt.Printf("parse JSON configuration file failed: %v\n", err)
 			os.Exit(-1)
 		}
-		bundle := s.BundlePath
+		bundle := s.Bundle
 
 		// get process
 		config, err := getProcess(context, bundle)

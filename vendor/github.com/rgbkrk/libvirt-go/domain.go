@@ -42,6 +42,7 @@ type VirVcpuInfo struct {
 	State   int32
 	CpuTime uint64
 	Cpu     int32
+	CpuMap  []uint32
 }
 
 type VirTypedParameters []VirTypedParameter
@@ -437,7 +438,7 @@ func (d *VirDomain) SetMemoryStatsPeriod(period int, flags uint) error {
 	return nil
 }
 
-func (d *VirDomain) SetVcpus(vcpu uint) error {
+func (d *VirDomain) SetVcpus(vcpu uint16) error {
 	result := C.virDomainSetVcpus(d.ptr, C.uint(vcpu))
 	if result == -1 {
 		return GetLastError()
@@ -445,7 +446,7 @@ func (d *VirDomain) SetVcpus(vcpu uint) error {
 	return nil
 }
 
-func (d *VirDomain) SetVcpusFlags(vcpu uint, flags uint) error {
+func (d *VirDomain) SetVcpusFlags(vcpu uint16, flags uint) error {
 	result := C.virDomainSetVcpusFlags(d.ptr, C.uint(vcpu), C.uint(flags))
 	if result == -1 {
 		return GetLastError()
@@ -700,6 +701,64 @@ func (d *VirDomain) GetVcpus(maxInfo int32) ([]VirVcpuInfo, error) {
 	return out, nil
 }
 
+// libvirt-domain.h: VIR_CPU_MAPLEN
+func virCpuMapLen(cpu uint32) C.int {
+	return C.int((cpu + 7) / 8)
+}
+
+// extractCpuMask extracts an individual cpumask from a slice of cpumasks
+// and parses it into a slice of CPU ids
+func extractCpuMask(bytesCpuMaps []byte, n, mapLen int) []uint32 {
+	const byteSize = uint(8)
+
+	// Repslice the big array to separate only mask number 'n'
+	cpuMap := bytesCpuMaps[n*mapLen : (n+1)*mapLen]
+
+	out := make([]uint32, 0)
+	for i, b := range cpuMap { // iterate over bytes of the mask
+		for j := uint(0); j < byteSize; j++ { // iterate over bits in this byte
+			if (b>>j)&0x1 == 1 {
+				out = append(out, uint32(j+uint(i)*byteSize))
+			}
+		}
+	}
+
+	return out
+}
+
+func (d *VirDomain) GetVcpusCpuMap(maxInfo int, maxCPUs uint32) ([]VirVcpuInfo, error) {
+	ptr := make([]C.virVcpuInfo, maxInfo)
+
+	mapLen := virCpuMapLen(maxCPUs)                    // Length of CPUs bitmask in bytes
+	bufSize := int(mapLen) * int(maxInfo)              // Length of the array of 'maxinfo' bitmasks
+	cpuMaps := (*C.uchar)(C.malloc(C.size_t(bufSize))) // Array itself
+	defer C.free(unsafe.Pointer(cpuMaps))
+
+	result := C.virDomainGetVcpus(
+		d.ptr, (C.virVcpuInfoPtr)(unsafe.Pointer(&ptr[0])),
+		C.int(maxInfo), cpuMaps, mapLen)
+
+	if result == -1 {
+		return nil, GetLastError()
+	}
+
+	// Convert to golang []byte for easier handling
+	bytesCpuMaps := C.GoBytes(unsafe.Pointer(cpuMaps), C.int(bufSize))
+
+	out := make([]VirVcpuInfo, 0)
+	for i := 0; i < int(result); i++ {
+		out = append(out, VirVcpuInfo{
+			Number:  uint32(ptr[i].number),
+			State:   int32(ptr[i].state),
+			CpuTime: uint64(ptr[i].cpuTime),
+			Cpu:     int32(ptr[i].cpu),
+			CpuMap:  extractCpuMask(bytesCpuMaps, i, int(mapLen)),
+		})
+	}
+
+	return out, nil
+}
+
 func (d *VirDomain) GetVcpusFlags(flags uint32) (int32, error) {
 	result := C.virDomainGetVcpusFlags(d.ptr, C.uint(flags))
 	if result == -1 {
@@ -721,4 +780,98 @@ func (d *VirDomain) QemuMonitorCommand(flags uint32, command string) (string, er
 	rstring := C.GoString(cResult)
 	C.free(unsafe.Pointer(cResult))
 	return rstring, nil
+}
+
+func cpuMask(cpuMap []uint32, maxCPUs uint32) (*C.uchar, C.int) {
+	const byteSize = uint(8)
+
+	mapLen := virCpuMapLen(maxCPUs) // Length of CPUs bitmask in bytes
+	bytesCpuMap := make([]byte, mapLen)
+
+	for _, c := range cpuMap {
+		by := uint(c) / byteSize
+		bi := uint(c) % byteSize
+		bytesCpuMap[by] |= 1 << bi
+	}
+
+	return (*C.uchar)(&bytesCpuMap[0]), mapLen
+}
+
+func (d *VirDomain) PinVcpu(vcpu uint, cpuMap []uint32, maxCPUs uint32) error {
+
+	cpumap, maplen := cpuMask(cpuMap, maxCPUs)
+
+	result := C.virDomainPinVcpu(d.ptr, C.uint(vcpu), cpumap, maplen)
+
+	if result == -1 {
+		return GetLastError()
+	}
+
+	return nil
+}
+
+func (d *VirDomain) PinVcpuFlags(vcpu uint, cpuMap []uint32, flags uint, maxCPUs uint32) error {
+	cpumap, maplen := cpuMask(cpuMap, maxCPUs)
+
+	result := C.virDomainPinVcpuFlags(d.ptr, C.uint(vcpu), cpumap, maplen, C.uint(flags))
+
+	if result == -1 {
+		return GetLastError()
+	}
+
+	return nil
+}
+
+func (d *VirDomain) BlockJobAbort(disk string, flags uint32) error {
+
+	cDisk := C.CString(disk)
+	defer C.free(unsafe.Pointer(cDisk))
+
+	result := int(C.virDomainBlockJobAbort(d.ptr, cDisk, C.uint(flags)))
+	if result == -1 {
+
+		return GetLastError()
+	}
+
+	return nil
+}
+
+type VirDomainBlockJobInfo struct {
+	ptr C.virDomainBlockJobInfo
+}
+
+func (b *VirDomainBlockJobInfo) Type() int {
+	return int(b.ptr._type)
+}
+
+func (b *VirDomainBlockJobInfo) Bandwidth() uint32 {
+	return uint32(b.ptr.bandwidth)
+}
+
+func (b *VirDomainBlockJobInfo) Cur() uint64 {
+	return uint64(b.ptr.cur)
+}
+
+func (b *VirDomainBlockJobInfo) End() uint64 {
+	return uint64(b.ptr.end)
+}
+
+func (d *VirDomain) GetBlockJobInfo(disk string, flags uint32) (VirDomainBlockJobInfo, error) {
+	var (
+		info = VirDomainBlockJobInfo{}
+		ptr  C.virDomainBlockJobInfo
+	)
+
+	cDisk := C.CString(disk)
+	defer C.free(unsafe.Pointer(cDisk))
+
+	result := int(C.virDomainGetBlockJobInfo(d.ptr, cDisk, (*C.virDomainBlockJobInfo)(unsafe.Pointer(&ptr)), C.uint(flags)))
+	if result == -1 {
+
+		return info, GetLastError()
+	}
+
+	info.ptr = ptr
+
+	return info, nil
 }

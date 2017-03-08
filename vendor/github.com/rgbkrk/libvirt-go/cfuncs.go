@@ -58,7 +58,7 @@ void domainEventIOErrorReasonCallback_cgo(virConnectPtr c, virDomainPtr d,
 void domainEventBlockJobCallback_cgo(virConnectPtr c, virDomainPtr d,
                                     const char *disk, int type, int status, void *data)
 {
-    domainEventIOErrorReasonCallback(c, d, disk, type, status, data);
+    domainEventBlockJobCallback(c, d, disk, type, status, data);
 }
 
 void domainEventDiskChangeCallback_cgo(virConnectPtr c, virDomainPtr d,

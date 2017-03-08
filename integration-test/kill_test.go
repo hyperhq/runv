@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/pkg/integration/checker"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 )
 
@@ -36,7 +36,7 @@ func (s *RunVSuite) TestKillKILL(c *check.C) {
 	for count := 0; count < 10; count++ {
 		out, exitCode := s.runvCommand(c, "list")
 		c.Assert(exitCode, checker.Equals, 0)
-		if strings.Contains(out, ctrName) {
+		if !strings.Contains(out, ctrName) {
 			timeout = false
 			break
 		}

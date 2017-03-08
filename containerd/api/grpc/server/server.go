@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/gosigar"
-	"github.com/docker/containerd/api/grpc/types"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/supervisor"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/net/context"

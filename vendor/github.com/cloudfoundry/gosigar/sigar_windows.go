@@ -62,6 +62,7 @@ func (m *Mem) Get() error {
 	m.Free = x.AvailPhys
 	m.ActualFree = m.Free
 	m.Used = m.Total - m.Free
+	m.ActualUsed = m.Used
 	return nil
 }
 

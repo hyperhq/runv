@@ -108,7 +108,7 @@ func getContainers(context *cli.Context) ([]containerState, error) {
 				ID:             state.ID,
 				InitProcessPid: state.Pid,
 				Status:         "running",
-				Bundle:         state.BundlePath,
+				Bundle:         state.Bundle,
 				Created:        fi.ModTime(),
 			})
 		}

@@ -84,8 +84,8 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 		ID:             state.ID,
 		InitProcessPid: state.Pid,
 		Status:         "running",
-		Bundle:         state.BundlePath,
-		Rootfs:         filepath.Join(state.BundlePath, "rootfs"),
+		Bundle:         state.Bundle,
+		Rootfs:         filepath.Join(state.Bundle, "rootfs"),
 		Created:        fi.ModTime(),
 	}
 	return s, nil
