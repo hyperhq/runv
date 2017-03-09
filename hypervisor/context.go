@@ -3,6 +3,7 @@ package hypervisor
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -304,6 +305,22 @@ func (ctx *VmContext) RemoveInterface(id string, result chan api.Result) {
 	ctx.networks.removeInterface(id, result)
 }
 
+func (ctx *VmContext) validateContainer(c *api.ContainerDescription) error {
+	for vn, vr := range c.Volumes {
+		if _, ok := ctx.volumes[vn]; !ok {
+			return fmt.Errorf("volume %s does not exist in volume map", vn)
+		}
+		for _, mp := range vr.MountPoints {
+			path := filepath.Clean(mp.Path)
+			if path == "/" {
+				return fmt.Errorf("mounting volume %s to rootfs is forbidden", vn)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
@@ -334,7 +351,12 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		}
 	}
 
-	//TODO: should we validate container before we add them to volumeMap?
+	if err := ctx.validateContainer(c); err != nil {
+		cc.Log(ERROR, err.Error())
+		result <- NewSpecError(c.Id, err.Error())
+		return
+	}
+
 	for vn := range c.Volumes {
 		entry, ok := ctx.volumes[vn]
 		if !ok {
