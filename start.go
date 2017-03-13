@@ -82,24 +82,24 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		ocffile := filepath.Join(bundle, specConfig)
 		spec, err := loadSpec(ocffile)
 		if err != nil {
-			fmt.Printf("load config failed %v\n", err)
+			fmt.Fprintf(os.Stderr, "load config failed: %v\n", err)
 			os.Exit(-1)
 		}
 		if spec.Linux == nil {
-			fmt.Printf("it is not linux container config\n")
+			fmt.Fprintf(os.Stderr, "it is not linux container config\n")
 			os.Exit(-1)
 		}
 		if os.Geteuid() != 0 {
-			fmt.Printf("runv should be run as root\n")
+			fmt.Fprintf(os.Stderr, "runv should be run as root\n")
 			os.Exit(-1)
 		}
 		if container == "" {
-			fmt.Printf("no container id provided\n")
+			fmt.Fprintf(os.Stderr, "no container id provided\n")
 			os.Exit(-1)
 		}
 		_, err = os.Stat(filepath.Join(root, container))
 		if err == nil {
-			fmt.Printf("Container %s exists\n", container)
+			fmt.Fprintf(os.Stderr, "Container %q exists\n", container)
 			os.Exit(-1)
 		}
 
@@ -107,23 +107,23 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		for _, ns := range spec.Linux.Namespaces {
 			if ns.Path != "" {
 				if strings.Contains(ns.Path, "/") {
-					fmt.Printf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
+					fmt.Fprintf(os.Stderr, "Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
 					os.Exit(-1)
 				}
 				if ns.Type == "mount" {
 					// TODO support it!
-					fmt.Printf("Runv doesn't support shared mount namespace currently\n")
+					fmt.Fprintf(os.Stderr, "Runv doesn't support shared mount namespace currently\n")
 					os.Exit(-1)
 				}
 				sharedContainer = ns.Path
 				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJson))
 				if err != nil {
-					fmt.Printf("The container %s is not existing or not ready\n", sharedContainer)
+					fmt.Fprintf(os.Stderr, "The container %q is not existing or not ready\n", sharedContainer)
 					os.Exit(-1)
 				}
 				_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
 				if err != nil {
-					fmt.Printf("The container %s is not ready\n", sharedContainer)
+					fmt.Fprintf(os.Stderr, "The container %q is not ready\n", sharedContainer)
 					os.Exit(-1)
 				}
 			}
@@ -152,12 +152,12 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		// convert the paths to abs
 		kernel, err = filepath.Abs(kernel)
 		if err != nil {
-			fmt.Printf("Cannot get abs path for kernel: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "Cannot get abs path for kernel: %v\n", err)
 			os.Exit(-1)
 		}
 		initrd, err = filepath.Abs(initrd)
 		if err != nil {
-			fmt.Printf("Cannot get abs path for initrd: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "Cannot get abs path for initrd: %v\n", err)
 			os.Exit(-1)
 		}
 
@@ -168,14 +168,13 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		} else {
 			path, err := osext.Executable()
 			if err != nil {
-				fmt.Printf("cannot find self executable path for %s: %v\n", os.Args[0], err)
+				fmt.Fprintf(os.Stderr, "cannot find self executable path for %s: %v\n", os.Args[0], err)
 				os.Exit(-1)
 			}
 
-			os.MkdirAll(context.String("log_dir"), 0755)
 			namespace, err := ioutil.TempDir("/run", "runv-namespace-")
 			if err != nil {
-				fmt.Printf("Failed to create runv namespace path: %v", err)
+				fmt.Fprintf(os.Stderr, "Failed to create runv namespace path: %v", err)
 				os.Exit(-1)
 			}
 
@@ -195,7 +194,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 				if context.GlobalIsSet(goption) {
 					abs_path, err := filepath.Abs(context.GlobalString(goption))
 					if err != nil {
-						fmt.Printf("Cannot get abs path for %s: %v\n", goption, err)
+						fmt.Fprintf(os.Stderr, "Cannot get abs path for %s: %v\n", goption, err)
 						os.Exit(-1)
 					}
 					args = append(args, "--"+goption, abs_path)
@@ -217,7 +216,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			}
 			err = cmd.Start()
 			if err != nil {
-				fmt.Printf("failed to launch runv containerd, error:%v\n", err)
+				fmt.Fprintf(os.Stderr, "failed to launch runv containerd: %v\n", err)
 				os.Exit(-1)
 			}
 			address = filepath.Join(namespace, "namespaced.sock")
@@ -227,7 +226,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		}
 
 		status := startContainer(context, container, address, spec)
-		if status < 0 && sharedContainer == "" {
+		if status < 0 && cmd != nil && sharedContainer == "" {
 			cmd.Process.Signal(syscall.SIGINT)
 		}
 		os.Exit(status)
