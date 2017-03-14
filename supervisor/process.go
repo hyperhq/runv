@@ -29,7 +29,7 @@ type Process struct {
 }
 
 func (p *Process) setupIO() error {
-	glog.Infof("process setupIO: stdin %s, stdout %s, stderr %s", p.Stdin, p.Stdout, p.Stderr)
+	glog.V(3).Infof("process setupIO: stdin %s, stdout %s, stderr %s", p.Stdin, p.Stdout, p.Stderr)
 
 	// use a new go routine to avoid deadlock when stdin is fifo
 	go func() {
@@ -66,7 +66,7 @@ func (p *Process) setupIO() error {
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	glog.Infof("process setupIO() success")
+	glog.V(3).Infof("process setupIO() successfully")
 
 	return nil
 }

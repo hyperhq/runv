@@ -119,7 +119,7 @@ func GetBridgeFromIndex(idx int) (string, error) {
 		bridge.Name = strings.TrimSpace(string(out))
 	}
 
-	glog.Infof("find bridge %s", bridge.Name)
+	glog.V(3).Infof("find bridge %s", bridge.Name)
 
 	return bridge.Name, nil
 }
@@ -140,7 +140,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 
 	/* send collect netns request to nsListener */
 	if err := listener.enc.Encode("init"); err != nil {
-		glog.Error("listener.dec.Decode init error:", err)
+		glog.Errorf("listener.dec.Decode init error: %v", err)
 		return err
 	}
 
@@ -148,14 +148,14 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 	/* read nic information of ns from pipe */
 	err := listener.dec.Decode(&infos)
 	if err != nil {
-		glog.Error("listener.dec.Decode infos error:", err)
+		glog.Error("listener.dec.Decode infos error: %v", err)
 		return err
 	}
 
 	routes := []netlink.Route{}
 	err = listener.dec.Decode(&routes)
 	if err != nil {
-		glog.Error("listener.dec.Decode route error:", err)
+		glog.Error("listener.dec.Decode route error: %v", err)
 		return err
 	}
 
@@ -166,7 +166,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		}
 	}
 
-	glog.Infof("interface configuration of pod ns is %v", infos)
+	glog.V(3).Infof("interface configuration of pod ns is %#v", infos)
 	for _, info := range infos {
 		bridge, err := GetBridgeFromIndex(info.PeerIndex)
 		if err != nil {
@@ -219,19 +219,19 @@ func (hp *HyperPod) nsListenerStrap() {
 		err := listener.dec.Decode(&update)
 		if err != nil {
 			if err == io.EOF {
-				glog.Info("listener.dec.Decode NetlinkUpdate:", err)
+				glog.V(3).Infof("listener.dec.Decode NetlinkUpdate: %v", err)
 				break
 			}
-			glog.Error("listener.dec.Decode NetlinkUpdate error:", err)
+			glog.Error("listener.dec.Decode NetlinkUpdate error: %v", err)
 			continue
 		}
 
-		glog.Info("network namespace information of ", update.UpdateType, " has been changed")
+		glog.V(3).Infof("network namespace information of %s has been changed", update.UpdateType)
 		switch update.UpdateType {
 		case UpdateTypeLink:
 			link := update.Veth
 			if link.Attrs().ParentIndex == 0 {
-				glog.Info("The deleted link :", link)
+				glog.V(3).Infof("The deleted link: %s", link)
 				err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
 				if err != nil {
 					glog.Error(err)
@@ -239,11 +239,11 @@ func (hp *HyperPod) nsListenerStrap() {
 				}
 
 			} else {
-				glog.Info("The changed link :", link)
+				glog.V(3).Infof("The changed link: %s", link)
 			}
 
 		case UpdateTypeAddr:
-			glog.Info("The changed address :", update.Addr)
+			glog.V(3).Infof("The changed address: %s", update.Addr)
 
 			link := update.Veth
 
@@ -251,7 +251,7 @@ func (hp *HyperPod) nsListenerStrap() {
 			// the address change event which the link will be NIL since it has
 			// already been deleted before the address change event be triggered.
 			if link == nil {
-				glog.Info("Link for this address has already been deleted.")
+				glog.V(3).Info("Link for this address has already been deleted.")
 				continue
 			}
 
@@ -305,11 +305,11 @@ func (hp *HyperPod) startNsListener() (err error) {
 
 	path, err = osext.Executable()
 	if err != nil {
-		glog.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
+		glog.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
 		return err
 	}
 
-	glog.Infof("get exec path %s", path)
+	glog.V(3).Infof("get exec path %s", path)
 	parentPipe, childPipe, err = newPipe()
 	if err != nil {
 		glog.Errorf("create pipe for containerd-nslistener failed: %v", err)
@@ -360,7 +360,7 @@ func (hp *HyperPod) startNsListener() (err error) {
 		return err
 	}
 
-	glog.Infof("nsListener pid is %d", hp.getNsPid())
+	glog.V(1).Infof("nsListener pid is %d", hp.getNsPid())
 	return nil
 }
 
@@ -383,7 +383,6 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	if _, ok := hp.Processes[inerProcessId]; ok {
 		return nil, fmt.Errorf("The process id: %s is in used", inerProcessId)
 	}
-	glog.Infof("createContainer()")
 
 	c := &Container{
 		Id:         container,
@@ -409,13 +408,11 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	if err != nil {
 		return nil, err
 	}
-	glog.Infof("createContainer()")
 
 	c.Processes["init"] = p
 	c.ownerPod.Processes[inerProcessId] = p
 	c.ownerPod.Containers[container] = c
 
-	glog.Infof("createContainer() calls c.run(p)")
 	c.run(p)
 	return c, nil
 }
@@ -464,7 +461,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 	if len(kernel) == 0 && len(initrd) == 0 {
 		vm, err = f.GetVm(cpu, mem)
 		if err != nil {
-			glog.V(1).Infof("Create VM failed with default kernel config: %s", err.Error())
+			glog.Errorf("Create VM failed with default kernel config: %v", err)
 			return nil, err
 		}
 		glog.V(3).Infof("Creating VM with default kernel config")
@@ -481,7 +478,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 
 		vm, err = hypervisor.GetVm("", boot, true)
 		if err != nil {
-			glog.V(1).Infof("Create VM failed: %s", err.Error())
+			glog.Errorf("Create VM failed: %v", err)
 			return nil, err
 		}
 		glog.V(3).Infof("Creating VM with specific kernel config")
@@ -499,10 +496,10 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 
 	if !rsp.IsSuccess() {
 		vm.Kill()
-		glog.V(1).Infof("StartPod fail, response: %v", rsp)
+		glog.Errorf("StartPod fail, response: %#v", rsp)
 		return nil, fmt.Errorf("StartPod fail")
 	}
-	glog.V(1).Infof("%s init sandbox successfully", rsp.ResultId())
+	glog.V(3).Infof("%s init sandbox successfully", rsp.ResultId())
 
 	hp := &HyperPod{
 		vm:         vm,
@@ -513,7 +510,7 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 	// create Listener process running in its own netns
 	if err = hp.startNsListener(); err != nil {
 		hp.reap()
-		glog.V(1).Infof("start ns listener fail: %s\n", err.Error())
+		glog.Errorf("start ns listener fail: %v", err)
 		return nil, err
 	}
 

@@ -86,8 +86,11 @@ var specCommand = cli.Command{
 func loadSpec(ocffile string) (*specs.Spec, error) {
 	var spec specs.Spec
 
-	if _, err := os.Stat(ocffile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Please make sure bundle directory contains config.json: %v\n", err.Error())
+	if _, err := os.Stat(ocffile); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%q doesn't exists", ocffile)
+		}
+		return nil, fmt.Errorf("Stat %q error: %v", ocffile, err)
 	}
 
 	ocfData, err := ioutil.ReadFile(ocffile)

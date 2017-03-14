@@ -63,7 +63,8 @@ func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stde
 		return nil, nil, err
 	}
 	sv.Containers[container] = c
-	glog.Infof("Supervisor.CreateContainer() return: c:%v p:%v", c, c.Processes["init"])
+	glog.V(3).Infof("Supervisor.CreateContainer() return: c: %#v p: %#v", c, c.Processes["init"])
+	glog.V(1).Infof("supervisor creates container %q successfully", container)
 	return c, c.Processes["init"], nil
 }
 
@@ -191,7 +192,7 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 			defer sv.Lock()
 			hp, err = createHyperPod(sv.Factory, spec, sv.defaultCpus, sv.defaultMemory)
 		}()
-		glog.Infof("createHyperPod() returns")
+		glog.V(3).Infof("createHyperPod() returns")
 		if err != nil {
 			return nil, err
 		}

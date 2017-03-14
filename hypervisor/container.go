@@ -102,7 +102,7 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 		cc.Log(TRACE, "resource ready for container: %#v", vmspec)
 	}
 
-	cc.Log(INFO, "all images and volume resources have been added to sandbox")
+	cc.Log(TRACE, "all images and volume resources have been added to sandbox")
 	result <- api.NewResultBase(cc.Id, true, "")
 }
 

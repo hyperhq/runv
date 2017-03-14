@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -113,6 +114,21 @@ func main() {
 			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
 	}
+	app.Before = func(context *cli.Context) error {
+		logdir := context.GlobalString("log_dir")
+		if logdir != "" {
+			if err := os.MkdirAll(logdir, 0750); err != nil {
+				return fmt.Errorf("can't create dir %q for log files", logdir)
+			}
+		}
+		if context.GlobalBool("debug") {
+			flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", logdir, "--alsologtostderr"})
+		} else {
+			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", logdir})
+		}
+		return nil
+	}
+
 	app.Commands = []cli.Command{
 		startCommand,
 		specCommand,
