@@ -416,7 +416,9 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 	c.ownerPod.Containers[container] = c
 
 	glog.Infof("createContainer() calls c.run(p)")
-	c.run(p)
+	if err := c.run(p); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 

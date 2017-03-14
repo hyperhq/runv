@@ -29,7 +29,9 @@ type Container struct {
 	ownerPod *HyperPod
 }
 
-func (c *Container) run(p *Process) {
+func (c *Container) run(p *Process) error {
+	resultCh := make(chan error)
+
 	go func() {
 		err := c.create(p)
 		if err != nil {
@@ -51,6 +53,9 @@ func (c *Container) run(p *Process) {
 		}
 		c.ownerPod.sv.Events.notifySubscribers(e)
 
+		resultCh <- err
+		close(resultCh)
+
 		exit, err := c.wait(p, res)
 		e = Event{
 			ID:        c.Id,
@@ -65,6 +70,9 @@ func (c *Container) run(p *Process) {
 		}
 		c.ownerPod.sv.Events.notifySubscribers(e)
 	}()
+
+	err := <-resultCh
+	return err
 }
 
 func (c *Container) create(p *Process) error {
