@@ -154,7 +154,7 @@ func (s *apiServer) Events(r *types.EventsRequest, stream types.API_EventsServer
 		}
 		t = from
 	}
-	events := s.sv.Events.Events(t)
+	events := s.sv.Events.Events(t, r.StoredOnly, r.Id)
 	defer s.sv.Events.Unsubscribe(events)
 	for e := range events {
 		tsp, err := ptypes.TimestampProto(e.Timestamp)

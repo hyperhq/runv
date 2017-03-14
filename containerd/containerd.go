@@ -152,7 +152,7 @@ func daemon(sv *supervisor.Supervisor, address string) error {
 }
 
 func namespaceShare(sv *supervisor.Supervisor, namespace, state string) {
-	events := sv.Events.Events(time.Time{})
+	events := sv.Events.Events(time.Time{}, false, "")
 	containerCount := 0
 	for e := range events {
 		if e.Type == supervisor.EventContainerStart {
