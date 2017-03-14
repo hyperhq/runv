@@ -11,7 +11,7 @@ import (
 )
 
 func (ctx *VmContext) loop() {
-	for ctx.handler != nil {
+	for {
 		ev, ok := <-ctx.Hub
 		if !ok {
 			glog.Error("hub chan has already been closed")
@@ -20,8 +20,14 @@ func (ctx *VmContext) loop() {
 			glog.V(1).Info("got nil event.")
 			continue
 		}
+		ctx.lock.Lock()
+		if ctx.handler == nil {
+			ctx.lock.Unlock()
+			break
+		}
 		glog.V(1).Infof("vm %s: main event loop got message %d(%s)", ctx.Id, ev.Event(), EventString(ev.Event()))
 		ctx.handler(ctx, ev)
+		ctx.lock.Unlock()
 	}
 
 	// Unless the ctx.Hub channel is drained, processes sending operations can

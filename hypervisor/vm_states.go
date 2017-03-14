@@ -201,7 +201,6 @@ func (ctx *VmContext) poweroffVM(err bool, msg string) {
 func unexpectedEventHandler(ctx *VmContext, ev VmEvent, state string) {
 	switch ev.Event() {
 	case COMMAND_SHUTDOWN,
-		COMMAND_RELEASE,
 		COMMAND_PAUSEVM:
 		ctx.reportUnexpectedRequest(ev, state)
 	default:
@@ -215,10 +214,6 @@ func stateRunning(ctx *VmContext, ev VmEvent) {
 		ctx.Log(INFO, "got shutdown command, shutting down")
 		go ctx.shutdownVM()
 		ctx.Become(stateTerminating, StateTerminating)
-	case COMMAND_RELEASE:
-		ctx.Log(INFO, "pod is running, got release command, let VM fly")
-		ctx.Become(nil, StateNone)
-		ctx.reportSuccess("", nil)
 	case EVENT_INIT_CONNECTED:
 		ctx.Log(INFO, "hyperstart is ready to accept vm commands")
 		ctx.reportVmRun()
@@ -252,8 +247,6 @@ func stateTerminating(ctx *VmContext, ev VmEvent) {
 		glog.Info("Got VM force killed message, go to cleaning up")
 		ctx.reportVmShutdown()
 		ctx.Close()
-	case COMMAND_RELEASE:
-		glog.Info("vm terminating, got release")
 	case EVENT_VM_TIMEOUT:
 		glog.Warning("VM did not exit in time, try to stop it")
 		ctx.poweroffVM(true, "vm terminating timeout")
