@@ -86,11 +86,11 @@ func NewVmSpec() *hyperstartapi.Pod {
 func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
 	var (
 		//dir and sockets:
-		homeDir         = BaseDir + "/" + id + "/"
-		hyperSockName   = homeDir + HyperSockName
-		ttySockName     = homeDir + TtySockName
-		consoleSockName = homeDir + ConsoleSockName
-		shareDir        = homeDir + ShareDirTag
+		homeDir         = filepath.Join(BaseDir, id)
+		hyperSockName   = filepath.Join(homeDir, HyperSockName)
+		ttySockName     = filepath.Join(homeDir, TtySockName)
+		consoleSockName = filepath.Join(homeDir, ConsoleSockName)
+		shareDir        = filepath.Join(homeDir, ShareDirTag)
 		ctx             *VmContext
 		cid             uint32
 	)

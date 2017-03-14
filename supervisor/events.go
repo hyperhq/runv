@@ -51,10 +51,10 @@ func (se *SvEvents) setupEventLog(logDir string) error {
 	enc := json.NewEncoder(f)
 	go func() {
 		for e := range events {
-			glog.Infof("write event log: %v", e)
+			glog.V(3).Infof("write event log: %v", e)
 			se.eventLog = append(se.eventLog, e)
 			if err := enc.Encode(e); err != nil {
-				glog.Infof("containerd: fail to write event to journal")
+				glog.Errorf("containerd fail to write event to journal: %v", err)
 			}
 		}
 	}()
@@ -118,7 +118,7 @@ func (se *SvEvents) Unsubscribe(sub chan Event) {
 // notifySubscribers will send the provided event to the external subscribers
 // of the events channel
 func (se *SvEvents) notifySubscribers(e Event) {
-	glog.Infof("notifySubscribers: %v", e)
+	glog.V(3).Infof("notifySubscribers: %v", e)
 	se.RLock()
 	defer se.RUnlock()
 	for sub := range se.subscribers {
@@ -126,7 +126,7 @@ func (se *SvEvents) notifySubscribers(e Event) {
 		select {
 		case sub <- e:
 		default:
-			glog.Infof("containerd: event not sent to subscriber")
+			glog.V(3).Infof("containerd: event not sent to subscriber")
 		}
 	}
 }

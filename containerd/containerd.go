@@ -127,7 +127,7 @@ var ContainerdCommand = cli.Command{
 		sv, err := supervisor.New(stateDir, containerdDir, f,
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
 		if err != nil {
-			glog.Infof("%v", err)
+			glog.Errorf("%v", err)
 			os.Exit(1)
 		}
 

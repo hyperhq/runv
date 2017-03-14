@@ -38,7 +38,7 @@ func (s *apiServer) GetServerVersion(ctx context.Context, c *types.GetServerVers
 }
 
 func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContainerRequest) (*types.CreateContainerResponse, error) {
-	glog.Infof("gRPC handle CreateContainer")
+	glog.V(3).Infof("gRPC handle CreateContainer")
 	if r.BundlePath == "" {
 		return nil, errors.New("empty bundle path")
 	}
@@ -57,12 +57,12 @@ func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContaine
 		return nil, err
 	}
 
-	glog.Infof("end Supervisor.CreateContainer(), build api Container")
+	glog.V(3).Infof("end Supervisor.CreateContainer(), build api Container")
 	apiP := supervisorProcess2ApiProcess(p)
 	apiC := supervisorContainer2ApiContainer(c)
 	addApiProcess2ApiContainer(apiC, apiP)
 
-	glog.Infof("gRPC respond CreateContainer")
+	glog.V(3).Infof("gRPC respond CreateContainer")
 	return &types.CreateContainerResponse{
 		Container: apiC,
 	}, nil
