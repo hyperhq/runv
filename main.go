@@ -20,8 +20,12 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+var (
+	version   = ""
+	gitCommit = ""
+)
+
 const (
-	version    = "0.8.1"
 	specConfig = "config.json"
 	stateJson  = "state.json"
 	usage      = `Open Container Initiative hypervisor-based runtime
@@ -59,7 +63,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "runv"
 	app.Usage = usage
-	app.Version = version
+	app.Version = fmt.Sprintf("%s, commit: %s", version, gitCommit)
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug",
