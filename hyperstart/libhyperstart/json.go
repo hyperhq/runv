@@ -74,6 +74,11 @@ func (h *jsonBasedHyperstart) Close() {
 		close(h.ctlChan)
 		close(h.streamChan)
 		close(h.processAsyncEvents)
+		for cmd := range h.ctlChan {
+			if cmd.Code != hyperstartapi.INIT_ACK && cmd.Code != hyperstartapi.INIT_ERROR {
+				cmd.result <- fmt.Errorf("hyperstart closed")
+			}
+		}
 		h.closed = true
 	}
 }
@@ -292,11 +297,7 @@ func handleMsgToHyperstart(h *jsonBasedHyperstart, conn io.WriteCloser) {
 	for _, cmd := range cmds {
 		cmd.result <- fmt.Errorf("hyperstart closed")
 	}
-	for cmd := range h.ctlChan {
-		if cmd.Code != hyperstartapi.INIT_ACK && cmd.Code != hyperstartapi.INIT_ERROR {
-			cmd.result <- fmt.Errorf("hyperstart closed")
-		}
-	}
+	h.Close()
 }
 
 func handleMsgFromHyperstart(h *jsonBasedHyperstart, conn io.Reader) {
