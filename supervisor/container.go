@@ -29,21 +29,27 @@ type Container struct {
 	ownerPod *HyperPod
 }
 
-func (c *Container) run(p *Process) {
+func (c *Container) start(p *Process) error {
+	res := c.ownerPod.vm.WaitProcess(true, []string{c.Id}, -1)
+	if res == nil {
+		c.ownerPod.sv.reap(c.Id, p.Id)
+		return fmt.Errorf("Failed to prepare waiting on the container")
+	}
+
+	err := c.ownerPod.vm.Attach(p.stdio, c.Id)
+	if err != nil {
+		glog.Errorf("Start Containter fail: fail to set up tty connection.\n")
+		return err
+	}
+
+	//Todo: vm.AddContainer here
+	err = c.ownerPod.vm.StartContainer(c.Id)
+	if err != nil {
+		glog.V(1).Infof("Start Container fail: fail to start container.\n")
+		return err
+	}
+
 	go func() {
-		err := c.create(p)
-		if err != nil {
-			c.ownerPod.sv.reap(c.Id, p.Id)
-			return
-		}
-
-		res := c.ownerPod.vm.WaitProcess(true, []string{c.Id}, -1)
-		if res == nil {
-			c.ownerPod.sv.reap(c.Id, p.Id)
-			return
-		}
-
-		err = c.start(p)
 		e := Event{
 			ID:        c.Id,
 			Type:      EventContainerStart,
@@ -65,11 +71,10 @@ func (c *Container) run(p *Process) {
 		}
 		c.ownerPod.sv.Events.notifySubscribers(e)
 	}()
+	return nil
 }
 
-func (c *Container) create(p *Process) error {
-	// save the state
-
+func (c *Container) create() error {
 	glog.V(3).Infof("prepare hypervisor info")
 	config := api.ContainerDescriptionFromOCF(c.Id, c.Spec)
 
@@ -114,16 +119,12 @@ func (c *Container) create(p *Process) error {
 		return fmt.Errorf("add container %s failed: %s", c.Id, r.Message())
 	}
 
-	return nil
-}
-
-func (c *Container) start(p *Process) error {
-
+	// save the state
 	glog.V(3).Infof("save state id %s, boundle %s", c.Id, c.BundlePath)
 	stateDir := filepath.Join(c.ownerPod.sv.StateDir, c.Id)
-	_, err := os.Stat(stateDir)
+	_, err = os.Stat(stateDir)
 	if err == nil {
-		glog.V(1).Infof("Container %s exists\n", c.Id)
+		glog.Errorf("Container %s exists\n", c.Id)
 		return fmt.Errorf("Container %s exists\n", c.Id)
 	}
 	err = os.MkdirAll(stateDir, 0644)
@@ -150,12 +151,6 @@ func (c *Container) start(p *Process) error {
 		return err
 	}
 
-	err = c.ownerPod.vm.Attach(p.stdio, c.Id)
-	if err != nil {
-		glog.V(1).Infof("StartPod fail: fail to set up tty connection.\n")
-		return err
-	}
-
 	err = execPrestartHooks(c.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
@@ -168,8 +163,13 @@ func (c *Container) start(p *Process) error {
 		return err
 	}
 
-	//Todo: vm.AddContainer here
-	return c.ownerPod.vm.StartContainer(c.Id)
+	// TODO: should be in start(), but `runv create` uses /proc/self/, so the files should be open here
+	err = c.Processes["init"].setupIO()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Container) wait(p *Process, result <-chan *api.ProcessExit) (*api.ProcessExit, error) {

@@ -130,11 +130,13 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		startCommand,
-		specCommand,
+		createCommand,
 		execCommand,
 		killCommand,
 		listCommand,
+		runCommand,
+		specCommand,
+		startCommand,
 		stateCommand,
 		manageCommand,
 		containerd.ContainerdCommand,

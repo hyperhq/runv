@@ -23,7 +23,7 @@ func (s *RunVSuite) TestExecHelloWorld(c *check.C) {
 
 	go func() {
 		defer close(exitChan)
-		_, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, ctrName)
+		_, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
 	}()
 
@@ -51,7 +51,7 @@ func (s *RunVSuite) TestExecWithTty(c *check.C) {
 
 	go func() {
 		defer close(exitChan)
-		_, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, ctrName)
+		_, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
 	}()
 
@@ -119,7 +119,7 @@ func (s *RunVSuite) TestExecWithProcessJson(c *check.C) {
 
 	go func() {
 		defer close(exitChan)
-		_, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, ctrName)
+		_, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
 	}()
 

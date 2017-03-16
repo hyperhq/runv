@@ -20,7 +20,7 @@ func (s *RunVSuite) TestStartHelloworld(c *check.C) {
 	spec.Process.Args = []string{"echo", "hello"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 
-	out, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, "testStartHelloWorld")
+	out, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, "testStartHelloWorld")
 	c.Assert(out, checker.Equals, "hello\n")
 	c.Assert(exitCode, checker.Equals, 0)
 }
@@ -35,7 +35,7 @@ func (s *RunVSuite) TestStartPid(c *check.C) {
 	pidFilePath := filepath.Join(s.bundlePath, "pid.file")
 	go func() {
 		defer close(exitChan)
-		_, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, "--pid-file", pidFilePath, ctrName)
+		_, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, "--pid-file", pidFilePath, ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
 	}()
 
@@ -86,7 +86,7 @@ func (s *RunVSuite) TestStartWithTty(c *check.C) {
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 
 	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath}
-	cmdArgs = append(cmdArgs, "start", "--bundle", s.bundlePath, ctrName)
+	cmdArgs = append(cmdArgs, "run", "--bundle", s.bundlePath, ctrName)
 	cmd := exec.Command(s.binaryPath, cmdArgs...)
 	tty, err := pty.Start(cmd)
 	c.Assert(err, checker.IsNil)

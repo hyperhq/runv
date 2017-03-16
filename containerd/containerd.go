@@ -167,7 +167,6 @@ func namespaceShare(sv *supervisor.Supervisor, namespace, state string) {
 	containerCount := 0
 	for e := range events {
 		if e.Type == supervisor.EventContainerStart {
-			os.Symlink(namespace, filepath.Join(state, e.ID, "namespace"))
 			containerCount++
 		} else if e.Type == supervisor.EventExit && e.PID == "init" {
 			containerCount--
