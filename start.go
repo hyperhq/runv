@@ -287,10 +287,20 @@ func startContainer(context *cli.Context, container, address string, config *spe
 		return -1
 	}
 	if context.String("pid-file") != "" {
-		stateData, err := ioutil.ReadFile(filepath.Join(context.GlobalString("root"), container, stateJson))
-		if err != nil {
-			fmt.Printf("read state.json error %v\n", err)
-			return -1
+		var stateData []byte
+		var err error
+		t := time.NewTimer(time.Second * 3)
+		for {
+			select {
+			case <-t.C:
+				fmt.Printf("read state.json error %v\n", err)
+				return -1
+			default:
+			}
+			stateData, err = ioutil.ReadFile(filepath.Join(context.GlobalString("root"), container, stateJson))
+			if err == nil {
+				break
+			}
 		}
 
 		var s specs.State
