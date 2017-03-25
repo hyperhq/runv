@@ -39,6 +39,9 @@ func (s *apiServer) GetServerVersion(ctx context.Context, c *types.GetServerVers
 
 func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContainerRequest) (*types.CreateContainerResponse, error) {
 	glog.V(3).Infof("gRPC handle CreateContainer")
+	if r.Runtime != "" && r.Runtime != "runv" && r.Runtime != "runv-create" && r.Runtime != "runv-start" {
+		return nil, fmt.Errorf("unknown runtime: %q", r.Runtime)
+	}
 	if r.BundlePath == "" {
 		return nil, errors.New("empty bundle path")
 	}
@@ -52,15 +55,29 @@ func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContaine
 		return nil, err
 	}
 
-	c, p, err := s.sv.CreateContainer(r.Id, r.BundlePath, r.Stdin, r.Stdout, r.Stderr, &spec)
-	if err != nil {
-		return nil, err
+	var c *supervisor.Container
+	var p *supervisor.Process
+
+	if r.Runtime == "" || r.Runtime == "runv" || r.Runtime == "runv-create" {
+		c, err = s.sv.CreateContainer(r.Id, r.BundlePath, r.Stdin, r.Stdout, r.Stderr, &spec)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if r.Runtime == "" || r.Runtime == "runv" || r.Runtime == "runv-start" {
+		c, p, err = s.sv.StartContainer(r.Id, &spec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	glog.V(3).Infof("end Supervisor.CreateContainer(), build api Container")
-	apiP := supervisorProcess2ApiProcess(p)
 	apiC := supervisorContainer2ApiContainer(c)
-	addApiProcess2ApiContainer(apiC, apiP)
+	if p != nil {
+		apiP := supervisorProcess2ApiProcess(p)
+		addApiProcess2ApiContainer(apiC, apiP)
+	}
 
 	glog.V(3).Infof("gRPC respond CreateContainer")
 	return &types.CreateContainerResponse{

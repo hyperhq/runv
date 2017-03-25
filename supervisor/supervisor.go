@@ -51,21 +51,47 @@ func New(stateDir, eventLogDir string, f factory.Factory, defaultCpus int, defau
 	return sv, sv.Events.setupEventLog(eventLogDir)
 }
 
-func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stderr string, spec *specs.Spec) (*Container, *Process, error) {
+func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stderr string, spec *specs.Spec) (c *Container, err error) {
+	defer func() {
+		if err == nil {
+			err = c.create()
+		}
+		if err != nil {
+			sv.reap(container, "init")
+		}
+	}()
 	sv.Lock()
 	defer sv.Unlock()
 	hp, err := sv.getHyperPod(container, spec)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	c, err := hp.createContainer(container, bundlePath, stdin, stdout, stderr, spec)
+	c, err = hp.createContainer(container, bundlePath, stdin, stdout, stderr, spec)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	sv.Containers[container] = c
-	glog.V(3).Infof("Supervisor.CreateContainer() return: c: %#v p: %#v", c, c.Processes["init"])
 	glog.V(1).Infof("supervisor creates container %q successfully", container)
-	return c, c.Processes["init"], nil
+	return c, nil
+}
+
+func (sv *Supervisor) StartContainer(container string, spec *specs.Spec) (c *Container, p *Process, err error) {
+	defer func() {
+		glog.V(3).Infof("Supervisor.StartContainer() return: c: %#v p: %#v", c, p)
+		if err == nil {
+			err = c.start(p)
+		}
+		if err != nil {
+			glog.Errorf("Supervisor.StartContainer() failed: %#v", err)
+			sv.reap(container, "init")
+		}
+	}()
+	sv.Lock()
+	defer sv.Unlock()
+	if c, ok := sv.Containers[container]; ok {
+		return c, c.Processes["init"], nil
+	}
+	return nil, nil, fmt.Errorf("container %s is not found for StartContainer()", container)
 }
 
 func (sv *Supervisor) AddProcess(container, processId, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
@@ -132,19 +158,19 @@ func (sv *Supervisor) reap(container, processId string) {
 	if c, ok := sv.Containers[container]; ok {
 		if p, ok := c.Processes[processId]; ok {
 			go p.reap()
-			delete(c.ownerPod.Processes, processId)
+			delete(c.ownerPod.Processes, p.inerId)
 			delete(c.Processes, processId)
 			if p.init {
 				// TODO: kill all the other existing processes in the same container
 			}
-			if len(c.Processes) == 0 {
-				go c.reap()
-				delete(c.ownerPod.Containers, container)
-				delete(sv.Containers, container)
-			}
-			if len(c.ownerPod.Containers) == 0 {
-				go c.ownerPod.reap()
-			}
+		}
+		if len(c.Processes) == 0 {
+			go c.reap()
+			delete(c.ownerPod.Containers, container)
+			delete(sv.Containers, container)
+		}
+		if len(c.ownerPod.Containers) == 0 {
+			go c.ownerPod.reap()
 		}
 	}
 }

@@ -391,7 +391,7 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 		Processes:  make(map[string]*Process),
 		ownerPod:   hp,
 	}
-
+	hp.Containers[container] = c
 	p := &Process{
 		Id:     "init",
 		Stdin:  stdin,
@@ -404,16 +404,8 @@ func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr
 		ownerCont: c,
 		init:      true,
 	}
-	err := p.setupIO()
-	if err != nil {
-		return nil, err
-	}
-
 	c.Processes["init"] = p
-	c.ownerPod.Processes[inerProcessId] = p
-	c.ownerPod.Containers[container] = c
-
-	c.run(p)
+	hp.Processes[inerProcessId] = p
 	return c, nil
 }
 

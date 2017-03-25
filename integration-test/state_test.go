@@ -39,7 +39,7 @@ func (s *RunVSuite) TestStateSleep(c *check.C) {
 
 	go func() {
 		defer close(exitChan)
-		_, exitCode := s.runvCommand(c, "start", "--bundle", s.bundlePath, ctrName)
+		_, exitCode := s.runvCommand(c, "run", "--bundle", s.bundlePath, ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
 	}()
 
