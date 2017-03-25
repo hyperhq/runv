@@ -33,7 +33,16 @@ func (c *Container) run(p *Process) {
 	go func() {
 		err := c.create(p)
 		if err != nil {
+			glog.Errorf("start container failed: %v", err)
 			c.ownerPod.sv.reap(c.Id, p.Id)
+			e := Event{
+				ID:        c.Id,
+				Type:      EventExit,
+				Timestamp: time.Now(),
+				PID:       p.Id,
+				Status:    -1,
+			}
+			c.ownerPod.sv.Events.notifySubscribers(e)
 			return
 		}
 
