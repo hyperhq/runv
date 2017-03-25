@@ -31,6 +31,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			Usage: "specify the pty slave path for use with the container",
 		},
 		cli.StringFlag{
+			Name:  "console-socket",
+			Usage: "specify the unix socket for sending the pty master back",
+		},
+		cli.StringFlag{
 			Name:  "pid-file",
 			Usage: "specify the file to write the process id to",
 		},

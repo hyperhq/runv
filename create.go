@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/kardianos/osext"
+	"github.com/kr/pty"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	netcontext "golang.org/x/net/context"
 )
@@ -62,6 +62,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			Usage: "specify the pty slave path for use with the container",
 		},
 		cli.StringFlag{
+			Name:  "console-socket",
+			Usage: "specify the unix socket for sending the pty master back",
+		},
+		cli.StringFlag{
 			Name:  "pid-file",
 			Usage: "specify the file to write the process id to",
 		},
@@ -80,10 +84,6 @@ func runContainer(context *cli.Context, createOnly bool) {
 	bundle := context.String("bundle")
 	container := context.Args().First()
 	ocffile := filepath.Join(bundle, specConfig)
-	if context.String("console") != "" {
-		fmt.Fprintf(os.Stderr, "--console is unsupported on runv\n")
-		os.Exit(-1)
-	}
 	spec, err := loadSpec(ocffile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load config failed: %v\n", err)
@@ -106,6 +106,7 @@ func runContainer(context *cli.Context, createOnly bool) {
 		fmt.Fprintf(os.Stderr, "Container %q exists\n", container)
 		os.Exit(-1)
 	}
+	checkConsole(context, &spec.Process, createOnly)
 
 	var sharedContainer string
 	for _, ns := range spec.Linux.Namespaces {
@@ -251,6 +252,25 @@ func runContainer(context *cli.Context, createOnly bool) {
 	os.Exit(0)
 }
 
+func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) {
+	if context.String("console") != "" && context.String("console-socket") != "" {
+		fmt.Fprintf(os.Stderr, "only one of --console & --console-socket can be specified")
+		os.Exit(-1)
+	}
+	detach := createOnly
+	if !createOnly {
+		detach = context.Bool("detach")
+	}
+	if (context.String("console") != "" || context.String("console-socket") != "") && !detach {
+		fmt.Fprintf(os.Stderr, "--console[-socket] should be used on detached mode\n")
+		os.Exit(-1)
+	}
+	if (context.String("console") != "" || context.String("console-socket") != "") && !p.Terminal {
+		fmt.Fprintf(os.Stderr, "--console[-socket] should be used on tty mode\n")
+		os.Exit(-1)
+	}
+}
+
 // Shared namespaces multiple containers suppurt
 // The runv supports pod-style shared namespaces currently.
 // (More fine grain shared namespaces style (docker/runc style) is under implementation)
@@ -265,34 +285,95 @@ func runContainer(context *cli.Context, createOnly bool) {
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
 
 func createContainer(context *cli.Context, container, address string, config *specs.Spec) error {
-	pid := os.Getpid()
-	stdin := fmt.Sprintf("/proc/%d/fd/0", pid)
-	stdout := fmt.Sprintf("/proc/%d/fd/1", pid)
-	stderr := fmt.Sprintf("/proc/%d/fd/2", pid)
-	r := &types.CreateContainerRequest{
-		Id:         container,
-		Runtime:    "runv-create",
-		BundlePath: context.String("bundle"),
-		Stdin:      stdin,
-		Stdout:     stdout,
-		Stderr:     stderr,
+	c := getClient(address)
+
+	return ociCreate(context, container, func(stdin, stdout, stderr string) error {
+		r := &types.CreateContainerRequest{
+			Id:         container,
+			Runtime:    "runv-create",
+			BundlePath: context.String("bundle"),
+			Stdin:      stdin,
+			Stdout:     stdout,
+			Stderr:     stderr,
+		}
+
+		if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
+			return err
+		}
+		return nil
+	})
+
+}
+
+func ociCreate(context *cli.Context, container string, createFunc func(stdin, stdout, stderr string) error) error {
+	path, err := osext.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot find self executable path for %s: %v\n", os.Args[0], err)
+		os.Exit(-1)
 	}
 
-	c := getClient(address)
-	if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
-		return err
-	}
-	if context.String("pid-file") != "" {
-		stateData, err := ioutil.ReadFile(filepath.Join(context.GlobalString("root"), container, stateJson))
+	var stdin, stdout, stderr string
+	var ptymaster, tty *os.File
+	if context.String("console") != "" {
+		tty, err = os.OpenFile(context.String("console"), os.O_RDWR, 0)
 		if err != nil {
 			return err
 		}
-
-		var s specs.State
-		if err := json.Unmarshal(stateData, &s); err != nil {
+	} else if context.String("console-socket") != "" {
+		ptymaster, tty, err = pty.Open()
+		if err != nil {
 			return err
 		}
-		err = createPidFile(context.String("pid-file"), s.Pid)
+		sendtty(ptymaster, container, context.String("console-socket"))
+		ptymaster.Close()
+	}
+	if tty == nil {
+		pid := os.Getpid()
+		stdin = fmt.Sprintf("/proc/%d/fd/0", pid)
+		stdout = fmt.Sprintf("/proc/%d/fd/1", pid)
+		stderr = fmt.Sprintf("/proc/%d/fd/2", pid)
+	} else {
+		defer tty.Close()
+		stdin = tty.Name()
+		stdout = tty.Name()
+		stderr = tty.Name()
+	}
+	err = createFunc(stdin, stdout, stderr)
+	if err != nil {
+		return err
+	}
+
+	var cmd *exec.Cmd
+	if context.String("pid-file") != "" || tty != nil {
+		args := []string{
+			"runv", "--root", context.GlobalString("root"),
+			"shim", "--container", container, "--process", "init",
+		}
+		if context.String("pid-file") != "" {
+			args = append(args, "--proxy-exit-code", "--proxy-signal")
+		}
+		if tty != nil {
+			args = append(args, "--proxy-winsize")
+		}
+		cmd = &exec.Cmd{
+			Path:   path,
+			Args:   args,
+			Dir:    "/",
+			Stdin:  tty,
+			Stdout: tty,
+			Stderr: tty,
+			SysProcAttr: &syscall.SysProcAttr{
+				Setctty: tty != nil,
+				Setsid:  true,
+			},
+		}
+		err = cmd.Start()
+		if err != nil {
+			return err
+		}
+	}
+	if context.String("pid-file") != "" {
+		err = createPidFile(context.String("pid-file"), cmd.Process.Pid)
 		if err != nil {
 			return err
 		}

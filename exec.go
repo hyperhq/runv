@@ -30,7 +30,11 @@ following will output a list of processes running in the container:
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "console",
-			Usage: "[reject on runv] specify the pty slave path for use with the container",
+			Usage: "specify the pty slave path for use with the container",
+		},
+		cli.StringFlag{
+			Name:  "console-socket",
+			Usage: "specify the unix socket for sending the pty master back",
 		},
 		cli.StringFlag{
 			Name:  "cwd",
@@ -85,10 +89,6 @@ following will output a list of processes running in the container:
 		root := context.GlobalString("root")
 		container := context.Args().First()
 
-		if context.String("console") != "" {
-			fmt.Printf("--console is unsupported on runv\n")
-			os.Exit(-1)
-		}
 		if container == "" {
 			fmt.Printf("Please specify container ID\n")
 			os.Exit(-1)
@@ -119,8 +119,9 @@ following will output a list of processes running in the container:
 			fmt.Printf("get process config failed %v\n", err)
 			os.Exit(-1)
 		}
+		checkConsole(context, config, false)
 
-		code := runProcess(root, container, config)
+		code := runProcess(context, container, config)
 		os.Exit(code)
 	},
 }
@@ -187,32 +188,13 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 	return &p, nil
 }
 
-func runProcess(root, container string, config *specs.Process) int {
+func runProcess(context *cli.Context, container string, config *specs.Process) int {
 	pid := os.Getpid()
 	process := fmt.Sprintf("p-%x", pid+0xabcdef) // uniq name
-
-	p := &types.AddProcessRequest{
-		Id:       container,
-		Pid:      process,
-		Args:     config.Args,
-		Cwd:      config.Cwd,
-		Terminal: config.Terminal,
-		Env:      config.Env,
-		User: &types.User{
-			Uid: config.User.UID,
-			Gid: config.User.GID,
-		},
-		Stdin:  fmt.Sprintf("/proc/%d/fd/0", pid),
-		Stdout: fmt.Sprintf("/proc/%d/fd/1", pid),
-		Stderr: fmt.Sprintf("/proc/%d/fd/2", pid),
-	}
-	c := getClient(filepath.Join(root, container, "namespace/namespaced.sock"))
+	c := getClient(filepath.Join(context.GlobalString("root"), container, "namespace/namespaced.sock"))
 	evChan := containerEvents(c, container)
-	if _, err := c.AddProcess(netcontext.Background(), p); err != nil {
-		fmt.Printf("error %v\n", err)
-		return -1
-	}
-	if config.Terminal {
+
+	if !context.Bool("detach") && config.Terminal {
 		s, err := term.SetRawTerminal(os.Stdin.Fd())
 		if err != nil {
 			fmt.Printf("error %v\n", err)
@@ -221,10 +203,39 @@ func runProcess(root, container string, config *specs.Process) int {
 		defer term.RestoreTerminal(os.Stdin.Fd(), s)
 		monitorTtySize(c, container, process)
 	}
-	for e := range evChan {
-		if e.Type == "exit" && e.Pid == process {
-			return int(e.Status)
+
+	err := ociCreate(context, container, func(stdin, stdout, stderr string) error {
+		p := &types.AddProcessRequest{
+			Id:       container,
+			Pid:      process,
+			Args:     config.Args,
+			Cwd:      config.Cwd,
+			Terminal: config.Terminal,
+			Env:      config.Env,
+			User: &types.User{
+				Uid: config.User.UID,
+				Gid: config.User.GID,
+			},
+			Stdin:  stdin,
+			Stdout: stdout,
+			Stderr: stderr,
 		}
+		if _, err := c.AddProcess(netcontext.Background(), p); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return -1
 	}
-	return -1
+
+	if !context.Bool("detach") {
+		for e := range evChan {
+			if e.Type == "exit" && e.Pid == process {
+				return int(e.Status)
+			}
+		}
+		return -1
+	}
+	return 0
 }
