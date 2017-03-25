@@ -73,6 +73,7 @@ type VmContext struct {
 	lock      sync.Mutex //protect update of context
 	idLock    sync.Mutex
 	pauseLock sync.Mutex
+	closeOnce sync.Once
 }
 
 type stateHandler func(ctx *VmContext, event VmEvent)
@@ -252,21 +253,23 @@ func (ctx *VmContext) handleProcessAsyncEvent(pae *hyperstartapi.ProcessAsyncEve
 }
 
 func (ctx *VmContext) Close() {
-	ctx.Log(INFO, "VmContext Close()")
-	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
-	ctx.unsetTimeout()
-	ctx.networks.close()
-	ctx.DCtx.Close()
-	ctx.hyperstart.Close()
-	close(ctx.client)
-	os.Remove(ctx.ShareDir)
-	ctx.handler = nil
-	ctx.current = "None"
-	if ctx.Boot.EnableVsock && ctx.GuestCid > 0 {
-		VsockCidManager.ReleaseCid(ctx.GuestCid)
-		ctx.GuestCid = 0
-	}
+	ctx.closeOnce.Do(func() {
+		ctx.Log(INFO, "VmContext Close()")
+		ctx.lock.Lock()
+		defer ctx.lock.Unlock()
+		ctx.unsetTimeout()
+		ctx.networks.close()
+		ctx.DCtx.Close()
+		ctx.hyperstart.Close()
+		close(ctx.client)
+		os.Remove(ctx.ShareDir)
+		ctx.handler = nil
+		ctx.current = "None"
+		if ctx.Boot.EnableVsock && ctx.GuestCid > 0 {
+			VsockCidManager.ReleaseCid(ctx.GuestCid)
+			ctx.GuestCid = 0
+		}
+	})
 }
 
 func (ctx *VmContext) Become(handler stateHandler, desc string) {
