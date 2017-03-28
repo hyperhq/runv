@@ -157,7 +157,7 @@ func (sv *Supervisor) reap(container, processId string) {
 	defer sv.Unlock()
 	if c, ok := sv.Containers[container]; ok {
 		if p, ok := c.Processes[processId]; ok {
-			go p.reap()
+			p.reap()
 			delete(c.ownerPod.Processes, p.inerId)
 			delete(c.Processes, processId)
 			if p.init {
@@ -165,12 +165,12 @@ func (sv *Supervisor) reap(container, processId string) {
 			}
 		}
 		if len(c.Processes) == 0 {
-			go c.reap()
+			c.reap()
 			delete(c.ownerPod.Containers, container)
 			delete(sv.Containers, container)
 		}
 		if len(c.ownerPod.Containers) == 0 {
-			go c.ownerPod.reap()
+			c.ownerPod.reap()
 		}
 	}
 }

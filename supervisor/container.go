@@ -82,8 +82,14 @@ func (c *Container) create() error {
 	if !filepath.IsAbs(rootPath) {
 		rootPath = filepath.Join(c.BundlePath, rootPath)
 	}
-	vmRootfs := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id, hypervisor.ShareDirTag, c.Id, "rootfs")
+	containerRoot := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id, hypervisor.ShareDirTag, c.Id)
+	vmRootfs := filepath.Join(containerRoot, "rootfs")
 	os.MkdirAll(vmRootfs, 0755)
+
+	if err := mount.MakePrivate(containerRoot); err != nil {
+		glog.Errorf("Make %q private failed: %v", containerRoot, err)
+		return err
+	}
 
 	// Mount rootfs
 	err := utils.Mount(rootPath, vmRootfs)
@@ -330,9 +336,9 @@ func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
 }
 
 func (c *Container) reap() {
-	containerSharedDir := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id, hypervisor.ShareDirTag, c.Id)
-	utils.Umount(filepath.Join(containerSharedDir, "rootfs"))
-	os.RemoveAll(containerSharedDir)
+	containerRoot := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id, hypervisor.ShareDirTag, c.Id)
+	utils.Umount(containerRoot)
+	os.RemoveAll(containerRoot)
 	os.RemoveAll(filepath.Join(c.ownerPod.sv.StateDir, c.Id))
 }
 
