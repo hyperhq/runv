@@ -183,31 +183,41 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 	if spec.Linux == nil {
 		return nil, fmt.Errorf("it is not linux container config")
 	}
-	for _, ns := range spec.Linux.Namespaces {
-		if len(ns.Path) > 0 {
-			if ns.Type == "mount" {
-				// TODO support it!
-				return nil, fmt.Errorf("Runv doesn't support shared mount namespace currently")
+	if containerType, ok := spec.Annotations["ocid/container_type"]; ok {
+		if containerType == "container" {
+			c := sv.Containers[spec.Annotations["ocid/sandbox_name"]]
+			if c == nil {
+				return nil, fmt.Errorf("Can't find the sandbox container")
 			}
-
-			pidexp := regexp.MustCompile(`/proc/(\d+)/ns/*`)
-			matches := pidexp.FindStringSubmatch(ns.Path)
-			if len(matches) != 2 {
-				return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
-			}
-			pid, _ := strconv.Atoi(matches[1])
-
-			for _, c := range sv.Containers {
-				if c.ownerPod != nil && pid == c.ownerPod.getNsPid() {
-					if hp != nil && hp != c.ownerPod {
-						return nil, fmt.Errorf("Conflict share")
-					}
-					hp = c.ownerPod
-					break
+			hp = c.ownerPod
+		}
+	} else {
+		for _, ns := range spec.Linux.Namespaces {
+			if len(ns.Path) > 0 {
+				if ns.Type == "mount" {
+					// TODO support it!
+					return nil, fmt.Errorf("Runv doesn't support shared mount namespace currently")
 				}
-			}
-			if hp == nil {
-				return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
+
+				pidexp := regexp.MustCompile(`/proc/(\d+)/ns/*`)
+				matches := pidexp.FindStringSubmatch(ns.Path)
+				if len(matches) != 2 {
+					return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
+				}
+				pid, _ := strconv.Atoi(matches[1])
+
+				for _, c := range sv.Containers {
+					if c.ownerPod != nil && pid == c.ownerPod.getNsPid() {
+						if hp != nil && hp != c.ownerPod {
+							return nil, fmt.Errorf("Conflict share")
+						}
+						hp = c.ownerPod
+						break
+					}
+				}
+				if hp == nil {
+					return nil, fmt.Errorf("Can't find shared container with network ns path %s", ns.Path)
+				}
 			}
 		}
 	}

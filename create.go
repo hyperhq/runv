@@ -109,27 +109,33 @@ func runContainer(context *cli.Context, createOnly bool) {
 	checkConsole(context, &spec.Process, createOnly)
 
 	var sharedContainer string
-	for _, ns := range spec.Linux.Namespaces {
-		if ns.Path != "" {
-			if strings.Contains(ns.Path, "/") {
-				fmt.Fprintf(os.Stderr, "Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
-				os.Exit(-1)
-			}
-			if ns.Type == "mount" {
-				// TODO support it!
-				fmt.Fprintf(os.Stderr, "Runv doesn't support shared mount namespace currently\n")
-				os.Exit(-1)
-			}
-			sharedContainer = ns.Path
-			_, err = os.Stat(filepath.Join(root, sharedContainer, stateJson))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "The container %q is not existing or not ready\n", sharedContainer)
-				os.Exit(-1)
-			}
-			_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "The container %q is not ready\n", sharedContainer)
-				os.Exit(-1)
+	if containerType, ok := spec.Annotations["ocid/container_type"]; ok {
+		if containerType == "container" {
+			sharedContainer = spec.Annotations["ocid/sandbox_name"]
+		}
+	} else {
+		for _, ns := range spec.Linux.Namespaces {
+			if ns.Path != "" {
+				if strings.Contains(ns.Path, "/") {
+					fmt.Fprintf(os.Stderr, "Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
+					os.Exit(-1)
+				}
+				if ns.Type == "mount" {
+					// TODO support it!
+					fmt.Fprintf(os.Stderr, "Runv doesn't support shared mount namespace currently\n")
+					os.Exit(-1)
+				}
+				sharedContainer = ns.Path
+				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJson))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "The container %q is not existing or not ready\n", sharedContainer)
+					os.Exit(-1)
+				}
+				_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "The container %q is not ready\n", sharedContainer)
+					os.Exit(-1)
+				}
 			}
 		}
 	}
