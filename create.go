@@ -330,7 +330,9 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 		if err != nil {
 			return err
 		}
-		sendtty(ptymaster, container, context.String("console-socket"))
+		if err = sendtty(context.String("console-socket"), ptymaster); err != nil {
+			return err
+		}
 		ptymaster.Close()
 	}
 	if tty == nil {
