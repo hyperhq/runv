@@ -38,3 +38,7 @@ func monitorTtySize(c types.APIClient, container, process string) {
 		}
 	}()
 }
+
+func sendtty(pty *os.File, container, consoleSocket string) error {
+	return fmt.Errorf("sendtty(): TODO: to be implemented")
+}
