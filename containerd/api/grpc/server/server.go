@@ -86,6 +86,7 @@ func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContaine
 }
 
 func (s *apiServer) Signal(ctx context.Context, r *types.SignalRequest) (*types.SignalResponse, error) {
+	glog.V(3).Infof("gRPC handle Signal")
 	err := s.sv.Signal(r.Id, r.Pid, int(r.Signal))
 	if err != nil {
 		return nil, err
