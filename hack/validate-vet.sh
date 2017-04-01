@@ -4,7 +4,7 @@ files=( $(find . -path ./vendor -prune -o -name "*.go" -print) )
 
 errors=()
 for f in "${files[@]}"; do
-	failedVet=$(go vet "$f" 2>&1)
+	failedVet=$(go tool vet --printf=false "$f" 2>&1)
     if [ "$failedVet" ]; then
         errors+=( "$failedVet" )
     fi
