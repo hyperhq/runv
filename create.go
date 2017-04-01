@@ -371,8 +371,8 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 			Stdout: tty,
 			Stderr: tty,
 			SysProcAttr: &syscall.SysProcAttr{
-				Setctty: tty != nil,
-				Setsid:  true,
+				//Setctty: tty != nil,
+				Setsid: true,
 			},
 		}
 		err = cmd.Start()

@@ -19,13 +19,13 @@ var shimCommand = cli.Command{
 		cli.StringFlag{
 			Name: "process",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-exit-code",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-signal",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-winsize",
 		},
 	},
