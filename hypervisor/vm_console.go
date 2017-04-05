@@ -35,12 +35,12 @@ func enableVmLogd(ctx *VmContext) error {
 	}
 
 	if err := json.NewEncoder(conn).Encode(&msg); err != nil {
-		glog.Errorf("fail to send message: %v", err)
+		ctx.Log(ERROR, "fail to send message: %v", err)
 		return err
 	}
 
 	if err := json.NewDecoder(conn).Decode(&msg); err != nil {
-		glog.Errorf("fail to receive message: %v", err)
+		ctx.Log(ERROR, "fail to receive message: %v", err)
 		return err
 	}
 
@@ -53,9 +53,9 @@ func enableVmLogd(ctx *VmContext) error {
 
 func watchVmConsole(ctx *VmContext) {
 	if err := enableVmLogd(ctx); err != nil {
-		glog.Errorf("fail to enable vmLogd: %v", err)
+		ctx.Log(TRACE, "fail to enable vmLogd: %v", err)
 	} else {
-		glog.Infof("log vm console through vmlogd")
+		ctx.Log(TRACE, "log vm console through vmlogd")
 		return
 	}
 
