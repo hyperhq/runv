@@ -222,6 +222,16 @@
 			"Rev": "4eaacfed9779ee7568c9e72e9f763dbd3af8e0b4"
 		},
 		{
+			"ImportPath": "google.golang.org/grpc/health",
+			"Comment": "v1.0.5-99-g4eaacfe",
+			"Rev": "4eaacfed9779ee7568c9e72e9f763dbd3af8e0b4"
+		},
+		{
+			"ImportPath": "google.golang.org/grpc/health/grpc_health_v1",
+			"Comment": "v1.0.5-99-g4eaacfe",
+			"Rev": "4eaacfed9779ee7568c9e72e9f763dbd3af8e0b4"
+		},
+		{
 			"ImportPath": "google.golang.org/grpc/internal",
 			"Comment": "v1.0.5-99-g4eaacfe",
 			"Rev": "4eaacfed9779ee7568c9e72e9f763dbd3af8e0b4"
