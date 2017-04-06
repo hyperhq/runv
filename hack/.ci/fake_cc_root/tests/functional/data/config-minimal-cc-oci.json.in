@@ -1,0 +1,62 @@
+{
+	"ociVersion": "0.6.0",
+	"platform": {
+		"os": "linux",
+		"arch": "amd64"
+	},
+	"process": {
+		"terminal": false,
+		"user": {
+			"uid": 0,
+			"gid": 0
+		},
+		"args": [
+			"CMD"
+		],
+		"env": [
+			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+			"TERM=xterm"
+		],
+		"cwd": "/"
+	},
+	"root": {
+		"path": "@ROOTFS_PATH@",
+		"readonly": true
+	},
+	"hostname": "shell",
+	"mounts": [],
+    "linux": {
+	    "namespaces": [
+	    	{"type":"mount"},
+	    	{"type":"network"},
+	    	{"type":"uts"},
+	    	{"type":"pid"},
+	    	{"type":"ipc"}
+	    ]
+    },
+	"hooks": {
+		"prestart": [
+		{
+			"path": "/bin/echo",
+			"args": ["/bin/echo", "this", "is", "a", "test"],
+			"env":  [ "key1=value1"]
+		},
+		{
+			"path": "/bin/ls"
+		}
+		],
+		"poststart": [
+		{
+			"path": "/bin/ls",
+			"timeout": 5
+		}
+		],
+		"poststop": [
+		{
+			"path": "/bin/echo",
+			"args": ["/bin/echo", "other", "test"]
+		}
+		]
+	}
+
+}
