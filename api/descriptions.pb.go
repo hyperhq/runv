@@ -165,6 +165,7 @@ type InterfaceDescription struct {
 	Mac     string `protobuf:"bytes,5,opt,name=mac" json:"mac,omitempty"`
 	Gw      string `protobuf:"bytes,6,opt,name=gw" json:"gw,omitempty"`
 	TapName string `protobuf:"bytes,7,opt,name=tapName" json:"tapName,omitempty"`
+	Options string `protobuf:"bytes,8,opt,name=options" json:"options,omitempty"`
 }
 
 func (m *InterfaceDescription) Reset()                    { *m = InterfaceDescription{} }
