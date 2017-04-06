@@ -101,9 +101,4 @@ var
 
 ### Example
 
-Please check the runC example to get the container rootfs.
-https://github.com/opencontainers/runc#examples
-
-And you can get a sample OCI config.json at
-https://github.com/opencontainers/runc#oci-container-json-format or
-simply execute `runv spec`.
+Please follow the [instructions in runC](https://github.com/opencontainers/runc#creating-an-oci-bundle) to get the container rootfs and execute `runv spec` to generate a spec in the format of a `config.json` file.
