@@ -152,6 +152,7 @@ func main() {
 		execCommand,
 		killCommand,
 		listCommand,
+		psCommand,
 		runCommand,
 		specCommand,
 		startCommand,
