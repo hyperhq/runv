@@ -195,11 +195,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
-			"Rev": "506eaf8d3c3127e0d48a3f3130069784927994a0"
+			"Rev": "f3918c30c5c2cb527c0b071a27c35120a6c0719a"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/windows",
-			"Rev": "506eaf8d3c3127e0d48a3f3130069784927994a0"
+			"Rev": "f3918c30c5c2cb527c0b071a27c35120a6c0719a"
 		},
 		{
 			"ImportPath": "google.golang.org/grpc",
