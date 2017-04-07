@@ -45,7 +45,7 @@ After creating a spec for your root filesystem, you can execute a container
 in your shell by running:
 
     # cd /mycontainer
-    # runv start start [ -b bundle ] <container-id>
+    # runv run [ -b bundle ] <container-id>
 
 If not specified, the default value for the 'bundle' is the current directory.
 'Bundle' is the directory where '` + specConfig + `' must be located.`
