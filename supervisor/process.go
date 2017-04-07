@@ -93,8 +93,7 @@ func (p *Process) signal(sig int) error {
 		// TODO: change vm.KillContainer()
 		return p.ownerCont.ownerPod.vm.KillContainer(p.ownerCont.Id, syscall.Signal(sig))
 	} else {
-		// TODO support it
-		return fmt.Errorf("Kill to non-init process of container is unsupported")
+		return p.ownerCont.ownerPod.vm.SignalProcess(p.ownerCont.Id, p.Id, syscall.Signal(sig))
 	}
 }
 

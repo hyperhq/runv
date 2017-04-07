@@ -69,6 +69,12 @@ For example, if the container id is "ubuntu01" the following will send a "KILL"
 signal to the init process of the "ubuntu01" container:
 
        # runv kill ubuntu01 KILL`,
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "all, a",
+			Usage: "send the signal to all processes in the container",
+		},
+	},
 	Action: func(context *cli.Context) error {
 		container := context.Args().First()
 		if container == "" {
@@ -88,15 +94,48 @@ signal to the init process of the "ubuntu01" container:
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}
-		if _, err = c.Signal(netcontext.Background(), &types.SignalRequest{
-			Id:     container,
-			Pid:    "init",
-			Signal: uint32(signal),
-		}); err != nil {
-			return cli.NewExitError(fmt.Sprintf("kill signal failed, %v", err), -1)
+
+		plist := make([]string, 0)
+
+		if context.Bool("all") {
+			if plist, err = getProcessList(c, container); err != nil {
+				return cli.NewExitError(fmt.Sprintf("can't get process list, %v", err), -1)
+			}
+		} else {
+			plist = append(plist, "init")
+		}
+
+		for _, p := range plist {
+			if _, err = c.Signal(netcontext.Background(), &types.SignalRequest{
+				Id:     container,
+				Pid:    p,
+				Signal: uint32(signal),
+			}); err != nil {
+				return cli.NewExitError(fmt.Sprintf("kill signal failed, %v", err), -1)
+			}
 		}
 		return nil
 	},
+}
+
+func getProcessList(c types.APIClient, container string) ([]string, error) {
+	s, err := c.State(netcontext.Background(), &types.StateRequest{Id: container})
+	if err != nil {
+		return nil, fmt.Errorf("get container state failed, %v", err)
+	}
+
+	for _, cc := range s.Containers {
+		if cc.Id == container {
+			plist := make([]string, 0)
+			for _, p := range cc.Processes {
+				plist = append(plist, p.Pid)
+			}
+
+			return plist, nil
+		}
+	}
+
+	return nil, fmt.Errorf("container %s not found", container)
 }
 
 func parseSignal(rawSignal string) (syscall.Signal, error) {
