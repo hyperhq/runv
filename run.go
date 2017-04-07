@@ -12,7 +12,7 @@ var runCommand = cli.Command{
 Where "<container-id>" is your name for the instance of the container that you
 are running. The name you provide for the container instance must be unique on
 your host.`,
-	Description: `The create command creates an instance of a container for a bundle. The bundle
+	Description: `The run command creates and starts an instance of a container for a bundle. The bundle
 is a directory with a specification file named "` + specConfig + `" and a root
 filesystem.
 
