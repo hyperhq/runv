@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -67,6 +68,10 @@ your host.`,
 }
 
 func startContainer(context *cli.Context, bundle, container, address string, config *specs.Spec, detach bool) int {
+	var err error
+
+	defer os.RemoveAll(getStdioDir(context, container))
+
 	r := &types.CreateContainerRequest{
 		Id:         container,
 		Runtime:    "runv-start",
@@ -75,18 +80,41 @@ func startContainer(context *cli.Context, bundle, container, address string, con
 
 	c := getClient(address)
 	evChan := containerEvents(c, container)
-	if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
+	if _, err = c.CreateContainer(netcontext.Background(), r); err != nil {
 		fmt.Printf("error %v\n", err)
 		return -1
 	}
-	if !detach && config.Process.Terminal {
-		s, err := term.SetRawTerminal(os.Stdin.Fd())
-		if err != nil {
+	var (
+		stdin io.WriteCloser
+		state *term.State
+	)
+	restoreAndCloseStdin := func() {
+		if state != nil {
+			term.RestoreTerminal(os.Stdin.Fd(), state)
+		}
+		if stdin != nil {
+			stdin.Close()
+		}
+	}
+	defer restoreAndCloseStdin()
+
+	if !detach {
+		if config.Process.Terminal {
+			state, err = term.SetRawTerminal(os.Stdin.Fd())
+			if err != nil {
+				fmt.Printf("error %v\n", err)
+				return -1
+			}
+		}
+		var s *stdio
+		if s, err = getStdio(context, container, false); err != nil {
 			fmt.Printf("error %v\n", err)
 			return -1
 		}
-		defer term.RestoreTerminal(os.Stdin.Fd(), s)
-		monitorTtySize(c, container, "init")
+		if stdin, err = attachStdio(s); err != nil {
+			fmt.Printf("error %v\n", err)
+			return -1
+		}
 	}
 	var started bool
 	for e := range evChan {
@@ -103,13 +131,28 @@ func startContainer(context *cli.Context, bundle, container, address string, con
 		fmt.Printf("failed to get the start event\n")
 		return -1
 	}
-	if !detach {
-		for e := range evChan {
-			if e.Type == "exit" && e.Pid == "init" {
-				return int(e.Status)
-			}
-		}
-		return -1
+	if detach {
+		return 0
 	}
-	return 0
+	go func() {
+		io.Copy(stdin, os.Stdin)
+		if _, err := c.UpdateProcess(netcontext.Background(), &types.UpdateProcessRequest{
+			Id:         container,
+			Pid:        "init",
+			CloseStdin: true,
+		}); err != nil {
+			fmt.Printf("error %v\n", err)
+			return
+		}
+		restoreAndCloseStdin()
+	}()
+	if config.Process.Terminal {
+		monitorTtySize(c, container, "init")
+	}
+	for e := range evChan {
+		if e.Type == "exit" && e.Pid == "init" {
+			return int(e.Status)
+		}
+	}
+	return -1
 }
