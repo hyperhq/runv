@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/opencontainers/runc/libcontainer/utils"
 	netcontext "golang.org/x/net/context"
 )
 
@@ -39,6 +41,20 @@ func monitorTtySize(c types.APIClient, container, process string) {
 	}()
 }
 
-func sendtty(pty *os.File, container, consoleSocket string) error {
-	return fmt.Errorf("sendtty(): TODO: to be implemented")
+func sendtty(consoleSocket string, pty *os.File) error {
+	// the caller of runc will handle receiving the console master
+	conn, err := net.Dial("unix", consoleSocket)
+	if err != nil {
+		return err
+	}
+	uc, ok := conn.(*net.UnixConn)
+	if !ok {
+		return fmt.Errorf("casting to UnixConn failed")
+	}
+	socket, err := uc.File()
+	if err != nil {
+		return err
+	}
+
+	return utils.SendFd(socket, pty)
 }

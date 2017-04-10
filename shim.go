@@ -3,10 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/codegangsta/cli"
+	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"golang.org/x/net/context"
 )
 
 var shimCommand = cli.Command{
@@ -19,13 +23,13 @@ var shimCommand = cli.Command{
 		cli.StringFlag{
 			Name: "process",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-exit-code",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-signal",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name: "proxy-winsize",
 		},
 	},
@@ -51,6 +55,8 @@ var shimCommand = cli.Command{
 
 		if context.Bool("proxy-signal") {
 			// TODO
+			sigc := forwardAllSignals(c, container, process)
+			defer signal.Stop(sigc)
 		}
 
 		// wait until exit
@@ -62,4 +68,34 @@ var shimCommand = cli.Command{
 			}
 		}
 	},
+}
+
+func forwardAllSignals(c types.APIClient, cid, process string) chan os.Signal {
+	sigc := make(chan os.Signal, 2048)
+	// handle all signals for the process.
+	signal.Notify(sigc)
+	signal.Ignore(syscall.SIGCHLD, syscall.SIGPIPE, syscall.SIGWINCH)
+
+	go func() {
+		for s := range sigc {
+			if s == syscall.SIGCHLD || s == syscall.SIGPIPE || s == syscall.SIGWINCH {
+				//ignore these
+				continue
+			}
+			// forward this signal to containerd
+			sysSig, ok := s.(syscall.Signal)
+			if !ok {
+				fmt.Fprintf(os.Stderr, "can't forward unknown signal %q", s.String())
+				continue
+			}
+			if _, err := c.Signal(context.Background(), &types.SignalRequest{
+				Id:     cid,
+				Pid:    process,
+				Signal: uint32(sysSig),
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "forward signal %q failed: %v", s.String(), err)
+			}
+		}
+	}()
+	return sigc
 }
