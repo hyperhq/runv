@@ -34,6 +34,10 @@ var listCommand = cli.Command{
 	Name:  "list",
 	Usage: "lists containers started by runv with the given root",
 	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "quiet, q",
+			Usage: "display only container IDs",
+		},
 		cli.StringFlag{
 			Name:  "format, f",
 			Value: "",
@@ -49,6 +53,13 @@ in json format:
 		s, err := getContainers(context)
 		if err != nil {
 			fatal(err)
+		}
+
+		if context.Bool("quiet") {
+			for _, item := range s {
+				fmt.Println(item.ID)
+			}
+			return
 		}
 
 		switch context.String("format") {
