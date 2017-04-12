@@ -181,16 +181,17 @@ func streamCopy(tty *TtyIO, stdinPipe io.WriteCloser, stdoutPipe, stderrPipe io.
 	once.Do(cleanup)
 }
 
-func (ctx *VmContext) startPod() {
+func (ctx *VmContext) startPod() error {
 	err := ctx.hyperstart.StartSandbox(ctx.networks.sandboxInfo())
 	if err == nil {
 		ctx.Log(INFO, "pod start successfully")
 		ctx.reportSuccess("Start POD success", []byte{})
 	} else {
-		reason := "Start POD failed"
+		reason := fmt.Sprintf("Start POD failed: %s", err.Error())
 		ctx.reportVmFault(reason)
 		ctx.Log(ERROR, reason)
 	}
+	return err
 }
 
 func (ctx *VmContext) shutdownVM() {

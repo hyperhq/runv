@@ -226,9 +226,9 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 	return result
 }
 
-func (vm *Vm) InitSandbox(config *api.SandboxConfig) {
+func (vm *Vm) InitSandbox(config *api.SandboxConfig) error {
 	vm.ctx.SetNetworkEnvironment(config)
-	vm.ctx.startPod()
+	return vm.ctx.startPod()
 }
 
 func (vm *Vm) WaitInit() api.Result {
