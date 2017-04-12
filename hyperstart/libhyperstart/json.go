@@ -31,6 +31,7 @@ type pState struct {
 	stdoutPipe io.ReadCloser
 	stderrPipe io.ReadCloser
 	exitStatus *int
+	outClosed  bool
 	waitChan   chan int
 }
 
@@ -86,15 +87,16 @@ func (h *jsonBasedHyperstart) Close() {
 	defer h.Unlock()
 	if !h.closed {
 		h.Log(TRACE, "close jsonBasedHyperstart")
-		for pk, ps := range h.procs {
-			ps.exitStatus = makeExitStatus(255)
-			h.handleWaitProcess(pk, ps)
-		}
-		h.procs = make(map[pKey]*pState)
 		for _, out := range h.streamOuts {
 			out.Close()
 		}
 		h.streamOuts = make(map[uint64]streamOut)
+		for pk, ps := range h.procs {
+			ps.outClosed = true
+			ps.exitStatus = makeExitStatus(255)
+			h.handleWaitProcess(pk, ps)
+		}
+		h.procs = make(map[pKey]*pState)
 		close(h.ctlChan)
 		close(h.streamChan)
 		for cmd := range h.ctlChan {
@@ -458,7 +460,7 @@ func handleStreamFromHyperstart(h *jsonBasedHyperstart, conn io.Reader) {
 func makeExitStatus(status int) *int { return &status }
 
 func (h *jsonBasedHyperstart) handleWaitProcess(pk pKey, ps *pState) {
-	if ps.exitStatus != nil && ps.waitChan != nil {
+	if ps.exitStatus != nil && ps.waitChan != nil && ps.outClosed {
 		delete(h.procs, pk)
 		ps.waitChan <- *ps.exitStatus
 	}
@@ -492,8 +494,17 @@ func (h *jsonBasedHyperstart) removeStreamOut(seq uint64) {
 	// doesn't send eof of the stderr back, so we also remove stderr seq here
 	if out, ok := h.streamOuts[seq]; ok {
 		delete(h.streamOuts, seq)
-		if seq == out.ps.stdioSeq && out.ps.stderrSeq > 0 {
-			delete(h.streamOuts, out.ps.stderrSeq)
+		if seq == out.ps.stdioSeq {
+			if out.ps.stderrSeq > 0 {
+				h.streamOuts[out.ps.stderrSeq].Close()
+				delete(h.streamOuts, out.ps.stderrSeq)
+			}
+			for pk, ps := range h.procs {
+				if ps.stdioSeq == seq {
+					ps.outClosed = true
+					h.handleWaitProcess(pk, ps)
+				}
+			}
 		}
 	}
 }
