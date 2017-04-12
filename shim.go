@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/codegangsta/cli"
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
 	"golang.org/x/net/context"
@@ -37,13 +38,15 @@ var shimCommand = cli.Command{
 		root := context.GlobalString("root")
 		container := context.String("container")
 		process := context.String("process")
-		c := getClient(filepath.Join(root, container, "namespace/namespaced.sock"))
+		c := getClient(filepath.Join(root, container, "namespace", "namespaced.sock"))
 		exitcode := -1
 		if context.Bool("proxy-exit-code") {
+			glog.V(3).Infof("using shim to proxy exit code")
 			defer func() { os.Exit(exitcode) }()
 		}
 
 		if context.Bool("proxy-winsize") {
+			glog.V(3).Infof("using shim to proxy winsize")
 			s, err := term.SetRawTerminal(os.Stdin.Fd())
 			if err != nil {
 				fmt.Printf("error %v\n", err)
@@ -55,6 +58,7 @@ var shimCommand = cli.Command{
 
 		if context.Bool("proxy-signal") {
 			// TODO
+			glog.V(3).Infof("using shim to proxy signal")
 			sigc := forwardAllSignals(c, container, process)
 			defer signal.Stop(sigc)
 		}
@@ -85,7 +89,9 @@ func forwardAllSignals(c types.APIClient, cid, process string) chan os.Signal {
 			// forward this signal to containerd
 			sysSig, ok := s.(syscall.Signal)
 			if !ok {
-				fmt.Fprintf(os.Stderr, "can't forward unknown signal %q", s.String())
+				err := fmt.Errorf("can't forward unknown signal %q", s.String())
+				fmt.Fprintf(os.Stderr, "%v", err)
+				glog.Errorf("%v", err)
 				continue
 			}
 			if _, err := c.Signal(context.Background(), &types.SignalRequest{
@@ -93,7 +99,9 @@ func forwardAllSignals(c types.APIClient, cid, process string) chan os.Signal {
 				Pid:    process,
 				Signal: uint32(sysSig),
 			}); err != nil {
-				fmt.Fprintf(os.Stderr, "forward signal %q failed: %v", s.String(), err)
+				err = fmt.Errorf("forward signal %q failed: %v", s.String(), err)
+				fmt.Fprintf(os.Stderr, "%v", err)
+				glog.Errorf("%v", err)
 			}
 		}
 	}()

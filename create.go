@@ -240,19 +240,14 @@ func runContainer(context *cli.Context, createOnly bool) {
 		}
 	}
 
-	address := filepath.Join(namespace, "namespaced.sock")
-	err = createContainer(context, container, address, spec)
+	err = createContainer(context, container, namespace, spec)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error %v\n", err)
 		cmd.Process.Signal(syscall.SIGINT)
 		os.Exit(-1)
 	}
-	err = os.Symlink(namespace, filepath.Join(root, container, "namespace"))
-	if err != nil {
-		cmd.Process.Signal(syscall.SIGINT)
-		os.Exit(-1)
-	}
 	if !createOnly {
+		address := filepath.Join(namespace, "namespaced.sock")
 		startContainer(context, bundle, container, address, spec, context.Bool("detach"))
 	}
 	os.Exit(0)
@@ -290,7 +285,8 @@ func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) {
 // * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
 
-func createContainer(context *cli.Context, container, address string, config *specs.Spec) error {
+func createContainer(context *cli.Context, container, namespace string, config *specs.Spec) error {
+	address := filepath.Join(namespace, "namespaced.sock")
 	c := getClient(address)
 
 	return ociCreate(context, container, func(stdin, stdout, stderr string) error {
@@ -305,6 +301,12 @@ func createContainer(context *cli.Context, container, address string, config *sp
 
 		if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
 			return err
+		}
+
+		// create symbol link to namespace file
+		namespaceDir := filepath.Join(context.GlobalString("root"), container, "namespace")
+		if err := os.Symlink(namespace, namespaceDir); err != nil {
+			return fmt.Errorf("failed to create symbol link %q: %v", filepath.Join(namespaceDir, "namespaced.sock"), err)
 		}
 		return nil
 	})
@@ -355,8 +357,14 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 	if context.String("pid-file") != "" || tty != nil {
 		args := []string{
 			"runv", "--root", context.GlobalString("root"),
-			"shim", "--container", container, "--process", "init",
 		}
+		if context.GlobalString("log_dir") != "" {
+			args = append(args, "--log_dir", filepath.Join(context.GlobalString("log_dir"), "shim-"+container))
+		}
+		if context.GlobalBool("debug") {
+			args = append(args, "--debug")
+		}
+		args = append(args, "shim", "--container", container, "--process", "init")
 		if context.String("pid-file") != "" {
 			args = append(args, "--proxy-exit-code", "--proxy-signal")
 		}
