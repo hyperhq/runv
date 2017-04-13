@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
@@ -39,11 +40,20 @@ func ProcessExitCode(err error) (exitCode int) {
 }
 
 func (s *RunVSuite) runvCommandWithError(args ...string) (string, int, error) {
+	killer := time.AfterFunc(40*time.Second, func() {
+		exec.Command("pkill", "-9", "runv").Run()
+		exec.Command("pkill", "-9", "qemu").Run()
+		exec.Command("pkill", "-9", "containerd-nslistener").Run()
+	})
+
 	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath, "--debug"}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command(s.binaryPath, cmdArgs...)
 	out, err := cmd.CombinedOutput()
 	exitCode := ProcessExitCode(err)
+	if !killer.Stop() {
+		err = fmt.Errorf("test timeout error, orgin exec error: %v", err)
+	}
 	return string(out), exitCode, err
 }
 
