@@ -193,6 +193,18 @@ func handleCtlSock(h *jsonBasedHyperstart, ctlSock string, waitReady bool) error
 }
 
 func (h *jsonBasedHyperstart) hyperstartCommandWithRetMsg(code uint32, msg interface{}) (retMsg []byte, err error) {
+	if h.vmAPIVersion == 0 && (code == hyperstartapi.INIT_EXECCMD || code == hyperstartapi.INIT_NEWCONTAINER) {
+		// delay version-awared command
+		var t int64 = 2
+		for h.vmAPIVersion == 0 {
+			h.Log(TRACE, "delay version-awared command :%d by %dms", code)
+			time.Sleep(time.Duration(t) * time.Millisecond)
+			if t < 512 {
+				t = t * 2
+			}
+		}
+	}
+
 	defer func() {
 		if recover() != nil {
 			err = fmt.Errorf("send ctl channel error, the hyperstart might have closed")
@@ -258,19 +270,6 @@ func handleMsgToHyperstart(h *jsonBasedHyperstart, conn io.WriteCloser) {
 					got = 0
 				}
 			} else {
-				if h.vmAPIVersion == 0 && (cmd.Code == hyperstartapi.INIT_EXECCMD || cmd.Code == hyperstartapi.INIT_NEWCONTAINER) {
-					// delay version-awared command
-					h.Log(TRACE, "delay version-awared command :%d", cmd.Code)
-					time.AfterFunc(2*time.Millisecond, func() {
-						defer func() {
-							if err := recover(); err != nil && h.closed {
-								cmd.result <- fmt.Errorf("hyperstart closed")
-							}
-						}()
-						h.ctlChan <- cmd
-					})
-					continue
-				}
 				var message []byte
 				if message1, ok := cmd.Message.([]byte); ok {
 					message = message1
