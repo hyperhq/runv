@@ -31,18 +31,6 @@ func (ctx *VmContext) loop() {
 	ctx.Log(DEBUG, "main event loop exiting")
 }
 
-func (ctx *VmContext) handlePAEs() {
-	ch, err := ctx.hyperstart.ProcessAsyncEvents()
-	if err == nil {
-		for e := range ch {
-			ctx.handleProcessAsyncEvent(&e)
-		}
-	}
-	ctx.hyperstart.Close()
-	ctx.Log(ERROR, "hyperstart stopped")
-	ctx.Hub <- &Interrupted{Reason: "hyperstart stopped"}
-}
-
 func (ctx *VmContext) watchHyperstart(sendReadyEvent bool) {
 	timeout := time.AfterFunc(60*time.Second, func() {
 		if ctx.PauseState == PauseStateUnpaused {
@@ -92,7 +80,6 @@ func (ctx *VmContext) Launch() {
 	}
 
 	go ctx.loop()
-	go ctx.handlePAEs()
 }
 
 func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, pack []byte) (*VmContext, error) {
@@ -130,7 +117,6 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 	//}
 
 	go context.watchHyperstart(false)
-	go context.handlePAEs()
 	go context.loop()
 	return context, nil
 }
