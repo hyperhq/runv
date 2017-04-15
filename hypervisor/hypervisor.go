@@ -44,7 +44,7 @@ func (ctx *VmContext) handlePAEs() {
 }
 
 func (ctx *VmContext) watchHyperstart(sendReadyEvent bool) {
-	timeout := time.AfterFunc(30*time.Second, func() {
+	timeout := time.AfterFunc(60*time.Second, func() {
 		if ctx.PauseState == PauseStateUnpaused {
 			ctx.Log(ERROR, "watch hyperstart timeout")
 			ctx.Hub <- &InitFailedEvent{Reason: "watch hyperstart timeout"}
@@ -69,7 +69,7 @@ func (ctx *VmContext) watchHyperstart(sendReadyEvent bool) {
 			sendReadyEvent = false
 		}
 		time.Sleep(10 * time.Second)
-		timeout.Reset(30 * time.Second)
+		timeout.Reset(60 * time.Second)
 	}
 	timeout.Stop()
 }
