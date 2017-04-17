@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
@@ -16,13 +18,14 @@ import (
 )
 
 const (
-	testDataDir    = "test_data"
-	busyboxTarName = "busybox.tar"
-	configFileName = "config.json"
-	kernelName     = "kernel"
-	initrdName     = "hyper-initrd.img"
-	binaryName     = "runv"
-	rootfsName     = "rootfs"
+	testDataDir        = "test_data"
+	busyboxTarName     = "busybox.tar"
+	configFileName     = "config.json"
+	kernelName         = "kernel"
+	initrdName         = "hyper-initrd.img"
+	binaryName         = "runv"
+	rootfsName         = "rootfs"
+	logFileNamePattern = "runv*INFO*"
 )
 
 var (
@@ -63,6 +66,7 @@ type RunVSuite struct {
 	initrdPath string
 	bundlePath string
 	configPath string
+	logPath    string
 }
 
 var _ = check.Suite(&RunVSuite{})
@@ -110,12 +114,23 @@ func (s *RunVSuite) SetUpSuite(c *check.C) {
 
 func (s *RunVSuite) TearDownSuite(c *check.C) {}
 
-func (s *RunVSuite) SetUpTest(c *check.C) {}
+func (s *RunVSuite) SetUpTest(c *check.C) {
+	s.logPath = c.MkDir()
+}
 
 func (s *RunVSuite) TearDownTest(c *check.C) {
 	// FIXME: Use runv kill/delete to do reliable garbage collection
 	// after kill/delete functions are stable
-	exec.Command("pkill", "-9", "runv-namespaced").Run()
-	exec.Command("pkill", "-9", "qemu").Run()
-	exec.Command("pkill", "-9", "containerd-nslistener")
+	killAllRunvComponent(9)
+}
+
+func (s *RunVSuite) PrintLog(c *check.C) {
+	if c.Failed() {
+		// kill runv gently to enable garbage collection and flush log
+		killAllRunvComponent(15)
+		time.Sleep(3 * time.Second)
+		out, err := exec.Command("sh", "-c", fmt.Sprintf("find %s -type f -name '%s' -exec echo -e '\n\nLog of ' {} ':' \\; -exec cat {} \\;", s.logPath, logFileNamePattern)).CombinedOutput()
+		c.Assert(err, checker.IsNil)
+		c.Logf("Test case %s failed, retrieve runv log from directory %s:\n%s", c.TestName(), s.logPath, out)
+	}
 }

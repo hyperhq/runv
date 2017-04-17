@@ -15,6 +15,7 @@ import (
 )
 
 func (s *RunVSuite) TestExecHelloWorld(c *check.C) {
+	defer s.PrintLog(c)
 	ctrName := "testExecHelloWorld"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}
@@ -43,6 +44,7 @@ func (s *RunVSuite) TestExecHelloWorld(c *check.C) {
 }
 
 func (s *RunVSuite) TestExecWithTty(c *check.C) {
+	defer s.PrintLog(c)
 	ctrName := "TestExecWithTty"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}
@@ -91,6 +93,7 @@ func (s *RunVSuite) TestExecWithTty(c *check.C) {
 }
 
 func (s *RunVSuite) TestExecWithProcessJson(c *check.C) {
+	defer s.PrintLog(c)
 	process := specs.Process{
 		Terminal: false,
 		User:     specs.User{},

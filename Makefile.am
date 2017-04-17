@@ -22,5 +22,4 @@ build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -o runv .
 test-integration:
 	cd integration-test/test_data && make
-	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} . ; ret=$$? ;\
-	sync; sleep 20; sync; find /var/log/hyper/ -type f -exec echo -e '\n\nLog of ' {} ':' \; -exec cat {} \; ; exit $$ret
+	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} .

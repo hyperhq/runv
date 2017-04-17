@@ -41,12 +41,15 @@ func ProcessExitCode(err error) (exitCode int) {
 
 func (s *RunVSuite) runvCommandWithError(args ...string) (string, int, error) {
 	killer := time.AfterFunc(40*time.Second, func() {
-		exec.Command("pkill", "-9", "runv").Run()
-		exec.Command("pkill", "-9", "qemu").Run()
-		exec.Command("pkill", "-9", "containerd-nslistener").Run()
+		killAllRunvComponent(9)
 	})
 
-	cmdArgs := []string{"--kernel", s.kernelPath, "--initrd", s.initrdPath, "--debug"}
+	cmdArgs := []string{
+		"--kernel", s.kernelPath,
+		"--initrd", s.initrdPath,
+		"--log_dir", s.logPath,
+		"--debug",
+	}
 	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command(s.binaryPath, cmdArgs...)
 	out, err := cmd.CombinedOutput()
@@ -78,4 +81,11 @@ func (s *RunVSuite) addSpec(spec *specs.Spec) error {
 		return err
 	}
 	return nil
+}
+
+func killAllRunvComponent(signal int) {
+	sigFlag := fmt.Sprintf("-%d", signal)
+	exec.Command("pkill", sigFlag, "runv").Run()
+	exec.Command("pkill", sigFlag, "qemu").Run()
+	exec.Command("pkill", sigFlag, "containerd-nslistener").Run()
 }

@@ -9,6 +9,7 @@ import (
 )
 
 func (s *RunVSuite) TestKillKILL(c *check.C) {
+	defer s.PrintLog(c)
 	ctrName := "testKillKILL"
 	spec := defaultTestSpec
 	c.Assert(s.addSpec(&spec), checker.IsNil)
