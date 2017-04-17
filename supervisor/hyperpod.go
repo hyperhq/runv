@@ -529,4 +529,5 @@ func (hp *HyperPod) reap() {
 	if err := os.RemoveAll(filepath.Join(hypervisor.BaseDir, hp.vm.Id)); err != nil {
 		glog.Errorf("can't remove vm dir %q: %v", filepath.Join(hypervisor.BaseDir, hp.vm.Id), err)
 	}
+	glog.Flush()
 }
