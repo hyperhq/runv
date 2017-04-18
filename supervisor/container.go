@@ -298,6 +298,12 @@ func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
 		return nil
 	}
 	for _, hook := range rt.Hooks.Prestart {
+		// FIXME: we don't support libnetwork now, so we skip libnetwork prestart hook
+		// Remove this if one day we finally support CNM
+		if len(hook.Args) > 0 && hook.Args[0] == "libnetwork-setkey" {
+			glog.V(3).Infof("Skip libnetwork-setkey because we don't support libnetwork currently")
+			continue
+		}
 		err := execHook(hook, state)
 		if err != nil {
 			return err
