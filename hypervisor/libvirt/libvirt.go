@@ -448,6 +448,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	dom.SecLabel.Type = "none"
 
 	dom.CPU.Mode = "host-passthrough"
+	cmdline := "console=ttyS0 panic=1 no_timer_check"
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		dom.Type = "qemu"
 		dom.CPU.Mode = "host-model"
@@ -456,6 +457,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 			Fallback: "allow",
 			Content:  "core2duo",
 		}
+		cmdline += " clocksource=acpi_pm notsc"
 	}
 
 	if ctx.Boot.HotAddCpuMem {
@@ -626,7 +628,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	} else {
 		dom.OS.Kernel = boot.Kernel
 		dom.OS.Initrd = boot.Initrd
-		dom.OS.Cmdline = "console=ttyS0 panic=1 no_timer_check"
+		dom.OS.Cmdline = cmdline
 	}
 
 	data, err := xml.Marshal(dom)
