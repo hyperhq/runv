@@ -252,7 +252,14 @@ func (c *Container) addProcess(processId, stdin, stdout, stderr string, spec *sp
 		)
 		reschan := c.ownerPod.vm.WaitProcess(false, []string{processId}, -1)
 
-		err := c.ownerPod.vm.AddProcess(c.Id, processId, spec.Terminal, spec.Args, spec.Env, spec.Cwd, p.stdio)
+		err := c.ownerPod.vm.AddProcess(&api.Process{
+			Container: c.Id,
+			Id:        processId,
+			Terminal:  spec.Terminal,
+			Args:      spec.Args,
+			Envs:      spec.Env,
+			Workdir:   spec.Cwd}, p.stdio)
+
 		if err != nil {
 			glog.V(1).Infof("add process to container failed: %v\n", err)
 		} else {
