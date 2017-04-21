@@ -21,6 +21,7 @@ type containerState struct {
 }
 
 func (s *RunVSuite) TestListSleep(c *check.C) {
+	defer s.PrintLog(c)
 	ctrName := "testListSleep"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}
@@ -48,6 +49,7 @@ func (s *RunVSuite) TestListSleep(c *check.C) {
 }
 
 func (s *RunVSuite) TestListSleepJson(c *check.C) {
+	defer s.PrintLog(c)
 	ctrName := "testListSleepJson"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}

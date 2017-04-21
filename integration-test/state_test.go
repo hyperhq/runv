@@ -31,6 +31,7 @@ func (s *RunVSuite) TestStateSleep(c *check.C) {
 	//TODO: enable this after fixing!!!
 	//c.Skip("enable this after fixing")
 
+	defer s.PrintLog(c)
 	ctrName := "testStateSleep"
 	spec := defaultTestSpec
 	spec.Process.Args = []string{"sleep", "10"}

@@ -13,6 +13,7 @@ import (
 )
 
 func (s *RunVSuite) TestSpecDefault(c *check.C) {
+	defer s.PrintLog(c)
 	expectedSpec := defaultTestSpec
 	expectedSpec.Process.Terminal = true
 	expectedSpec.Process.Args = []string{"sh"}

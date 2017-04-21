@@ -32,6 +32,9 @@ const (
 	defaultStateDir     = "/run/runv-containerd"
 	defaultListenType   = "unix"
 	defaultGRPCEndpoint = "/run/runv-containerd/containerd.sock"
+	// runv-containerd is a relativly short term program
+	// since we can't change the flush interval in glog, flush here manaully.
+	glogFlushInterval = 5 * time.Second
 )
 
 var ContainerdCommand = cli.Command{
@@ -152,6 +155,8 @@ func daemon(sv *supervisor.Supervisor, address string) error {
 	s := make(chan os.Signal, 2048)
 	signal.Notify(s, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
+	go glogFlushDaemon()
+
 	server, err := startServer(address, sv)
 	if err != nil {
 		return err
@@ -161,6 +166,7 @@ func daemon(sv *supervisor.Supervisor, address string) error {
 	glog.V(1).Infof("stopping containerd after receiving %s", sig)
 	time.Sleep(3 * time.Second) // TODO: fix it by proper way
 	server.Stop()
+	glog.Flush()
 	return nil
 }
 
@@ -199,4 +205,10 @@ func startServer(address string, sv *supervisor.Supervisor) (*grpc.Server, error
 		glog.V(1).Infof("containerd grpc server started")
 	}()
 	return s, nil
+}
+
+func glogFlushDaemon() {
+	for range time.NewTicker(glogFlushInterval).C {
+		glog.Flush()
+	}
 }
