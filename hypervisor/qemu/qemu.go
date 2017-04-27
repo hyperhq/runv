@@ -222,7 +222,6 @@ func (qc *QemuContext) Pause(ctx *hypervisor.VmContext, pause bool) error {
 }
 
 func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blockInfo *hypervisor.DiskDescriptor, result chan<- hypervisor.VmEvent) {
-	name := blockInfo.Name
 	filename := blockInfo.Filename
 	format := blockInfo.Format
 	id := blockInfo.ScsiId
@@ -247,7 +246,7 @@ func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blo
 		}
 	}
 
-	newDiskAddSession(ctx, qc, name, sourceType, filename, format, id, result)
+	newDiskAddSession(ctx, qc, filename, format, id, result)
 }
 
 func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.DiskDescriptor, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {

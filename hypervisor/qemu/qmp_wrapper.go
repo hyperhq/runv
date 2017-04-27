@@ -33,7 +33,7 @@ func defaultRespond(result chan<- hypervisor.VmEvent, callback hypervisor.VmEven
 	}
 }
 
-func newDiskAddSession(ctx *hypervisor.VmContext, qc *QemuContext, name, sourceType, filename, format string, id int, result chan<- hypervisor.VmEvent) {
+func newDiskAddSession(ctx *hypervisor.VmContext, qc *QemuContext, filename, format string, id int, result chan<- hypervisor.VmEvent) {
 	commands := make([]*QmpCommand, 2)
 	commands[0] = &QmpCommand{
 		Execute: "human-monitor-command",
@@ -53,10 +53,7 @@ func newDiskAddSession(ctx *hypervisor.VmContext, qc *QemuContext, name, sourceT
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: defaultRespond(result, &hypervisor.BlockdevInsertedEvent{
-			Name:       name,
-			SourceType: sourceType,
 			DeviceName: devName,
-			ScsiId:     id,
 		}),
 	}
 }
