@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
 )
 

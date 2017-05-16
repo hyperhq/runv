@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/server"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
@@ -22,6 +21,7 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/supervisor"
 	templatecore "github.com/hyperhq/runv/template"
+	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
