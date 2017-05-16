@@ -751,6 +751,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 			return nil, false
 		}, -1); err != nil {
 			vm.Kill()
+			return nil, err
 		}
 	}
 
