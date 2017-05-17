@@ -8,9 +8,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/linuxsignal"
+	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
 )
 

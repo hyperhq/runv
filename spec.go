@@ -7,8 +7,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/urfave/cli"
 )
 
 var specCommand = cli.Command{

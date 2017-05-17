@@ -9,12 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperhq/runv/containerd"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	_ "github.com/hyperhq/runv/supervisor/proxy" // for proxy.init()
+	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"

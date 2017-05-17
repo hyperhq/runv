@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/urfave/cli"
 )
 
 const formatOptions = `table or json`

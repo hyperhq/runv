@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 )
 
 var runCommand = cli.Command{

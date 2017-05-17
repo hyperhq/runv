@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/codegangsta/cli"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/kardianos/osext"
 	"github.com/kr/pty"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
 )
 

@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/codegangsta/cli"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
 	templatecore "github.com/hyperhq/runv/template"
+	"github.com/urfave/cli"
 )
 
 var manageSubCmds = []cli.Command{

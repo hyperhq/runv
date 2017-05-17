@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/codegangsta/cli"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 )
 

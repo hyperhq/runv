@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v79",
+	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
 	],
@@ -27,9 +27,9 @@
 			"Rev": "dfaa4d491586af21e1ce06028df3926389a99654"
 		},
 		{
-			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "v1.19.1-24-g9e5b048",
-			"Rev": "9e5b04886c4bfee2ceba1465b8121057355c4e53"
+			"ImportPath": "github.com/urfave/cli",
+			"Comment": "v1.19.1-36-gd70f47e",
+			"Rev": "d70f47eeca3afd795160003bc6e28b001d60c67c"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/integration-cli/checker",
