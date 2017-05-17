@@ -2,10 +2,11 @@ package qemu
 
 import (
 	"encoding/json"
-	"github.com/hyperhq/runv/hypervisor"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/hyperhq/runv/hypervisor"
 )
 
 func TestMessageParse(t *testing.T) {
@@ -261,7 +262,7 @@ func TestQmpDiskSession(t *testing.T) {
 	}
 
 	info := msg.(*hypervisor.BlockdevInsertedEvent)
-	t.Log("got block device", info.Name, info.SourceType, info.DeviceName)
+	t.Log("got block device", info.DeviceName)
 }
 
 func TestQmpFailOnce(t *testing.T) {
@@ -306,7 +307,7 @@ func TestQmpFailOnce(t *testing.T) {
 	}
 
 	info := msg.(*hypervisor.BlockdevInsertedEvent)
-	t.Log("got block device", info.Name, info.SourceType, info.DeviceName)
+	t.Log("got block device", info.DeviceName)
 }
 
 func TestQmpKeepFail(t *testing.T) {
