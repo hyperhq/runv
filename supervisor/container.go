@@ -157,6 +157,13 @@ func (c *Container) create() error {
 		return err
 	}
 
+	// Create vm root dir symbol link in container root dir
+	vmRootLinkPath := filepath.Join(stateDir, "vm-root")
+	vmRootPath := filepath.Join(hypervisor.BaseDir, c.ownerPod.vm.Id)
+	if err := os.Symlink(vmRootPath, vmRootLinkPath); err != nil {
+		return fmt.Errorf("failed to create symbol link %q: %v", vmRootLinkPath, err)
+	}
+
 	err = execPrestartHooks(c.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
