@@ -57,6 +57,7 @@ message InterfaceDescription {
     string mac = 5;
     string gw = 6;
     string tapName = 7;
+    string options = 8;
 }
 
 message PortDescription {

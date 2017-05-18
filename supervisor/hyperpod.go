@@ -67,13 +67,14 @@ type nsListener struct {
 	cmd *exec.Cmd
 }
 
-func GetBridgeFromIndex(idx int) (string, error) {
+func GetBridgeFromIndex(idx int) (string, string, error) {
 	var attr, bridge *netlink.LinkAttrs
+	var options string
 
 	links, err := netlink.LinkList()
 	if err != nil {
 		glog.Error(err)
-		return "", err
+		return "", "", err
 	}
 
 	for _, link := range links {
@@ -88,7 +89,7 @@ func GetBridgeFromIndex(idx int) (string, error) {
 	}
 
 	if attr == nil {
-		return "", fmt.Errorf("cann't find nic whose ifindex is %d", idx)
+		return "", "", fmt.Errorf("cann't find nic whose ifindex is %d", idx)
 	}
 
 	for _, link := range links {
@@ -103,25 +104,31 @@ func GetBridgeFromIndex(idx int) (string, error) {
 	}
 
 	if bridge == nil {
-		return "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
+		return "", "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
 	}
 
 	if bridge.Name == "ovs-system" {
 		veth, err := netlink.LinkByIndex(idx)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		bridge.Name = strings.TrimSpace(string(out))
+
+		out, err = exec.Command("ovs-vsctl", "get", "port", veth.Attrs().Name, "tag").CombinedOutput()
+		if err != nil {
+			return "", "", err
+		}
+		options = "tag=" + strings.TrimSpace(string(out))
 	}
 
 	glog.V(3).Infof("find bridge %s", bridge.Name)
 
-	return bridge.Name, nil
+	return bridge.Name, options, nil
 }
 
 func (hp *HyperPod) initPodNetwork(c *Container) error {
@@ -168,7 +175,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 
 	glog.V(3).Infof("interface configuration of pod ns is %#v", infos)
 	for _, info := range infos {
-		bridge, err := GetBridgeFromIndex(info.PeerIndex)
+		bridge, options, err := GetBridgeFromIndex(info.PeerIndex)
 		if err != nil {
 			glog.Error(err)
 			continue
@@ -177,10 +184,11 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id:     nicId, //ip as an id
-			Lo:     false,
-			Bridge: bridge,
-			Ip:     info.Ip,
+			Id:      nicId, //ip as an id
+			Lo:      false,
+			Bridge:  bridge,
+			Ip:      info.Ip,
+			Options: options,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -263,17 +271,18 @@ func (hp *HyperPod) nsListenerStrap() {
 				continue
 			}
 
-			bridge, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
+			bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
 			if err != nil {
 				glog.Error(err)
 				continue
 			}
 
 			inf := &api.InterfaceDescription{
-				Id:     strconv.Itoa(link.Attrs().Index),
-				Lo:     false,
-				Bridge: bridge,
-				Ip:     update.Addr.LinkAddress.String(),
+				Id:      strconv.Itoa(link.Attrs().Index),
+				Lo:      false,
+				Bridge:  bridge,
+				Ip:      update.Addr.LinkAddress.String(),
+				Options: options,
 			}
 
 			err = hp.vm.AddNic(inf)
