@@ -58,7 +58,7 @@ func (vm *Vm) ReleaseResponseChan(ch chan *types.VmResponse) {
 	}
 }
 
-func (vm *Vm) Launch(b *BootConfig) (err error) {
+func (vm *Vm) launch(b *BootConfig) (err error) {
 	var (
 		vmEvent = make(chan VmEvent, 128)
 		Status  = make(chan *types.VmResponse, 128)
@@ -732,29 +732,19 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 	}
 
 	vm := newVm(id, b.CPU, b.Memory)
-	if err := vm.Launch(b); err != nil {
+	if err := vm.launch(b); err != nil {
 		return nil, err
 	}
 
 	if waitStarted {
 		vm.Log(TRACE, "waiting for vm to start")
-		if err := <-vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
-			if response.Code == types.E_FAILED {
-				vm.Log(ERROR, "VM start failed")
-				return fmt.Errorf("VM start failed"), true
-			}
-			if response.Code == types.E_VM_RUNNING {
-				vm.Log(TRACE, "VM started successfully")
-				return nil, true
-			}
-			vm.Log(ERROR, "VM never started")
-			return nil, false
-		}, -1); err != nil {
-			vm.Kill()
-			return nil, err
+		if _, err := vm.ctx.hyperstart.APIVersion(); err != nil {
+			vm.Log(ERROR, "VM start failed: %v", err)
+			return nil, fmt.Errorf("VM start failed: %v", err)
 		}
+		vm.Log(TRACE, "VM started successfully")
 	}
 
-	vm.Log(TRACE, "GetVm succeeded (not waiting for startup)")
+	vm.Log(TRACE, "GetVm succeeded")
 	return vm, nil
 }
