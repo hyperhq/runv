@@ -44,8 +44,8 @@ type Process struct {
 	// Cwd is the current working directory for the process and must be
 	// relative to the container's root.
 	Cwd string `json:"cwd"`
-	// Capabilities are Linux capabilities that are kept for the container.
-	Capabilities []string `json:"capabilities,omitempty" platform:"linux"`
+	// Capabilities are Linux capabilities that are kept for the process.
+	Capabilities *LinuxCapabilities `json:"capabilities,omitempty" platform:"linux"`
 	// Rlimits specifies rlimit options to apply to the process.
 	Rlimits []LinuxRlimit `json:"rlimits,omitempty" platform:"linux"`
 	// NoNewPrivileges controls whether additional privileges could be gained by processes in the container.
@@ -54,6 +54,21 @@ type Process struct {
 	ApparmorProfile string `json:"apparmorProfile,omitempty" platform:"linux"`
 	// SelinuxLabel specifies the selinux context that the container process is run as.
 	SelinuxLabel string `json:"selinuxLabel,omitempty" platform:"linux"`
+}
+
+// LinuxCapabilities specifies the whitelist of capabilities that are kept for a process.
+// http://man7.org/linux/man-pages/man7/capabilities.7.html
+type LinuxCapabilities struct {
+	// Bounding is the set of capabilities checked by the kernel.
+	Bounding []string `json:"bounding,omitempty" platform:"linux"`
+	// Effective is the set of capabilities checked by the kernel.
+	Effective []string `json:"effective,omitempty" platform:"linux"`
+	// Inheritable is the capabilities preserved across execve.
+	Inheritable []string `json:"inheritable,omitempty" platform:"linux"`
+	// Permitted is the limiting superset for effective capabilities.
+	Permitted []string `json:"permitted,omitempty" platform:"linux"`
+	// Ambient is the ambient set of capabilities that are kept.
+	Ambient []string `json:"ambient,omitempty" platform:"linux"`
 }
 
 // Box specifies dimensions of a rectangle. Used for specifying the size of a console.
@@ -98,10 +113,10 @@ type Mount struct {
 	// Destination is the path where the mount will be placed relative to the container's root.  The path and child directories MUST exist, a runtime MUST NOT create directories automatically to a mount point.
 	Destination string `json:"destination"`
 	// Type specifies the mount kind.
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 	// Source specifies the source path of the mount.  In the case of bind mounts on
 	// Linux based systems this would be the file on the host.
-	Source string `json:"source"`
+	Source string `json:"source,omitempty"`
 	// Options are fstab style mount options.
 	Options []string `json:"options,omitempty"`
 }
@@ -210,7 +225,7 @@ type LinuxHugepageLimit struct {
 	// Pagesize is the hugepage size
 	Pagesize string `json:"pageSize"`
 	// Limit is the limit of "hugepagesize" hugetlb usage
-	Limit int64 `json:"limit"`
+	Limit uint64 `json:"limit"`
 }
 
 // LinuxInterfacePriority for network interfaces
@@ -266,15 +281,15 @@ type LinuxBlockIO struct {
 // LinuxMemory for Linux cgroup 'memory' resource management
 type LinuxMemory struct {
 	// Memory limit (in bytes).
-	Limit *int64 `json:"limit,omitempty"`
+	Limit *uint64 `json:"limit,omitempty"`
 	// Memory reservation or soft_limit (in bytes).
-	Reservation *int64 `json:"reservation,omitempty"`
+	Reservation *uint64 `json:"reservation,omitempty"`
 	// Total memory limit (memory + swap).
-	Swap *int64 `json:"swap,omitempty"`
+	Swap *uint64 `json:"swap,omitempty"`
 	// Kernel memory limit (in bytes).
-	Kernel *int64 `json:"kernel,omitempty"`
+	Kernel *uint64 `json:"kernel,omitempty"`
 	// Kernel memory limit for tcp (in bytes)
-	KernelTCP *int64 `json:"kernelTCP,omitempty"`
+	KernelTCP *uint64 `json:"kernelTCP,omitempty"`
 	// How aggressive the kernel will swap memory pages. Range from 0 to 100.
 	Swappiness *uint64 `json:"swappiness,omitempty"`
 }
@@ -363,13 +378,6 @@ type LinuxDeviceCgroup struct {
 	Minor *int64 `json:"minor,omitempty"`
 	// Cgroup access permissions format, rwm.
 	Access string `json:"access,omitempty"`
-}
-
-// LinuxSeccomp represents syscall restrictions
-type LinuxSeccomp struct {
-	DefaultAction LinuxSeccompAction `json:"defaultAction"`
-	Architectures []Arch             `json:"architectures"`
-	Syscalls      []LinuxSyscall     `json:"syscalls,omitempty"`
 }
 
 // Solaris contains platform specific configuration for Solaris application containers.
@@ -469,6 +477,13 @@ type WindowsNetworkResources struct {
 	EgressBandwidth *uint64 `json:"egressBandwidth,omitempty"`
 }
 
+// LinuxSeccomp represents syscall restrictions
+type LinuxSeccomp struct {
+	DefaultAction LinuxSeccompAction `json:"defaultAction"`
+	Architectures []Arch             `json:"architectures,omitempty"`
+	Syscalls      []LinuxSyscall     `json:"syscalls"`
+}
+
 // Arch used for additional architectures
 type Arch string
 
@@ -491,6 +506,8 @@ const (
 	ArchPPC64LE     Arch = "SCMP_ARCH_PPC64LE"
 	ArchS390        Arch = "SCMP_ARCH_S390"
 	ArchS390X       Arch = "SCMP_ARCH_S390X"
+	ArchPARISC      Arch = "SCMP_ARCH_PARISC"
+	ArchPARISC64    Arch = "SCMP_ARCH_PARISC64"
 )
 
 // LinuxSeccompAction taken upon Seccomp rule match
@@ -529,7 +546,8 @@ type LinuxSeccompArg struct {
 
 // LinuxSyscall is used to match a syscall in Seccomp
 type LinuxSyscall struct {
-	Name   string             `json:"name"`
-	Action LinuxSeccompAction `json:"action"`
-	Args   []LinuxSeccompArg  `json:"args,omitempty"`
+	Names   []string           `json:"names"`
+	Action  LinuxSeccompAction `json:"action"`
+	Args    []LinuxSeccompArg  `json:"args"`
+	Comment string             `json:"comment"`
 }
