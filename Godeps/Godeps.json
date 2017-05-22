@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
 	"GoVersion": "go1.7",
-	"GodepVersion": "v75",
+	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
 	],
@@ -131,8 +131,8 @@
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
-			"Comment": "v1.0.0-rc4-8-g0d104bb",
-			"Rev": "0d104bb63cf1f6a7b5434eaf664a61147a0c796b"
+			"Comment": "v1.0.0-rc5",
+			"Rev": "035da1dca3dfbb00d752eb58b0b158d6129f3776"
 		},
 		{
 			"ImportPath": "github.com/philhofer/fwd",
