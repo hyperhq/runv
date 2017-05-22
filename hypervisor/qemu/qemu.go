@@ -191,6 +191,7 @@ func (qc *QemuContext) Stats(ctx *hypervisor.VmContext) (*types.PodStats, error)
 }
 
 func (qc *QemuContext) Close() {
+	qc.qmp <- &QmpQuit{}
 	qc.wdt <- "quit"
 	<-qc.waitQmp
 	qc.qemuLogFile.Close()
