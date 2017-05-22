@@ -61,7 +61,6 @@ func CreateTemplateVM(statePath, vmName string, cpu, mem int, kernel, initrd str
 	b := &hypervisor.BootConfig{
 		CPU:              cpu,
 		Memory:           mem,
-		HotAddCpuMem:     true,
 		BootToBeTemplate: true,
 		BootFromTemplate: false,
 		EnableVsock:      vsock,
@@ -118,7 +117,6 @@ func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 	return &hypervisor.BootConfig{
 		CPU:              t.Cpu,
 		Memory:           t.Memory,
-		HotAddCpuMem:     true,
 		BootToBeTemplate: false,
 		BootFromTemplate: true,
 		MemoryPath:       t.StatePath + "/memory",
