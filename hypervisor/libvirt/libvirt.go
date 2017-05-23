@@ -442,7 +442,7 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 
 	dom.OS.Supported = "yes"
 	dom.OS.Type.Arch = "x86_64"
-	dom.OS.Type.Machine = "pc-i440fx-2.0"
+	dom.OS.Type.Machine = "pc-i440fx-2.1"
 	dom.OS.Type.Content = "hvm"
 
 	dom.SecLabel.Type = "none"
@@ -460,19 +460,16 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 		cmdline += " clocksource=acpi_pm notsc"
 	}
 
-	if ctx.Boot.HotAddCpuMem {
-		dom.OS.Type.Machine = "pc-i440fx-2.1"
-		dom.VCpu.Content = hypervisor.DefaultMaxCpus
-		dom.MaxMem = &maxmem{Unit: "MiB", Slots: "1", Content: hypervisor.DefaultMaxMem}
+	dom.VCpu.Content = hypervisor.DefaultMaxCpus
+	dom.MaxMem = &maxmem{Unit: "MiB", Slots: "1", Content: hypervisor.DefaultMaxMem}
 
-		cells := make([]cell, 1)
-		cells[0].Id = "0"
-		cells[0].Cpus = fmt.Sprintf("0-%d", hypervisor.DefaultMaxCpus-1)
-		cells[0].Memory = strconv.Itoa(ctx.Boot.Memory * 1024) // older libvirt always considers unit='KiB'
-		cells[0].Unit = "KiB"
+	cells := make([]cell, 1)
+	cells[0].Id = "0"
+	cells[0].Cpus = fmt.Sprintf("0-%d", hypervisor.DefaultMaxCpus-1)
+	cells[0].Memory = strconv.Itoa(ctx.Boot.Memory * 1024) // older libvirt always considers unit='KiB'
+	cells[0].Unit = "KiB"
 
-		dom.CPU.Numa = &numa{Cell: cells}
-	}
+	dom.CPU.Numa = &numa{Cell: cells}
 
 	if ctx.Boot.EnableVsock {
 		dom.XmlnsQemu = "http://libvirt.org/schemas/domain/qemu/1.0"
