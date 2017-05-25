@@ -10,13 +10,13 @@ runv-containerd is a daemon to control hypercontainer and supports the same gRPC
 ### Dependencies
  - If you want to enable network for container, Kernels newer than `Linux 4.1-rc1` or [this commit](https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/net/veth.c?id=a45253bf32bf49cdb2807bad212b84f5ab51ac26) are required.
 
-### Try it with docker
+### Try it with docker (test with docker version 17.05.0)
 
 ```bash
 # in terminal #1
 runv --debug --driver libvirt --kernel /opt/hyperstart/build/kernel --initrd /opt/hyperstart/build/hyper-initrd.img containerd
 # in terminal #2
-docker daemon -D -l debug --containerd=/run/runv-containerd/containerd.sock
+dockerd -D -l debug --containerd=/run/runv-containerd/containerd.sock --add-runtime runv=runv --default-runtime runv
 # in terminal #3 for trying it
 docker run -ti busybox
 # ls   # (already in the terminal of the busybox container)
