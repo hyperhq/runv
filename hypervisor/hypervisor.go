@@ -69,10 +69,10 @@ func (ctx *VmContext) Launch() {
 	if ctx.Boot.BootFromTemplate {
 		ctx.Log(TRACE, "boot from template")
 		ctx.PauseState = PauseStatePaused
-		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false)
+		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
 		ctx.Hub <- &InitConnectedEvent{}
 	} else {
-		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true)
+		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
 		go ctx.watchHyperstart(true)
 	}
 	if ctx.LogLevel(DEBUG) {
@@ -102,7 +102,8 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		return nil, err
 	}
 
-	context.hyperstart = libhyperstart.NewJsonBasedHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false)
+	paused := false // TODO load the paused state from persistent info
+	context.hyperstart = libhyperstart.NewJsonBasedHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
 	context.DCtx.Associate(context)
 
 	if context.LogLevel(DEBUG) {
