@@ -63,7 +63,7 @@ func (ctx *VmContext) watchHyperstart(sendReadyEvent bool) {
 }
 
 func (ctx *VmContext) Launch() {
-	go ctx.DCtx.Launch(ctx)
+	ctx.DCtx.Launch(ctx)
 
 	//launch routines
 	if ctx.Boot.BootFromTemplate {
