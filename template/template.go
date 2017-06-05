@@ -128,7 +128,7 @@ func (t *TemplateVmConfig) BootConfigFromTemplate() *hypervisor.BootConfig {
 
 // boot vm from template, the returned vm is paused
 func (t *TemplateVmConfig) NewVmFromTemplate(vmName string) (*hypervisor.Vm, error) {
-	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), true)
+	return hypervisor.GetVm(vmName, t.BootConfigFromTemplate(), false)
 }
 
 func (t *TemplateVmConfig) Destroy() {

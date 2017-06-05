@@ -651,8 +651,24 @@ func (vm *Vm) Pause(pause bool) error {
 	defer ctx.pauseLock.Unlock()
 	if ctx.PauseState != pauseState {
 		/* FIXME: only support pause whole vm now */
+		if pause {
+			err = ctx.hyperstart.PauseSync()
+		}
+		if err != nil {
+			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
+			return err
+		}
+
 		// should not change pause state inside ctx.DCtx.Pause!
 		err = ctx.DCtx.Pause(ctx, pause)
+		if err != nil {
+			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
+			return err
+		}
+
+		if !pause {
+			err = ctx.hyperstart.Unpause()
+		}
 		if err != nil {
 			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
 			return err
