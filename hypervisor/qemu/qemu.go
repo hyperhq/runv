@@ -226,6 +226,7 @@ func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blo
 	filename := blockInfo.Filename
 	format := blockInfo.Format
 	id := blockInfo.ScsiId
+	readonly := blockInfo.ReadOnly
 
 	if format == "rbd" {
 		if blockInfo.Options != nil {
@@ -247,7 +248,7 @@ func (qc *QemuContext) AddDisk(ctx *hypervisor.VmContext, sourceType string, blo
 		}
 	}
 
-	newDiskAddSession(ctx, qc, filename, format, id, result)
+	newDiskAddSession(ctx, qc, filename, format, id, readonly, result)
 }
 
 func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervisor.DiskDescriptor, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {

@@ -763,15 +763,16 @@ type iotune struct {
 }
 
 type disk struct {
-	XMLName xml.Name    `xml:"disk"`
-	Type    string      `xml:"type,attr"`
-	Device  string      `xml:"device,attr"`
-	Driver  *diskdriver `xml:"driver,omitempty"`
-	Source  disksrc     `xml:"source"`
-	Target  disktgt     `xml:"target"`
-	Address *address    `xml:"address"`
-	Auth    *cephauth   `xml:"auth,omitempty"`
-	Iotune  iotune      `xml:"iotune,omitempty"`
+	XMLName  xml.Name    `xml:"disk"`
+	Type     string      `xml:"type,attr"`
+	Device   string      `xml:"device,attr"`
+	Driver   *diskdriver `xml:"driver,omitempty"`
+	Source   disksrc     `xml:"source"`
+	Target   disktgt     `xml:"target"`
+	Address  *address    `xml:"address"`
+	Auth     *cephauth   `xml:"auth,omitempty"`
+	ReadOnly string      `xml:"readonly,omitempty"`
+	Iotune   iotune      `xml:"iotune,omitempty"`
 }
 
 func diskXml(blockInfo *hypervisor.DiskDescriptor, secretUUID string) (string, error) {
@@ -798,6 +799,10 @@ func diskXml(blockInfo *hypervisor.DiskDescriptor, secretUUID string) (string, e
 			Target:     target,
 			Unit:       unit,
 		},
+	}
+
+	if blockInfo.ReadOnly {
+		d.ReadOnly = "yes"
 	}
 
 	if strings.HasPrefix(filename, "rbd:") {
