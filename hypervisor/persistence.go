@@ -14,6 +14,13 @@ import (
 
 const CURRENT_PERSIST_VERSION = 20170224
 
+type VmHwStatus struct {
+	PciAddr  int    //next available pci addr for pci hotplug
+	ScsiId   int    //next available scsi id for scsi hotplug
+	AttachId uint64 //next available attachId for attached tty
+	GuestCid uint32 //vsock guest cid
+}
+
 type PersistVolumeInfo struct {
 	Name         string
 	Filename     string
