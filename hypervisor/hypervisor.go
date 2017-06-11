@@ -103,7 +103,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		return nil, err
 	}
 
-	paused := false // TODO load the paused state from persistent info
+	paused := context.PauseState == PauseStatePaused
 	context.hyperstart = libhyperstart.NewJsonBasedHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
 	context.DCtx.Associate(context)
 

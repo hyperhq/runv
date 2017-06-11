@@ -12,7 +12,7 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
-const CURRENT_PERSIST_VERSION = 20170224
+const CURRENT_PERSIST_VERSION = 20170611
 
 type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
@@ -45,6 +45,7 @@ type PersistNetworkInfo struct {
 type PersistInfo struct {
 	PersistVersion int
 	Id             string
+	Paused         bool
 	DriverInfo     map[string]interface{}
 	VmSpec         *hyperstartapi.Pod
 	HwStat         *VmHwStatus
@@ -75,6 +76,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	info := &PersistInfo{
 		PersistVersion: CURRENT_PERSIST_VERSION,
 		Id:             ctx.Id,
+		Paused:         ctx.PauseState == PauseStatePaused,
 		DriverInfo:     dr,
 		VmSpec:         ctx.networks.sandboxInfo(),
 		HwStat:         ctx.dumpHwInfo(),
@@ -232,7 +234,7 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 }
 
 func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse) (*VmContext, error) {
-	oldVersion := pinfo.PersistVersion < CURRENT_PERSIST_VERSION
+	oldVersion := pinfo.PersistVersion < 20170224
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
 	if err != nil {
@@ -243,6 +245,10 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 	ctx, err := InitContext(pinfo.Id, hub, client, dc, &BootConfig{})
 	if err != nil {
 		return nil, err
+	}
+
+	if pinfo.Paused {
+		ctx.PauseState = PauseStatePaused
 	}
 
 	err = ctx.loadHwStatus(pinfo)
