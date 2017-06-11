@@ -58,9 +58,6 @@ type VmContext struct {
 	containers map[string]*ContainerContext
 	networks   *NetworkContext
 
-	// internal states
-	vmExec map[string]*hyperstartapi.ExecCommand
-
 	// Internal Helper
 	handler stateHandler
 	current string
@@ -145,7 +142,6 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		volumes:         make(map[string]*DiskContext),
 		containers:      make(map[string]*ContainerContext),
 		networks:        NewNetworkContext(),
-		vmExec:          make(map[string]*hyperstartapi.ExecCommand),
 		logPrefix:       fmt.Sprintf("SB[%s] ", id),
 
 		cancelWatchHyperstart: make(chan struct{}),
@@ -201,13 +197,6 @@ func (ctx *VmContext) NextPciAddr() int {
 	ctx.pciAddr++
 	ctx.idLock.Unlock()
 	return addr
-}
-
-func (ctx *VmContext) DeleteExec(id string) {
-	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
-
-	delete(ctx.vmExec, id)
 }
 
 func (ctx *VmContext) Close() {
