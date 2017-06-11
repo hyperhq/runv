@@ -203,39 +203,11 @@ func (ctx *VmContext) NextPciAddr() int {
 	return addr
 }
 
-func (ctx *VmContext) LookupExecBySession(session uint64) string {
-	ctx.lock.RLock()
-	defer ctx.lock.RUnlock()
-
-	for id, exec := range ctx.vmExec {
-		if exec.Process.Stdio == session {
-			ctx.Log(DEBUG, "found exec %s whose session is %v", id, session)
-			return id
-		}
-	}
-
-	return ""
-}
-
 func (ctx *VmContext) DeleteExec(id string) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
 	delete(ctx.vmExec, id)
-}
-
-func (ctx *VmContext) LookupBySession(session uint64) string {
-	ctx.lock.RLock()
-	defer ctx.lock.RUnlock()
-
-	for id, c := range ctx.containers {
-		if c.process.Stdio == session {
-			ctx.Log(DEBUG, "found container %s whose session is %v", c.Id, session)
-			return id
-		}
-	}
-	ctx.Log(DEBUG, "can not found container whose session is %s", session)
-	return ""
 }
 
 func (ctx *VmContext) Close() {
