@@ -111,8 +111,6 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		go watchVmConsole(context)
 	}
 
-	context.Become(stateRunning, StateRunning)
-
 	if !paused {
 		go context.watchHyperstart()
 	}
