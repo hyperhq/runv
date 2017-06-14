@@ -80,7 +80,14 @@ var createTemplateCommand = cli.Command{
 			os.Exit(-1)
 		}
 
-		if _, err := templatecore.CreateTemplateVM(template, "", context.Int("cpu"), context.Int("mem"), kernel, initrd, context.GlobalBool("vsock")); err != nil {
+		boot := hypervisor.BootConfig{
+			CPU:         context.Int("cpu"),
+			Memory:      context.Int("mem"),
+			Kernel:      kernel,
+			Initrd:      initrd,
+			EnableVsock: context.GlobalBool("vsock"),
+		}
+		if _, err := templatecore.CreateTemplateVM(template, "", boot); err != nil {
 			fmt.Printf("Failed to create the template: %v\n", err)
 			os.Exit(-1)
 		}

@@ -104,8 +104,8 @@ var ContainerdCommand = cli.Command{
 			f.Close()
 
 			if (driver != "" && driver != tconfig.Driver) ||
-				(kernel != "" && kernel != tconfig.Kernel) ||
-				(initrd != "" && initrd != tconfig.Initrd) {
+				(kernel != "" && kernel != tconfig.Config.Kernel) ||
+				(initrd != "" && initrd != tconfig.Config.Initrd) {
 				glog.Warningf("template config is not match the driver, kernel or initrd argument, disable template")
 				template = ""
 			} else if driver == "" {
@@ -127,7 +127,12 @@ var ContainerdCommand = cli.Command{
 		if template != "" {
 			f = singlefactory.New(templatefactory.NewFromExisted(tconfig))
 		} else {
-			f = factory.NewFromConfigs(kernel, initrd, vsock, nil)
+			bootConfig := hypervisor.BootConfig{
+				Kernel:      kernel,
+				Initrd:      initrd,
+				EnableVsock: vsock,
+			}
+			f = singlefactory.Dummy(bootConfig)
 		}
 		sv, err := supervisor.New(stateDir, containerdDir, f,
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
