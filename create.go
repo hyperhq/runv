@@ -18,23 +18,6 @@ import (
 	netcontext "golang.org/x/net/context"
 )
 
-func firstExistingFile(candidates []string) string {
-	for _, file := range candidates {
-		if _, err := os.Stat(file); err == nil {
-			return file
-		}
-	}
-	return ""
-}
-
-func getDefaultBundlePath() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	return cwd
-}
-
 var createCommand = cli.Command{
 	Name:  "create",
 	Usage: "create a container",
@@ -140,38 +123,6 @@ func runContainer(context *cli.Context, createOnly bool) {
 		}
 	}
 
-	kernel := context.GlobalString("kernel")
-	initrd := context.GlobalString("initrd")
-	// only set the default kernel/initrd when it is the first container(sharedContainer == "")
-	if kernel == "" && sharedContainer == "" {
-		kernel = firstExistingFile([]string{
-			filepath.Join(bundle, spec.Root.Path, "boot/vmlinuz"),
-			filepath.Join(bundle, "boot/vmlinuz"),
-			filepath.Join(bundle, "vmlinuz"),
-			"/var/lib/hyper/kernel",
-		})
-	}
-	if initrd == "" && sharedContainer == "" {
-		initrd = firstExistingFile([]string{
-			filepath.Join(bundle, spec.Root.Path, "boot/initrd.img"),
-			filepath.Join(bundle, "boot/initrd.img"),
-			filepath.Join(bundle, "initrd.img"),
-			"/var/lib/hyper/hyper-initrd.img",
-		})
-	}
-
-	// convert the paths to abs
-	kernel, err = filepath.Abs(kernel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot get abs path for kernel: %v\n", err)
-		os.Exit(-1)
-	}
-	initrd, err = filepath.Abs(initrd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot get abs path for initrd: %v\n", err)
-		os.Exit(-1)
-	}
-
 	var namespace string
 	var cmd *exec.Cmd
 	if sharedContainer != "" {
@@ -188,6 +139,12 @@ func runContainer(context *cli.Context, createOnly bool) {
 			os.Exit(-1)
 		}
 
+		kernel, initrd, bios, cbfs, err := getKernelFiles(context, spec.Root.Path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't find kernel/initrd/bios/cbfs files")
+			os.Exit(-1)
+		}
+
 		namespace, err = ioutil.TempDir("/run", "runv-namespace-")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create runv namespace path: %v", err)
@@ -195,11 +152,17 @@ func runContainer(context *cli.Context, createOnly bool) {
 		}
 
 		args := []string{
-			"--kernel", kernel,
-			"--initrd", initrd,
 			"--default_cpus", fmt.Sprintf("%d", context.GlobalInt("default_cpus")),
 			"--default_memory", fmt.Sprintf("%d", context.GlobalInt("default_memory")),
 		}
+
+		// if user set bios+cbfs, then use bios+cbfs first
+		if context.GlobalString("bios") != "" && context.GlobalString("cbfs") != "" {
+			args = append(args, "--bios", bios, "--cbfs", cbfs)
+		} else {
+			args = append(args, "--kernel", kernel, "--initrd", initrd)
+		}
+
 		if context.GlobalBool("debug") {
 			args = append(args, "--debug")
 		}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/reexec"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/hyperhq/runv/containerd"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
@@ -110,6 +111,14 @@ func main() {
 			Usage: "runv-compatible initrd for the container",
 		},
 		cli.StringFlag{
+			Name:  "bios",
+			Usage: "bios for the container",
+		},
+		cli.StringFlag{
+			Name:  "cbfs",
+			Usage: "cbfs for the container",
+		},
+		cli.StringFlag{
 			Name:  "template",
 			Usage: "path to the template vm state directory",
 		},
@@ -132,6 +141,11 @@ func main() {
 		}
 		return nil
 	}
+	app.After = func(context *cli.Context) error {
+		// make sure glog flush all the messages to file
+		glog.Flush()
+		return nil
+	}
 
 	app.Commands = []cli.Command{
 		createCommand,
@@ -147,7 +161,7 @@ func main() {
 		containerd.ContainerdCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
-		fmt.Printf("%s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "%v", err)
 	}
 }
 
