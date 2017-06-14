@@ -32,14 +32,14 @@ func (ctx *VmContext) loop() {
 }
 
 func (ctx *VmContext) watchHyperstart() {
+	next := time.NewTimer(10 * time.Second)
 	timeout := time.AfterFunc(60*time.Second, func() {
-		if ctx.PauseState == PauseStateUnpaused {
-			ctx.Log(ERROR, "watch hyperstart timeout")
-			ctx.Hub <- &InitFailedEvent{Reason: "watch hyperstart timeout"}
-			ctx.hyperstart.Close()
-		}
+		ctx.Log(ERROR, "watch hyperstart timeout")
+		ctx.Hub <- &InitFailedEvent{Reason: "watch hyperstart timeout"}
+		ctx.hyperstart.Close()
 	})
 	ctx.Log(DEBUG, "watch hyperstart")
+loop:
 	for {
 		ctx.Log(TRACE, "issue VERSION request for keep-alive test")
 		_, err := ctx.hyperstart.APIVersion()
@@ -52,9 +52,15 @@ func (ctx *VmContext) watchHyperstart() {
 		if !timeout.Stop() {
 			<-timeout.C
 		}
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.cancelWatchHyperstart:
+			break loop
+		case <-next.C:
+		}
+		next.Reset(10 * time.Second)
 		timeout.Reset(60 * time.Second)
 	}
+	next.Stop()
 	timeout.Stop()
 }
 
@@ -107,7 +113,9 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 
 	context.Become(stateRunning, StateRunning)
 
-	go context.watchHyperstart()
+	if !paused {
+		go context.watchHyperstart()
+	}
 	go context.loop()
 	return context, nil
 }
