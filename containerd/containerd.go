@@ -80,6 +80,8 @@ var ContainerdCommand = cli.Command{
 		driver := context.GlobalString("driver")
 		kernel := context.GlobalString("kernel")
 		initrd := context.GlobalString("initrd")
+		bios := context.GlobalString("bios")
+		cbfs := context.GlobalString("cbfs")
 		vsock := context.GlobalBool("vsock")
 		template := context.GlobalString("template")
 		stateDir := context.String("state-dir")
@@ -105,14 +107,16 @@ var ContainerdCommand = cli.Command{
 
 			if (driver != "" && driver != tconfig.Driver) ||
 				(kernel != "" && kernel != tconfig.Config.Kernel) ||
-				(initrd != "" && initrd != tconfig.Config.Initrd) {
-				glog.Warningf("template config is not match the driver, kernel or initrd argument, disable template")
+				(initrd != "" && initrd != tconfig.Config.Initrd) ||
+				(bios != "" && bios != tconfig.Config.Bios) ||
+				(cbfs != "" && cbfs != tconfig.Config.Cbfs) {
+				glog.Warningf("template config is not match the driver, kernel, initrd, bios or cbfs argument, disable template")
 				template = ""
 			} else if driver == "" {
 				driver = tconfig.Driver
 			}
-		} else if kernel == "" || initrd == "" {
-			glog.Error("argument kernel and initrd must be set")
+		} else if (bios == "" || cbfs == "") && (kernel == "" || initrd == "") {
+			glog.Error("argument kernel+initrd or bios+cbfs must be set")
 			os.Exit(1)
 		}
 
@@ -130,6 +134,8 @@ var ContainerdCommand = cli.Command{
 			bootConfig := hypervisor.BootConfig{
 				Kernel:      kernel,
 				Initrd:      initrd,
+				Bios:        bios,
+				Cbfs:        cbfs,
 				EnableVsock: vsock,
 			}
 			f = singlefactory.Dummy(bootConfig)
