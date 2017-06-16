@@ -44,27 +44,33 @@ var createTemplateCommand = cli.Command{
 		},
 	},
 	Usage: "create a template VM on the directory specified by the global option --template",
-	Action: func(context *cli.Context) {
-		absOption := func(option string) string {
+	Action: func(context *cli.Context) error {
+		absOption := func(option string) (string, error) {
 			path := context.GlobalString(option)
 			if path == "" {
-				fmt.Printf("The global option --%s should be specified\n", option)
-				os.Exit(-1)
+				return "", fmt.Errorf("The global option --%s should be specified", option)
 			}
 			path, eabs := filepath.Abs(path)
 			if eabs != nil {
-				fmt.Printf("Failed to get the abs path of %s: %v\n", option, eabs)
-				os.Exit(-1)
+				return "", fmt.Errorf("Failed to get the abs path of %s: %v", option, eabs)
 			}
-			return path
+			return path, nil
 		}
-		kernel := absOption("kernel")
-		initrd := absOption("initrd")
-		template := absOption("template")
+		kernel, err := absOption("kernel")
+		if err != nil {
+			return cli.NewExitError(err, -1)
+		}
+		initrd, err := absOption("initrd")
+		if err != nil {
+			return cli.NewExitError(err, -1)
+		}
+		template, err := absOption("template")
+		if err != nil {
+			return cli.NewExitError(err, -1)
+		}
 
 		if err := os.MkdirAll(template, 0700); err != nil {
-			fmt.Printf("Failed to create the template directory: %v\n", err)
-			os.Exit(-1)
+			return cli.NewExitError(fmt.Errorf("Failed to create the template directory: %v", err), -1)
 		}
 
 		if context.GlobalBool("debug") {
@@ -73,11 +79,8 @@ var createTemplateCommand = cli.Command{
 			flag.CommandLine.Parse([]string{"-v", "1", "--log_dir", context.GlobalString("log_dir")})
 		}
 
-		var err error
 		if hypervisor.HDriver, err = driverloader.Probe(context.GlobalString("driver")); err != nil {
-			glog.V(1).Infof("%v\n", err)
-			fmt.Printf("Failed to setup the driver: %v\n", err)
-			os.Exit(-1)
+			return cli.NewExitError(fmt.Errorf("Failed to setup the driver: %v", err), -1)
 		}
 
 		boot := hypervisor.BootConfig{
@@ -88,19 +91,21 @@ var createTemplateCommand = cli.Command{
 			EnableVsock: context.GlobalBool("vsock"),
 		}
 		if _, err := templatecore.CreateTemplateVM(template, "", boot); err != nil {
-			fmt.Printf("Failed to create the template: %v\n", err)
-			os.Exit(-1)
+			return cli.NewExitError(fmt.Errorf("Failed to create the template: %v", err), -1)
 		}
+		return nil
 	},
 }
 
 var removeTemplateCommand = cli.Command{
 	Name:  "remove-template",
 	Usage: "remove the template VM on the directory specified by the global option --template",
-	Action: func(context *cli.Context) {
+	Action: func(context *cli.Context) error {
 		if err := syscall.Unmount(context.GlobalString("template"), 0); err != nil {
-			fmt.Printf("Failed to remove the template: %v\n", err)
-			os.Exit(-1)
+			err := fmt.Errorf("Failed to remove the template: %v", err)
+			glog.Error(err)
+			return cli.NewExitError(err.Error(), -1)
 		}
+		return nil
 	},
 }

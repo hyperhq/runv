@@ -34,11 +34,14 @@ var shimCommand = cli.Command{
 			Name: "proxy-winsize",
 		},
 	},
-	Action: func(context *cli.Context) {
+	Action: func(context *cli.Context) error {
 		root := context.GlobalString("root")
 		container := context.String("container")
 		process := context.String("process")
-		c := getClient(filepath.Join(root, container, "namespace", "namespaced.sock"))
+		c, err := getClient(filepath.Join(root, container, "namespace", "namespaced.sock"))
+		if err != nil {
+			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
+		}
 		exitcode := -1
 		if context.Bool("proxy-exit-code") {
 			glog.V(3).Infof("using shim to proxy exit code")
@@ -49,8 +52,7 @@ var shimCommand = cli.Command{
 			glog.V(3).Infof("using shim to proxy winsize")
 			s, err := term.SetRawTerminal(os.Stdin.Fd())
 			if err != nil {
-				fmt.Printf("error %v\n", err)
-				return
+				return cli.NewExitError(fmt.Sprintf("failed to set raw terminal: %v", err), -1)
 			}
 			defer term.RestoreTerminal(os.Stdin.Fd(), s)
 			monitorTtySize(c, container, process)
@@ -71,6 +73,7 @@ var shimCommand = cli.Command{
 				break
 			}
 		}
+		return nil
 	},
 }
 

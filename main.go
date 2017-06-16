@@ -165,7 +165,7 @@ func main() {
 	}
 }
 
-func getClient(address string) types.APIClient {
+func getClient(address string) (types.APIClient, error) {
 	// reset the logger for grpc to log to dev/null so that it does not mess with our stdio
 	grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
 	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithTimeout(5 * time.Second)}
@@ -176,10 +176,9 @@ func getClient(address string) types.APIClient {
 		))
 	conn, err := grpc.Dial(address, dialOpts...)
 	if err != nil {
-		fmt.Printf("grpc.Dial error: %v", err)
-		os.Exit(-1)
+		return nil, fmt.Errorf("grpc.Dial error: %v", err)
 	}
-	return types.NewAPIClient(conn)
+	return types.NewAPIClient(conn), nil
 }
 
 func containerEvents(c types.APIClient, container string) <-chan *types.Event {

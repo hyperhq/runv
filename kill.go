@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -70,11 +69,10 @@ For example, if the container id is "ubuntu01" the following will send a "KILL"
 signal to the init process of the "ubuntu01" container:
 
        # runv kill ubuntu01 KILL`,
-	Action: func(context *cli.Context) {
+	Action: func(context *cli.Context) error {
 		container := context.Args().First()
 		if container == "" {
-			fmt.Printf("container id cannot be empty")
-			os.Exit(-1)
+			return cli.NewExitError("container id cannot be empty", -1)
 		}
 
 		sigstr := context.Args().Get(1)
@@ -83,19 +81,21 @@ signal to the init process of the "ubuntu01" container:
 		}
 		signal, err := parseSignal(sigstr)
 		if err != nil {
-			fmt.Printf("parse signal failed %v, signal string:%s\n", err, sigstr)
-			os.Exit(-1)
+			return cli.NewExitError(fmt.Sprintf("parse signal failed %v, signal string:%s", err, sigstr), -1)
 		}
 
-		c := getClient(filepath.Join(context.GlobalString("root"), container, "namespace/namespaced.sock"))
-		if _, err := c.Signal(netcontext.Background(), &types.SignalRequest{
+		c, err := getClient(filepath.Join(context.GlobalString("root"), container, "namespace/namespaced.sock"))
+		if err != nil {
+			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
+		}
+		if _, err = c.Signal(netcontext.Background(), &types.SignalRequest{
 			Id:     container,
 			Pid:    "init",
 			Signal: uint32(signal),
 		}); err != nil {
-			fmt.Printf("kill signal failed, %v", err)
-			os.Exit(-1)
+			return cli.NewExitError(fmt.Sprintf("kill signal failed, %v", err), -1)
 		}
+		return nil
 	},
 }
 

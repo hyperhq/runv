@@ -76,7 +76,7 @@ var ContainerdCommand = cli.Command{
 		return nil
 	},
 
-	Action: func(context *cli.Context) {
+	Action: func(context *cli.Context) error {
 		driver := context.GlobalString("driver")
 		kernel := context.GlobalString("kernel")
 		initrd := context.GlobalString("initrd")
@@ -95,13 +95,15 @@ var ContainerdCommand = cli.Command{
 			path := filepath.Join(template, "config.json")
 			f, err := os.Open(path)
 			if err != nil {
-				glog.Errorf("open template JSON configuration file failed: %v", err)
-				os.Exit(-1)
+				err = fmt.Errorf("open template JSON configuration file failed: %v", err)
+				glog.Error(err)
+				return cli.NewExitError(err.Error(), -1)
 			}
 			if err := json.NewDecoder(f).Decode(&tconfig); err != nil {
-				glog.Errorf("parse template JSON configuration file failed: %v", err)
+				err = fmt.Errorf("parse template JSON configuration file failed: %v", err)
+				glog.Error(err)
 				f.Close()
-				os.Exit(-1)
+				return cli.NewExitError(err.Error(), -1)
 			}
 			f.Close()
 
@@ -116,15 +118,16 @@ var ContainerdCommand = cli.Command{
 				driver = tconfig.Driver
 			}
 		} else if (bios == "" || cbfs == "") && (kernel == "" || initrd == "") {
-			glog.Error("argument kernel+initrd or bios+cbfs must be set")
-			os.Exit(1)
+			err := fmt.Errorf("argument kernel+initrd or bios+cbfs must be set")
+			glog.Error(err)
+			return cli.NewExitError(err.Error(), -1)
 		}
 
 		hypervisor.InterfaceCount = 0
 		var err error
 		if hypervisor.HDriver, err = driverloader.Probe(driver); err != nil {
 			glog.Errorf("%v", err)
-			os.Exit(1)
+			return cli.NewExitError(err.Error(), -1)
 		}
 
 		var f factory.Factory
@@ -144,7 +147,7 @@ var ContainerdCommand = cli.Command{
 			context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
 		if err != nil {
 			glog.Errorf("%v", err)
-			os.Exit(1)
+			return cli.NewExitError(err.Error(), -1)
 		}
 
 		if context.Bool("solo-namespaced") {
@@ -153,12 +156,13 @@ var ContainerdCommand = cli.Command{
 
 		if err = daemon(sv, context.String("listen")); err != nil {
 			glog.Errorf("%v", err)
-			os.Exit(1)
+			return cli.NewExitError(err.Error(), -1)
 		}
 
 		if context.Bool("solo-namespaced") {
 			os.RemoveAll(containerdDir)
 		}
+		return nil
 	},
 }
 
