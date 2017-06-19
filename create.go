@@ -156,11 +156,14 @@ func runContainer(context *cli.Context, createOnly bool) {
 			"--default_memory", fmt.Sprintf("%d", context.GlobalInt("default_memory")),
 		}
 
-		// if user set bios+cbfs, then use bios+cbfs first
-		if context.GlobalString("bios") != "" && context.GlobalString("cbfs") != "" {
+		// if bios+cbfs exist, use them first.
+		if bios != "" && cbfs != "" {
 			args = append(args, "--bios", bios, "--cbfs", cbfs)
-		} else {
+		} else if kernel != "" && initrd != "" {
 			args = append(args, "--kernel", kernel, "--initrd", initrd)
+		} else {
+			fmt.Fprintf(os.Stderr, "either bios+cbfs or kernel+initrd must be specified")
+			os.Exit(-1)
 		}
 
 		if context.GlobalBool("debug") {
