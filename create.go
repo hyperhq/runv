@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 )
 
 var createCommand = cli.Command{
@@ -304,10 +306,13 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 		ptymaster.Close()
 	}
 	if tty == nil {
-		pid := os.Getpid()
-		stdin = fmt.Sprintf("/proc/%d/fd/0", pid)
-		stdout = fmt.Sprintf("/proc/%d/fd/1", pid)
-		stderr = fmt.Sprintf("/proc/%d/fd/2", pid)
+		s, err := getStdio(context, container, true)
+		if err != nil {
+			return err
+		}
+		stdin = s.stdin
+		stdout = s.stdout
+		stderr = s.stderr
 	} else {
 		defer tty.Close()
 		stdin = tty.Name()
@@ -382,4 +387,64 @@ func createPidFile(path string, pid int) error {
 		return err
 	}
 	return os.Rename(tmpName, path)
+}
+
+type stdio struct {
+	stdin  string
+	stdout string
+	stderr string
+}
+
+// getStdio get or creates fifo files to act stdin, stdout and stderr
+func getStdio(context *cli.Context, container string, create bool) (s *stdio, err error) {
+	stdioDir := getStdioDir(context, container)
+	s = &stdio{}
+	if _, err = os.Stat(stdioDir); os.IsNotExist(err) {
+		if !create {
+			return s, fmt.Errorf("try to get stdio failed: %v", err)
+		}
+		err = os.MkdirAll(stdioDir, 0755)
+	}
+	if err != nil {
+		return s, err
+	}
+	// create fifo's for the process
+	for name, fd := range map[string]*string{
+		"stdin":  &s.stdin,
+		"stdout": &s.stdout,
+		"stderr": &s.stderr,
+	} {
+		path := filepath.Join(stdioDir, name)
+		if err := unix.Mkfifo(path, 0755); err != nil && !os.IsExist(err) {
+			return s, err
+		} else if !create && err == nil {
+			return s, fmt.Errorf("stdio file (%s/%s) not exist", stdioDir, name)
+		}
+		*fd = path
+	}
+	return s, nil
+}
+
+// attachStdio open fifo's created by createStdio(), and copy current
+// process's stdout and stderr to stdout fifo and stderr fifo.
+func attachStdio(s *stdio) (io.WriteCloser, error) {
+	stdinf, err := os.OpenFile(s.stdin, syscall.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+	stdoutf, err := os.OpenFile(s.stdout, syscall.O_RDWR, 0)
+	if err != nil {
+		return stdinf, err
+	}
+	go io.Copy(os.Stdout, stdoutf)
+	stderrf, err := os.OpenFile(s.stderr, syscall.O_RDWR, 0)
+	if err != nil {
+		return stdinf, err
+	}
+	go io.Copy(os.Stderr, stderrf)
+	return stdinf, nil
+}
+
+func getStdioDir(context *cli.Context, container string) string {
+	return filepath.Join(filepath.Clean(context.GlobalString("root"))+"-stdio", container)
 }
