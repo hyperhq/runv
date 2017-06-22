@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/urfave/cli"
 )
 
@@ -47,7 +49,10 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			Usage: "detach from the container's process",
 		},
 	},
-	Action: func(context *cli.Context) {
-		runContainer(context, false)
+	Action: func(context *cli.Context) error {
+		if err := runContainer(context, false); err != nil {
+			return cli.NewExitError(fmt.Sprintf("Run Container error: %v", err), -1)
+		}
+		return nil
 	},
 }

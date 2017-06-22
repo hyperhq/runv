@@ -57,39 +57,39 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 			Usage: "[ignore on runv] do not use pivot root to jail process inside rootfs.  This should be used whenever the rootfs is on top of a ramdisk",
 		},
 	},
-	Action: func(context *cli.Context) {
-		runContainer(context, true)
+	Action: func(context *cli.Context) error {
+		if err := runContainer(context, true); err != nil {
+			return cli.NewExitError(fmt.Sprintf("Run Container error: %v", err), -1)
+		}
+		return nil
 	},
 }
 
-func runContainer(context *cli.Context, createOnly bool) {
+func runContainer(context *cli.Context, createOnly bool) error {
 	root := context.GlobalString("root")
 	bundle := context.String("bundle")
 	container := context.Args().First()
 	ocffile := filepath.Join(bundle, specConfig)
 	spec, err := loadSpec(ocffile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "load config failed: %v\n", err)
-		os.Exit(-1)
+		return fmt.Errorf("load config failed: %v", err)
 	}
 	if spec.Linux == nil {
-		fmt.Fprintf(os.Stderr, "it is not linux container config\n")
-		os.Exit(-1)
+		return fmt.Errorf("it is not linux container config")
 	}
 	if os.Geteuid() != 0 {
-		fmt.Fprintf(os.Stderr, "runv should be run as root\n")
-		os.Exit(-1)
+		return fmt.Errorf("runv should be run as root")
 	}
 	if container == "" {
-		fmt.Fprintf(os.Stderr, "no container id provided\n")
-		os.Exit(-1)
+		return fmt.Errorf("no container id provided")
 	}
 	_, err = os.Stat(filepath.Join(root, container))
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "Container %q exists\n", container)
-		os.Exit(-1)
+		return fmt.Errorf("container %q exists", container)
 	}
-	checkConsole(context, &spec.Process, createOnly)
+	if err = checkConsole(context, &spec.Process, createOnly); err != nil {
+		return err
+	}
 
 	var sharedContainer string
 	if containerType, ok := spec.Annotations["ocid/container_type"]; ok {
@@ -100,24 +100,20 @@ func runContainer(context *cli.Context, createOnly bool) {
 		for _, ns := range spec.Linux.Namespaces {
 			if ns.Path != "" {
 				if strings.Contains(ns.Path, "/") {
-					fmt.Fprintf(os.Stderr, "Runv doesn't support path to namespace file, it supports containers name as shared namespaces only\n")
-					os.Exit(-1)
+					return fmt.Errorf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only")
 				}
 				if ns.Type == "mount" {
 					// TODO support it!
-					fmt.Fprintf(os.Stderr, "Runv doesn't support shared mount namespace currently\n")
-					os.Exit(-1)
+					return fmt.Errorf("Runv doesn't support shared mount namespace currently")
 				}
 				sharedContainer = ns.Path
 				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJson))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "The container %q is not existing or not ready\n", sharedContainer)
-					os.Exit(-1)
+					return fmt.Errorf("The container %q is not existing or not ready", sharedContainer)
 				}
 				_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "The container %q is not ready\n", sharedContainer)
-					os.Exit(-1)
+					return fmt.Errorf("The container %q is not ready", sharedContainer)
 				}
 			}
 		}
@@ -129,26 +125,22 @@ func runContainer(context *cli.Context, createOnly bool) {
 		namespace = filepath.Join(root, sharedContainer, "namespace")
 		namespace, err = os.Readlink(namespace)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot get namespace link of the shared container: %v\n", err)
-			os.Exit(-1)
+			return fmt.Errorf("cannot get namespace link of the shared container: %v", err)
 		}
 	} else {
 		path, err := osext.Executable()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot find self executable path for %s: %v\n", os.Args[0], err)
-			os.Exit(-1)
+			return fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
 		}
 
 		kernel, initrd, bios, cbfs, err := getKernelFiles(context, spec.Root.Path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Can't find kernel/initrd/bios/cbfs files")
-			os.Exit(-1)
+			return fmt.Errorf("can't find kernel/initrd/bios/cbfs files")
 		}
 
 		namespace, err = ioutil.TempDir("/run", "runv-namespace-")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create runv namespace path: %v", err)
-			os.Exit(-1)
+			return fmt.Errorf("failed to create runv namespace path: %v", err)
 		}
 
 		args := []string{
@@ -176,8 +168,7 @@ func runContainer(context *cli.Context, createOnly bool) {
 			if context.GlobalIsSet(goption) {
 				abs_path, err := filepath.Abs(context.GlobalString(goption))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Cannot get abs path for %s: %v\n", goption, err)
-					os.Exit(-1)
+					return fmt.Errorf("Cannot get abs path for %s: %v\n", goption, err)
 				}
 				args = append(args, "--"+goption, abs_path)
 			}
@@ -198,8 +189,7 @@ func runContainer(context *cli.Context, createOnly bool) {
 		}
 		err = cmd.Start()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to launch runv containerd: %v\n", err)
-			os.Exit(-1)
+			return fmt.Errorf("failed to launch runv containerd: %v", err)
 		}
 		if _, err = os.Stat(filepath.Join(namespace, "namespaced.sock")); os.IsNotExist(err) {
 			time.Sleep(3 * time.Second)
@@ -208,34 +198,31 @@ func runContainer(context *cli.Context, createOnly bool) {
 
 	err = createContainer(context, container, namespace, spec)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error %v\n", err)
 		cmd.Process.Signal(syscall.SIGINT)
-		os.Exit(-1)
+		return fmt.Errorf("failed to create container: %v", err)
 	}
 	if !createOnly {
 		address := filepath.Join(namespace, "namespaced.sock")
 		startContainer(context, bundle, container, address, spec, context.Bool("detach"))
 	}
-	os.Exit(0)
+	return nil
 }
 
-func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) {
+func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) error {
 	if context.String("console") != "" && context.String("console-socket") != "" {
-		fmt.Fprintf(os.Stderr, "only one of --console & --console-socket can be specified")
-		os.Exit(-1)
+		return fmt.Errorf("only one of --console & --console-socket can be specified")
 	}
 	detach := createOnly
 	if !createOnly {
 		detach = context.Bool("detach")
 	}
 	if (context.String("console") != "" || context.String("console-socket") != "") && !detach {
-		fmt.Fprintf(os.Stderr, "--console[-socket] should be used on detached mode\n")
-		os.Exit(-1)
+		return fmt.Errorf("--console[-socket] should be used on detached mode\n")
 	}
 	if (context.String("console") != "" || context.String("console-socket") != "") && !p.Terminal {
-		fmt.Fprintf(os.Stderr, "--console[-socket] should be used on tty mode\n")
-		os.Exit(-1)
+		return fmt.Errorf("--console[-socket] should be used on tty mode\n")
 	}
+	return nil
 }
 
 // Shared namespaces multiple containers suppurt
@@ -253,7 +240,10 @@ func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) {
 
 func createContainer(context *cli.Context, container, namespace string, config *specs.Spec) error {
 	address := filepath.Join(namespace, "namespaced.sock")
-	c := getClient(address)
+	c, err := getClient(address)
+	if err != nil {
+		return err
+	}
 
 	return ociCreate(context, container, func(stdin, stdout, stderr string) error {
 		r := &types.CreateContainerRequest{
@@ -282,8 +272,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 func ociCreate(context *cli.Context, container string, createFunc func(stdin, stdout, stderr string) error) error {
 	path, err := osext.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot find self executable path for %s: %v\n", os.Args[0], err)
-		os.Exit(-1)
+		return fmt.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
 	}
 
 	var stdin, stdout, stderr string
