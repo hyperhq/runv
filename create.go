@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -99,16 +100,25 @@ func runContainer(context *cli.Context, createOnly bool) error {
 			sharedContainer = spec.Annotations["ocid/sandbox_name"]
 		}
 	} else {
-		for _, ns := range spec.Linux.Namespaces {
+		for i, ns := range spec.Linux.Namespaces {
 			if ns.Path != "" {
-				if strings.Contains(ns.Path, "/") {
-					return fmt.Errorf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only")
-				}
 				if ns.Type == "mount" {
 					// TODO support it!
 					return fmt.Errorf("Runv doesn't support shared mount namespace currently")
 				}
-				sharedContainer = ns.Path
+				if sharedContainer, err = findSharedContainer(context.GlobalString("root"), ns.Path); err != nil {
+					return fmt.Errorf("failed to find shared container: %v", err)
+				}
+
+				cstate, err := getContainer(context, sharedContainer)
+				if err != nil {
+					return fmt.Errorf("can't get state file for container %q: %v", sharedContainer, err)
+				}
+				spec.Linux.Namespaces[i] = specs.LinuxNamespace{
+					Type: ns.Type,
+					Path: fmt.Sprintf("/proc/%d/ns/%s", cstate.InitProcessPid, ns.Type),
+				}
+
 				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJson))
 				if err != nil {
 					return fmt.Errorf("The container %q is not existing or not ready", sharedContainer)
@@ -116,6 +126,10 @@ func runContainer(context *cli.Context, createOnly bool) error {
 				_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
 				if err != nil {
 					return fmt.Errorf("The container %q is not ready", sharedContainer)
+				}
+
+				if err = updateSpec(spec, ocffile); err != nil {
+					return fmt.Errorf("update spec file failed: %v", err)
 				}
 			}
 		}
@@ -352,6 +366,7 @@ func ociCreate(context *cli.Context, container, process string, createFunc creat
 			return err
 		}
 	}
+
 	if context.String("pid-file") != "" {
 		err = createPidFile(context.String("pid-file"), cmd.Process.Pid)
 		if err != nil {
@@ -393,4 +408,38 @@ func retrieveNslPID(labels []string) int {
 		}
 	}
 	return -1
+}
+
+func findSharedContainer(root, nsPath string) (container string, err error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	list, err := ioutil.ReadDir(absRoot)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.Contains(nsPath, "/") {
+		pidexp := regexp.MustCompile(`/proc/(\d+)/ns/*`)
+		matches := pidexp.FindStringSubmatch(nsPath)
+		if len(matches) != 2 {
+			return "", fmt.Errorf("malformed ns path: %s", nsPath)
+		}
+		pid := matches[1]
+
+		for _, item := range list {
+			shimPidFile := filepath.Join(absRoot, item.Name(), "shim-init.pid")
+			spidByte, err := ioutil.ReadFile(shimPidFile)
+			if err != nil {
+				return "", fmt.Errorf("failed to read shim pid file %q: %v", shimPidFile, err)
+			}
+			spid := strings.TrimSpace(string(spidByte))
+			if pid == spid {
+				return item.Name(), nil
+			}
+		}
+		return "", fmt.Errorf("can't find container with shim pid %s", pid)
+	}
+	return nsPath, nil
 }

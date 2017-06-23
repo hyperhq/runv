@@ -65,6 +65,26 @@ var shimCommand = cli.Command{
 			defer signal.Stop(sigc)
 		}
 
+		stateDir := filepath.Join(root, container)
+		if _, err = os.Stat(stateDir); err == nil {
+			// state dir exist, write shim pid into it
+			shimFile := filepath.Join(stateDir, "shim-"+process+".pid")
+			f, err := os.OpenFile(shimFile, os.O_WRONLY|os.O_CREATE, 0640)
+			if err != nil {
+				glog.Errorf("can't create shim pid file: %v", err)
+				goto eventHandle
+			}
+			defer f.Close()
+			shimPid := fmt.Sprintf("%d", os.Getpid())
+			_, err = f.Write([]byte(shimPid))
+			if err != nil {
+				glog.Errorf("can't write pid %q to shim pid file: %v", shimPid, err)
+				goto eventHandle
+			}
+			defer os.Remove(shimFile)
+		}
+
+	eventHandle:
 		// wait until exit
 		evChan := containerEvents(c, container)
 		for e := range evChan {
