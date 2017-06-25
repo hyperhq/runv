@@ -152,12 +152,15 @@ func main() {
 		execCommand,
 		killCommand,
 		listCommand,
+		psCommand,
 		runCommand,
 		specCommand,
 		startCommand,
 		stateCommand,
 		manageCommand,
 		shimCommand,
+		pauseCommand,
+		resumeCommand,
 		containerd.ContainerdCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
