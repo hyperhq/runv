@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,6 +17,11 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
+)
+
+var (
+	containerdCmd *exec.Cmd
+	shimCmd       *exec.Cmd
 )
 
 var createCommand = cli.Command{
@@ -120,7 +126,6 @@ func runContainer(context *cli.Context, createOnly bool) error {
 	}
 
 	var namespace string
-	var cmd *exec.Cmd
 	if sharedContainer != "" {
 		namespace = filepath.Join(root, sharedContainer, "namespace")
 		namespace, err = os.Readlink(namespace)
@@ -128,77 +133,15 @@ func runContainer(context *cli.Context, createOnly bool) error {
 			return fmt.Errorf("cannot get namespace link of the shared container: %v", err)
 		}
 	} else {
-		path, err := osext.Executable()
-		if err != nil {
-			return fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
-		}
-
-		kernel, initrd, bios, cbfs, err := getKernelFiles(context, spec.Root.Path)
-		if err != nil {
-			return fmt.Errorf("can't find kernel/initrd/bios/cbfs files")
-		}
-
-		namespace, err = ioutil.TempDir("/run", "runv-namespace-")
-		if err != nil {
-			return fmt.Errorf("failed to create runv namespace path: %v", err)
-		}
-
-		args := []string{
-			"--default_cpus", fmt.Sprintf("%d", context.GlobalInt("default_cpus")),
-			"--default_memory", fmt.Sprintf("%d", context.GlobalInt("default_memory")),
-		}
-
-		// if bios+cbfs exist, use them first.
-		if bios != "" && cbfs != "" {
-			args = append(args, "--bios", bios, "--cbfs", cbfs)
-		} else if kernel != "" && initrd != "" {
-			args = append(args, "--kernel", kernel, "--initrd", initrd)
-		} else {
-			fmt.Fprintf(os.Stderr, "either bios+cbfs or kernel+initrd must be specified")
-			os.Exit(-1)
-		}
-
-		if context.GlobalBool("debug") {
-			args = append(args, "--debug")
-		}
-		if context.GlobalIsSet("driver") {
-			args = append(args, "--driver", context.GlobalString("driver"))
-		}
-		for _, goption := range []string{"log_dir", "template"} {
-			if context.GlobalIsSet(goption) {
-				abs_path, err := filepath.Abs(context.GlobalString(goption))
-				if err != nil {
-					return fmt.Errorf("Cannot get abs path for %s: %v\n", goption, err)
-				}
-				args = append(args, "--"+goption, abs_path)
-			}
-		}
-		args = append(args,
-			"containerd", "--solo-namespaced",
-			"--containerd-dir", namespace,
-			"--state-dir", root,
-			"--listen", filepath.Join(namespace, "namespaced.sock"),
-		)
-		cmd = &exec.Cmd{
-			Path: path,
-			Args: append([]string{"runv"}, args...),
-		}
-		cmd.Dir = "/"
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setsid: true,
-		}
-		err = cmd.Start()
-		if err != nil {
-			return fmt.Errorf("failed to launch runv containerd: %v", err)
-		}
-		if _, err = os.Stat(filepath.Join(namespace, "namespaced.sock")); os.IsNotExist(err) {
-			time.Sleep(3 * time.Second)
+		if namespace, err = startContainerd(context, spec); err != nil {
+			return fmt.Errorf("failed to start containerd: %v", err)
 		}
 	}
 
 	err = createContainer(context, container, namespace, spec)
 	if err != nil {
-		cmd.Process.Signal(syscall.SIGINT)
+		// stop containerd
+		containerdCmd.Process.Signal(syscall.SIGINT)
 		return fmt.Errorf("failed to create container: %v", err)
 	}
 	if !createOnly {
@@ -245,14 +188,15 @@ func createContainer(context *cli.Context, container, namespace string, config *
 		return err
 	}
 
-	return ociCreate(context, container, func(stdin, stdout, stderr string) error {
+	return startShim(context, container, true, func(stdin, stdout, stderr string) error {
 		r := &types.CreateContainerRequest{
-			Id:         container,
-			Runtime:    "runv-create",
-			BundlePath: context.String("bundle"),
-			Stdin:      stdin,
-			Stdout:     stdout,
-			Stderr:     stderr,
+			Id:            container,
+			Runtime:       "runv-create",
+			BundlePath:    context.String("bundle"),
+			Stdin:         stdin,
+			Stdout:        stdout,
+			Stderr:        stderr,
+			NslistenerPid: uint32(shimCmd.Process.Pid),
 		}
 
 		if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
@@ -269,7 +213,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 
 }
 
-func ociCreate(context *cli.Context, container string, createFunc func(stdin, stdout, stderr string) error) error {
+func startShim(context *cli.Context, container string, enableNsListener bool, createFunc func(stdin, stdout, stderr string) error) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
@@ -303,48 +247,89 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 		stdout = tty.Name()
 		stderr = tty.Name()
 	}
+
+	var (
+		cmd         *exec.Cmd
+		shimSyncEnc *gob.Encoder
+		shimSyncDec *gob.Decoder
+	)
+	args := []string{
+		"runv", "--root", context.GlobalString("root"),
+	}
+	if context.GlobalString("log_dir") != "" {
+		args = append(args, "--log_dir", filepath.Join(context.GlobalString("log_dir"), "shim-"+container))
+	}
+	if context.GlobalBool("debug") {
+		args = append(args, "--debug")
+	}
+	args = append(args, "shim", "--container", container, "--process", "init")
+	if context.String("pid-file") != "" {
+		args = append(args, "--proxy-exit-code", "--proxy-signal")
+	}
+	if enableNsListener {
+		args = append(args, "--enable-listener")
+	}
+	if tty != nil {
+		args = append(args, "--proxy-winsize")
+	}
+	cmd = &exec.Cmd{
+		Path:   path,
+		Args:   args,
+		Dir:    "/",
+		Stdin:  tty,
+		Stdout: tty,
+		Stderr: tty,
+		SysProcAttr: &syscall.SysProcAttr{
+			Setctty:    tty != nil,
+			Setsid:     true,
+			Cloneflags: syscall.CLONE_NEWNET,
+		},
+	}
+	parentPipe, childPipe, err := newPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create pipe")
+	}
+	defer parentPipe.Close()
+	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
+	if err = cmd.Start(); err != nil {
+		childPipe.Close()
+		return err
+	}
+	shimCmd = cmd
+	childPipe.Close()
+	shimSyncEnc = gob.NewEncoder(parentPipe)
+	shimSyncDec = gob.NewDecoder(parentPipe)
+
+	// wait shim nslistener started
+	if shimSyncDec != nil {
+		var ready string
+		if err = shimSyncDec.Decode(&ready); err != nil {
+			return fmt.Errorf("failed to send ready message to shim: %v", err)
+		}
+
+		if ready != "ready" {
+			return fmt.Errorf("shim nslistener could not start")
+		}
+	}
+
+	// send container creating cmmmand to containerd
 	err = createFunc(stdin, stdout, stderr)
 	if err != nil {
+		if shimSyncEnc != nil {
+			shimSyncEnc.Encode("error")
+		}
 		return err
 	}
 
-	var cmd *exec.Cmd
-	if context.String("pid-file") != "" || tty != nil {
-		args := []string{
-			"runv", "--root", context.GlobalString("root"),
-		}
-		if context.GlobalString("log_dir") != "" {
-			args = append(args, "--log_dir", filepath.Join(context.GlobalString("log_dir"), "shim-"+container))
-		}
-		if context.GlobalBool("debug") {
-			args = append(args, "--debug")
-		}
-		args = append(args, "shim", "--container", container, "--process", "init")
-		if context.String("pid-file") != "" {
-			args = append(args, "--proxy-exit-code", "--proxy-signal")
-		}
-		if tty != nil {
-			args = append(args, "--proxy-winsize")
-		}
-		cmd = &exec.Cmd{
-			Path:   path,
-			Args:   args,
-			Dir:    "/",
-			Stdin:  tty,
-			Stdout: tty,
-			Stderr: tty,
-			SysProcAttr: &syscall.SysProcAttr{
-				Setctty: tty != nil,
-				Setsid:  true,
-			},
-		}
-		err = cmd.Start()
-		if err != nil {
-			return err
+	// tell shim that we are ready
+	if shimSyncEnc != nil {
+		if err = shimSyncEnc.Encode("ready"); err != nil {
+			return fmt.Errorf("failed to send ready message to shim: %v", err)
 		}
 	}
+
 	if context.String("pid-file") != "" {
-		err = createPidFile(context.String("pid-file"), cmd.Process.Pid)
+		err = createPidFile(context.String("pid-file"), shimCmd.Process.Pid)
 		if err != nil {
 			return err
 		}
@@ -371,4 +356,81 @@ func createPidFile(path string, pid int) error {
 		return err
 	}
 	return os.Rename(tmpName, path)
+}
+
+func startContainerd(context *cli.Context, spec *specs.Spec) (string, error) {
+	root := context.GlobalString("root")
+	path, err := osext.Executable()
+	if err != nil {
+		return "", fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
+	}
+
+	kernel, initrd, bios, cbfs, err := getKernelFiles(context, spec.Root.Path)
+	if err != nil {
+		return "", fmt.Errorf("can't find kernel/initrd/bios/cbfs files")
+	}
+
+	namespace, err := ioutil.TempDir("/run", "runv-namespace-")
+	if err != nil {
+		return "", fmt.Errorf("failed to create runv namespace path: %v", err)
+	}
+
+	args := []string{
+		"--default_cpus", fmt.Sprintf("%d", context.GlobalInt("default_cpus")),
+		"--default_memory", fmt.Sprintf("%d", context.GlobalInt("default_memory")),
+	}
+
+	// if bios+cbfs exist, use them first.
+	if bios != "" && cbfs != "" {
+		args = append(args, "--bios", bios, "--cbfs", cbfs)
+	} else if kernel != "" && initrd != "" {
+		args = append(args, "--kernel", kernel, "--initrd", initrd)
+	} else {
+		return "", fmt.Errorf("either bios+cbfs or kernel+initrd must be specified")
+	}
+
+	if context.GlobalBool("debug") {
+		args = append(args, "--debug")
+	}
+	if context.GlobalIsSet("driver") {
+		args = append(args, "--driver", context.GlobalString("driver"))
+	}
+	for _, goption := range []string{"log_dir", "template"} {
+		if context.GlobalIsSet(goption) {
+			abs_path, err := filepath.Abs(context.GlobalString(goption))
+			if err != nil {
+				return "", fmt.Errorf("Cannot get abs path for %s: %v\n", goption, err)
+			}
+			args = append(args, "--"+goption, abs_path)
+		}
+	}
+
+	args = append(args,
+		"containerd", "--solo-namespaced",
+		"--containerd-dir", namespace,
+		"--state-dir", root,
+		"--listen", filepath.Join(namespace, "namespaced.sock"),
+	)
+	cmd := &exec.Cmd{
+		Path: path,
+		Args: append([]string{"runv"}, args...),
+	}
+	cmd.Dir = "/"
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+	err = cmd.Start()
+	if err != nil {
+		return "", fmt.Errorf("failed to launch runv containerd: %v", err)
+	}
+
+	if _, err = os.Stat(filepath.Join(namespace, "namespaced.sock")); os.IsNotExist(err) {
+		time.Sleep(3 * time.Second)
+		if _, err = os.Stat(filepath.Join(namespace, "namespaced.sock")); os.IsNotExist(err) {
+			return "", fmt.Errorf("can't find namespace socket")
+		}
+	}
+
+	containerdCmd = cmd
+	return namespace, nil
 }

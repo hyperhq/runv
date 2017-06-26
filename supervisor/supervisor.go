@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -51,7 +52,7 @@ func New(stateDir, eventLogDir string, f factory.Factory, defaultCpus int, defau
 	return sv, sv.Events.setupEventLog(eventLogDir)
 }
 
-func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stderr string, spec *specs.Spec) (c *Container, err error) {
+func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stderr string, nslistenerPid int, spec *specs.Spec) (c *Container, err error) {
 	defer func() {
 		if err == nil {
 			err = c.create()
@@ -62,7 +63,7 @@ func (sv *Supervisor) CreateContainer(container, bundlePath, stdin, stdout, stde
 	}()
 	sv.Lock()
 	defer sv.Unlock()
-	hp, err := sv.getHyperPod(container, spec)
+	hp, err := sv.getHyperPod(container, nslistenerPid, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +177,7 @@ func (sv *Supervisor) reap(container, processId string) {
 }
 
 // find shared pod or create a new one
-func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *HyperPod, err error) {
+func (sv *Supervisor) getHyperPod(container string, nslistenerPid int, spec *specs.Spec) (hp *HyperPod, err error) {
 	if _, ok := sv.Containers[container]; ok {
 		return nil, fmt.Errorf("The container %s is already existing", container)
 	}
@@ -233,6 +234,8 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 			return nil, err
 		}
 		hp.sv = sv
+		glog.V(3).Infof("set nslistener pid %d for pod", nslistenerPid)
+		hp.NsListenerPid = nslistenerPid
 		// recheck existed
 		if _, ok := sv.Containers[container]; ok {
 			go hp.reap()
@@ -240,4 +243,20 @@ func (sv *Supervisor) getHyperPod(container string, spec *specs.Spec) (hp *Hyper
 		}
 	}
 	return hp, nil
+}
+
+func (sv *Supervisor) UpdateNetlink(container, updateMessage string) error {
+	sv.Lock()
+	defer sv.Unlock()
+	if c, ok := sv.Containers[container]; ok {
+		var nl NetlinkUpdate
+		if err := json.Unmarshal([]byte(updateMessage), &nl); err != nil {
+			return fmt.Errorf("malformed netlink update message: %s", updateMessage)
+		}
+		if err := c.ownerPod.HandleNetlinkUpdate(&nl); err != nil {
+			return fmt.Errorf("Handle netlink update error: %v", err)
+		}
+		glog.V(3).Infof("UpdateNetlink for %s", c.Id)
+	}
+	return fmt.Errorf("container %s is not found for UpdateNetlink()", container)
 }

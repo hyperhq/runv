@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,6 +12,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
 	"github.com/hyperhq/runv/lib/term"
+	"github.com/hyperhq/runv/supervisor/proxy"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
 )
@@ -33,11 +36,45 @@ var shimCommand = cli.Command{
 		cli.BoolFlag{
 			Name: "proxy-winsize",
 		},
+		cli.BoolFlag{
+			Name: "enable-listener",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		root := context.GlobalString("root")
 		container := context.String("container")
 		process := context.String("process")
+		childPipe := os.NewFile(uintptr(3), "child")
+		defer childPipe.Close()
+
+		var ready string
+		syncDec := gob.NewDecoder(childPipe)
+		syncEnc := gob.NewEncoder(childPipe)
+
+		// setup nslistener
+		var nsl *proxy.NsListener
+		if context.Bool("enable-listener") {
+			nsl = proxy.SetupNsListener()
+		}
+
+		// send ready message
+		if err := syncEnc.Encode("ready"); err != nil {
+			return cli.NewExitError(fmt.Sprintf("failed to send ready message: %v", err), -1)
+		}
+
+		// wait container started
+		if err := syncDec.Decode(&ready); err != nil {
+			return cli.NewExitError(fmt.Sprintf("failed to decode ready message: %v", err), -1)
+		}
+		switch ready {
+		case "ready":
+			// go on
+		case "error":
+			fallthrough
+		default:
+			return cli.NewExitError(fmt.Sprintf("unknow error from parent"), -1)
+		}
+
 		c, err := getClient(filepath.Join(root, container, "namespace", "namespaced.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
@@ -63,6 +100,10 @@ var shimCommand = cli.Command{
 			glog.V(3).Infof("using shim to proxy signal")
 			sigc := forwardAllSignals(c, container, process)
 			defer signal.Stop(sigc)
+		}
+
+		if nsl != nil {
+			forwardAllNetlinkUpdate(c, container, nsl)
 		}
 
 		// wait until exit
@@ -109,4 +150,24 @@ func forwardAllSignals(c types.APIClient, cid, process string) chan os.Signal {
 		}
 	}()
 	return sigc
+}
+
+func forwardAllNetlinkUpdate(c types.APIClient, cid string, nsl *proxy.NsListener) {
+	nlChan := nsl.GetNotifyChan()
+
+	go func() {
+		for nl := range nlChan {
+			nlMesg, err := json.Marshal(nl)
+			if err != nil {
+				glog.Errorf("failed to marshal %#v: %v", nl, err)
+				continue
+			}
+			if _, err := c.UpdateNetlink(context.Background(), &types.NetlinkUpdateRequest{
+				Container:     cid,
+				UpdateMessage: string(nlMesg),
+			}); err != nil {
+				err = fmt.Errorf("failed to forward netlink update message to containerd: %v", err)
+			}
+		}
+	}()
 }

@@ -1,126 +1,30 @@
 package proxy
 
 import (
-	"encoding/gob"
-	"fmt"
-	"os"
-	"runtime"
 	"syscall"
 
-	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/supervisor"
 	"github.com/vishvananda/netlink"
 )
 
-func init() {
-	reexec.Register("containerd-nslistener", setupNsListener)
+type NsListener struct {
+	notifyChan chan supervisor.NetlinkUpdate
+	doneChan   chan struct{}
 }
 
-func setupNsListener() {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	/* create own netns */
-	if err := syscall.Unshare(syscall.CLONE_NEWNET); err != nil {
-		glog.Error(err)
-		return
+func SetupNsListener() *NsListener {
+	nl := &NsListener{
+		notifyChan: make(chan supervisor.NetlinkUpdate, 256),
+		doneChan:   make(chan struct{}),
 	}
-
-	childPipe := os.NewFile(uintptr(3), "child")
-	enc := gob.NewEncoder(childPipe)
-	dec := gob.NewDecoder(childPipe)
-
-	/* notify containerd to execute prestart hooks */
-	if err := enc.Encode("init"); err != nil {
-		glog.Error(err)
-		return
-	}
-
-	/* after execute prestart hooks */
-	var ready string
-	if err := dec.Decode(&ready); err != nil {
-		glog.Error(err)
-		return
-	}
-
-	if ready != "init" {
-		glog.Errorf("get incorrect init message: %s", ready)
-		return
-	}
-
-	// Get network namespace info for the first time and send to the containerd
-	/* get route info before link down */
-	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-	if err != nil {
-		glog.Error(err)
-		return
-	}
-
-	/* send interface info to containerd */
-	infos := collectionInterfaceInfo()
-	if err := enc.Encode(infos); err != nil {
-		glog.Error(err)
-		return
-	}
-
-	if err := enc.Encode(routes); err != nil {
-		glog.Error(err)
-		return
-	}
-
-	// This is a call back function.
-	// Use to send netlink update informations to containerd.
-	netNs2Containerd := func(netlinkUpdate supervisor.NetlinkUpdate) {
-		if err := enc.Encode(netlinkUpdate); err != nil {
-			glog.Info("err Encode(netlinkUpdate) is :", err)
-		}
-	}
-	// Keep collecting network namespace info and sending to the containerd
-	setupNetworkNsTrap(netNs2Containerd)
-}
-
-func collectionInterfaceInfo() []supervisor.InterfaceInfo {
-	infos := []supervisor.InterfaceInfo{}
-
-	links, err := netlink.LinkList()
-	if err != nil {
-		glog.Error(err)
-		return infos
-	}
-
-	for _, link := range links {
-		if link.Type() != "veth" {
-			// lo is here too
-			continue
-		}
-
-		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
-		if err != nil {
-			glog.Error(err)
-			return infos
-		}
-
-		for _, addr := range addrs {
-			info := supervisor.InterfaceInfo{
-				Ip:        addr.IPNet.String(),
-				Index:     link.Attrs().Index,
-				PeerIndex: link.Attrs().ParentIndex,
-			}
-			glog.Infof("get interface %v", info)
-			infos = append(infos, info)
-		}
-
-		// set link down, tap device take over it
-		netlink.LinkSetDown(link)
-	}
-	return infos
+	go nl.Listen()
+	return nl
 }
 
 // This function should be put into the main process or somewhere that can be
 // use to init the network namespace trap.
-func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
-
+func (nl *NsListener) Listen() {
 	// Subscribe for links change event
 	chLink := make(chan netlink.LinkUpdate)
 	doneLink := make(chan struct{})
@@ -147,25 +51,33 @@ func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
 
 	for {
 		select {
+		case <-nl.doneChan:
+			// stop listening
+			return
 		case updateLink := <-chLink:
-			handleLink(updateLink, netNs2Containerd)
+			nl.handleLink(updateLink)
 		case updateAddr := <-chAddr:
-			handleAddr(updateAddr, netNs2Containerd)
+			nl.handleAddr(updateAddr)
 		case updateRoute := <-chRoute:
-			handleRoute(updateRoute, netNs2Containerd)
+			nl.handleRoute(updateRoute)
 		}
 	}
 }
 
+func (nl *NsListener) StopListen() {
+	close(nl.notifyChan)
+	close(nl.doneChan)
+}
+
 // Link specific
-func handleLink(update netlink.LinkUpdate, callback func(supervisor.NetlinkUpdate)) {
+func (nl *NsListener) handleLink(update netlink.LinkUpdate) {
 	if update.IfInfomsg.Flags&syscall.IFF_UP == 1 {
-		fmt.Printf("[Link device up]\tupdateLink is:%+v, flag is:0x%x\n", update.Link.Attrs(), update.IfInfomsg.Flags)
+		glog.V(3).Infof("[Link device up]updateLink is:%#v, flag is:0x%x", update.Link.Attrs(), update.IfInfomsg.Flags)
 	} else {
 		if update.Link.Attrs().ParentIndex == 0 {
-			fmt.Printf("[Link device !up][Deleted]\tupdateLink is:%+v, flag is:0x%x\n", update.Link.Attrs(), update.IfInfomsg.Flags)
+			glog.V(3).Infof("[Link device !up][Deleted]updateLink is:%#v, flag is:0x%x", update.Link.Attrs(), update.IfInfomsg.Flags)
 		} else {
-			fmt.Printf("[Link device !up]\tupdateLink is:%+v, flag is:0x%x\n", update.Link.Attrs(), update.IfInfomsg.Flags)
+			glog.V(3).Infof("[Link device !up]updateLink is:%#v, flag is:0x%x", update.Link.Attrs(), update.IfInfomsg.Flags)
 		}
 	}
 
@@ -175,23 +87,23 @@ func handleLink(update netlink.LinkUpdate, callback func(supervisor.NetlinkUpdat
 	// We would like to only handle the veth pair link at present.
 	if veth, ok := (update.Link).(*netlink.Veth); ok {
 		netlinkUpdate.Veth = veth
-		callback(netlinkUpdate)
+		nl.notifyChan <- netlinkUpdate
 	}
 }
 
 // Address specific
-func handleAddr(update netlink.AddrUpdate, callback func(supervisor.NetlinkUpdate)) {
+func (nl *NsListener) handleAddr(update netlink.AddrUpdate) {
 	if update.NewAddr {
-		fmt.Printf("[Add a address]")
+		glog.V(3).Infof("[Add an address]")
 	} else {
-		fmt.Printf("[Delete a address]")
+		glog.V(3).Infof("[Delete an address]")
 	}
 
 	if update.LinkAddress.IP.To4() != nil {
-		fmt.Printf("[IPv4]\t%+v\n", update)
+		glog.V(3).Infof("[IPv4]%#v", update)
 	} else {
 		// We would not like to handle IPv6 at present.
-		fmt.Printf("[IPv6]\t%+v\n", update)
+		glog.V(3).Infof("[IPv6]%#v", update)
 		return
 	}
 
@@ -208,24 +120,28 @@ func handleAddr(update netlink.AddrUpdate, callback func(supervisor.NetlinkUpdat
 			break
 		}
 	}
-	callback(netlinkUpdate)
+	nl.notifyChan <- netlinkUpdate
 }
 
 // Route specific
-func handleRoute(update netlink.RouteUpdate, callback func(supervisor.NetlinkUpdate)) {
+func (nl *NsListener) handleRoute(update netlink.RouteUpdate) {
 	// Route type is not a bit mask for a couple of values, but a single
 	// unsigned int, that's why we use switch here not the "&" operator.
 	switch update.Type {
 	case syscall.RTM_NEWROUTE:
-		fmt.Printf("[Create a route]\t%+v\n", update)
+		glog.V(3).Infof("[Create a route]\t%+v\n", update)
 	case syscall.RTM_DELROUTE:
-		fmt.Printf("[Remove a route]\t%+v\n", update)
+		glog.V(3).Infof("[Remove a route]\t%+v\n", update)
 	case syscall.RTM_GETROUTE:
-		fmt.Printf("[Receive info of a route]\t%+v\n", update)
+		glog.V(3).Infof("[Receive info of a route]\t%+v\n", update)
 	}
 
 	netlinkUpdate := supervisor.NetlinkUpdate{}
 	netlinkUpdate.Route = update
 	netlinkUpdate.UpdateType = supervisor.UpdateTypeRoute
-	callback(netlinkUpdate)
+	nl.notifyChan <- netlinkUpdate
+}
+
+func (nl *NsListener) GetNotifyChan() chan supervisor.NetlinkUpdate {
+	return nl.notifyChan
 }

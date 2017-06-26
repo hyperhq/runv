@@ -3,7 +3,6 @@ package supervisor
 import (
 	"encoding/gob"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/vishvananda/netlink"
 )
@@ -32,15 +30,15 @@ const (
 // NetlinkUpdate tracks the change of network namespace.
 type NetlinkUpdate struct {
 	// AddrUpdate is used to pass information back from AddrSubscribe()
-	Addr netlink.AddrUpdate
+	Addr netlink.AddrUpdate `json:"addrUpdate"`
 	// RouteUpdate is used to pass information back from RouteSubscribe()
-	Route netlink.RouteUpdate
+	Route netlink.RouteUpdate `json:"routeUpdate"`
 	// Veth is used to pass information back from LinkSubscribe().
 	// We only support veth link at present.
-	Veth *netlink.Veth
+	Veth *netlink.Veth `json:"veth"`
 
 	// UpdateType indicates which part of the netlink information has been changed.
-	UpdateType NetlinkUpdateType
+	UpdateType NetlinkUpdateType `json:"updateType"`
 }
 
 type HyperPod struct {
@@ -49,10 +47,9 @@ type HyperPod struct {
 
 	//userPod   *pod.UserPod
 	//podStatus *hypervisor.PodStatus
-	vm *hypervisor.Vm
-	sv *Supervisor
-
-	nslistener *nsListener
+	vm            *hypervisor.Vm
+	sv            *Supervisor
+	NsListenerPid int
 }
 
 type InterfaceInfo struct {
@@ -131,170 +128,67 @@ func GetBridgeFromIndex(idx int) (string, string, error) {
 	return bridge.Name, options, nil
 }
 
-func (hp *HyperPod) initPodNetwork(c *Container) error {
-	// Only start first container will setup netns
-	if len(hp.Containers) > 1 {
-		return nil
-	}
+func (hp *HyperPod) HandleNetlinkUpdate(nlUpdate *NetlinkUpdate) error {
+	// Keep watching container network setting
+	// and then update vm/hyperstart
+	var err error
+	glog.V(3).Infof("network namespace information of %s has been changed: %#v", nlUpdate.UpdateType, nlUpdate)
+	switch nlUpdate.UpdateType {
+	case UpdateTypeLink:
+		link := nlUpdate.Veth
+		if link.Attrs().ParentIndex == 0 {
+			glog.V(3).Infof("The deleted link: %s", link)
+			err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
+			if err != nil {
+				return err
+			}
 
-	// container has no prestart hooks, means no net for this container
-	if c.Spec.Hooks == nil || len(c.Spec.Hooks.Prestart) == 0 {
-		// FIXME: need receive interface settting?
-		return nil
-	}
-
-	listener := hp.nslistener
-
-	/* send collect netns request to nsListener */
-	if err := listener.enc.Encode("init"); err != nil {
-		glog.Errorf("listener.dec.Decode init error: %v", err)
-		return err
-	}
-
-	infos := []InterfaceInfo{}
-	/* read nic information of ns from pipe */
-	err := listener.dec.Decode(&infos)
-	if err != nil {
-		glog.Error("listener.dec.Decode infos error: %v", err)
-		return err
-	}
-
-	routes := []netlink.Route{}
-	err = listener.dec.Decode(&routes)
-	if err != nil {
-		glog.Error("listener.dec.Decode route error: %v", err)
-		return err
-	}
-
-	var gw_route *netlink.Route
-	for idx, route := range routes {
-		if route.Dst == nil {
-			gw_route = &routes[idx]
+		} else {
+			glog.V(3).Infof("The changed link: %v", link)
 		}
-	}
 
-	glog.V(3).Infof("interface configuration of pod ns is %#v", infos)
-	for _, info := range infos {
-		bridge, options, err := GetBridgeFromIndex(info.PeerIndex)
+	case UpdateTypeAddr:
+		glog.V(3).Infof("The changed address: %v", nlUpdate.Addr)
+
+		link := nlUpdate.Veth
+
+		// If there is a delete operation upon an link, it will also trigger
+		// the address change event which the link will be NIL since it has
+		// already been deleted before the address change event be triggered.
+		if link == nil {
+			glog.V(3).Infof("Link for this address has already been deleted.")
+			break
+		}
+
+		// This is just a sanity check.
+		//
+		// The link should be the one which the address on it has been changed.
+		if link.Attrs().Index != nlUpdate.Addr.LinkIndex {
+			glog.Errorf("Get the wrong link with ID %d, expect %d", link.Attrs().Index, nlUpdate.Addr.LinkIndex)
+			break
+		}
+
+		bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
 		if err != nil {
-			glog.Error(err)
-			continue
+			return err
 		}
 
-		nicId := strconv.Itoa(info.Index)
-
-		conf := &api.InterfaceDescription{
-			Id:      nicId, //ip as an id
+		inf := &api.InterfaceDescription{
+			Id:      strconv.Itoa(link.Attrs().Index),
 			Lo:      false,
 			Bridge:  bridge,
-			Ip:      info.Ip,
+			Ip:      nlUpdate.Addr.LinkAddress.String(),
 			Options: options,
 		}
 
-		if gw_route != nil && gw_route.LinkIndex == info.Index {
-			conf.Gw = gw_route.Gw.String()
-		}
-
-		// TODO(hukeping): the name here is always eth1, 2, 3, 4, 5, etc.,
-		// which would not be the proper way to name device name, instead it
-		// should be the same as what we specified in the network namespace.
-		//err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
-		err = hp.vm.AddNic(conf)
+		err = hp.vm.AddNic(inf)
 		if err != nil {
-			glog.Error(err)
 			return err
 		}
+
+	case UpdateTypeRoute:
 	}
-
-	err = hp.vm.AddRoute()
-	if err != nil {
-		glog.Error(err)
-		return err
-	}
-
-	go hp.nsListenerStrap()
-
 	return nil
-}
-
-func (hp *HyperPod) nsListenerStrap() {
-	listener := hp.nslistener
-
-	// Keep watching container network setting
-	// and then update vm/hyperstart
-	for {
-		update := NetlinkUpdate{}
-		err := listener.dec.Decode(&update)
-		if err != nil {
-			if err == io.EOF {
-				glog.V(3).Infof("listener.dec.Decode NetlinkUpdate: %v", err)
-				break
-			}
-			glog.Error("listener.dec.Decode NetlinkUpdate error: %v", err)
-			continue
-		}
-
-		glog.V(3).Infof("network namespace information of %s has been changed", update.UpdateType)
-		switch update.UpdateType {
-		case UpdateTypeLink:
-			link := update.Veth
-			if link.Attrs().ParentIndex == 0 {
-				glog.V(3).Infof("The deleted link: %s", link)
-				err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
-				if err != nil {
-					glog.Error(err)
-					continue
-				}
-
-			} else {
-				glog.V(3).Infof("The changed link: %s", link)
-			}
-
-		case UpdateTypeAddr:
-			glog.V(3).Infof("The changed address: %s", update.Addr)
-
-			link := update.Veth
-
-			// If there is a delete operation upon an link, it will also trigger
-			// the address change event which the link will be NIL since it has
-			// already been deleted before the address change event be triggered.
-			if link == nil {
-				glog.V(3).Info("Link for this address has already been deleted.")
-				continue
-			}
-
-			// This is just a sanity check.
-			//
-			// The link should be the one which the address on it has been changed.
-			if link.Attrs().Index != update.Addr.LinkIndex {
-				glog.Errorf("Get the wrong link with ID %d, expect %d", link.Attrs().Index, update.Addr.LinkIndex)
-				continue
-			}
-
-			bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
-			inf := &api.InterfaceDescription{
-				Id:      strconv.Itoa(link.Attrs().Index),
-				Lo:      false,
-				Bridge:  bridge,
-				Ip:      update.Addr.LinkAddress.String(),
-				Options: options,
-			}
-
-			err = hp.vm.AddNic(inf)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
-		case UpdateTypeRoute:
-
-		}
-	}
 }
 
 func newPipe() (parent, child *os.File, err error) {
@@ -305,86 +199,8 @@ func newPipe() (parent, child *os.File, err error) {
 	return os.NewFile(uintptr(fds[1]), "parent"), os.NewFile(uintptr(fds[0]), "child"), nil
 }
 
-func (hp *HyperPod) startNsListener() (err error) {
-	var parentPipe, childPipe *os.File
-	var path string
-	if hp.nslistener != nil {
-		return nil
-	}
-
-	path, err = osext.Executable()
-	if err != nil {
-		glog.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
-		return err
-	}
-
-	glog.V(3).Infof("get exec path %s", path)
-	parentPipe, childPipe, err = newPipe()
-	if err != nil {
-		glog.Errorf("create pipe for containerd-nslistener failed: %v", err)
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			parentPipe.Close()
-			childPipe.Close()
-		}
-	}()
-
-	cmd := exec.Command(path)
-	cmd.Args[0] = "containerd-nslistener"
-	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
-	if err = cmd.Start(); err != nil {
-		glog.Errorf("start containerd-nslistener failed: %v", err)
-		return err
-	}
-
-	childPipe.Close()
-
-	enc := gob.NewEncoder(parentPipe)
-	dec := gob.NewDecoder(parentPipe)
-
-	hp.nslistener = &nsListener{
-		enc: enc,
-		dec: dec,
-		cmd: cmd,
-	}
-
-	defer func() {
-		if err != nil {
-			hp.stopNsListener()
-		}
-	}()
-
-	/* Make sure nsListener create new netns */
-	var ready string
-	if err = dec.Decode(&ready); err != nil {
-		glog.Errorf("Get ready message from containerd-nslistener failed: %v", err)
-		return err
-	}
-
-	if ready != "init" {
-		err = fmt.Errorf("containerd get incorrect init message: %s", ready)
-		return err
-	}
-
-	glog.V(1).Infof("nsListener pid is %d", hp.getNsPid())
-	return nil
-}
-
-func (hp *HyperPod) stopNsListener() {
-	if hp.nslistener != nil {
-		hp.nslistener.cmd.Process.Kill()
-	}
-}
-
 func (hp *HyperPod) getNsPid() int {
-	if hp.nslistener == nil {
-		return -1
-	}
-
-	return hp.nslistener.cmd.Process.Pid
+	return hp.NsListenerPid
 }
 
 func (hp *HyperPod) createContainer(container, bundlePath, stdin, stdout, stderr string, spec *specs.Spec) (*Container, error) {
@@ -508,13 +324,6 @@ func createHyperPod(f factory.Factory, spec *specs.Spec, defaultCpus int, defaul
 		Processes:  make(map[string]*Process),
 	}
 
-	// create Listener process running in its own netns
-	if err = hp.startNsListener(); err != nil {
-		hp.reap()
-		glog.Errorf("start ns listener fail: %v", err)
-		return nil, err
-	}
-
 	return hp, nil
 }
 
@@ -534,7 +343,6 @@ func (hp *HyperPod) reap() {
 		glog.Errorf("StopPod timeout")
 	}
 
-	hp.stopNsListener()
 	if err := os.RemoveAll(filepath.Join(hypervisor.BaseDir, hp.vm.Id)); err != nil {
 		glog.Errorf("can't remove vm dir %q: %v", filepath.Join(hypervisor.BaseDir, hp.vm.Id), err)
 	}

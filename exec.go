@@ -208,7 +208,7 @@ func runProcess(context *cli.Context, container string, config *specs.Process) (
 		monitorTtySize(c, container, process)
 	}
 
-	err = ociCreate(context, container, func(stdin, stdout, stderr string) error {
+	err = startShim(context, container, false, func(stdin, stdout, stderr string) error {
 		p := &types.AddProcessRequest{
 			Id:       container,
 			Pid:      process,

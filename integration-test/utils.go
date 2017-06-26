@@ -87,5 +87,4 @@ func killAllRunvComponent(signal int) {
 	sigFlag := fmt.Sprintf("-%d", signal)
 	exec.Command("pkill", sigFlag, "runv").Run()
 	exec.Command("pkill", sigFlag, "qemu").Run()
-	exec.Command("pkill", sigFlag, "containerd-nslistener").Run()
 }
