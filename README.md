@@ -15,6 +15,7 @@
 
 The current release of `runV` supports the following hypervisors:
 - KVM (QEMU 2.0 or later)
+- KVM (Kvmtool)
 - Xen (4.5 or later)
 - VirtualBox (Mac OS X)
 
