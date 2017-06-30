@@ -515,7 +515,6 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 	go streamCopy(tty, stdinPipe, stdoutPipe, stderrPipe)
 	go func() {
 		status := vm.ctx.hyperstart.WaitProcess(process.Container, process.Id)
-		vm.ctx.DeleteExec(process.Id)
 		vm.ctx.reportProcessFinished(types.E_EXEC_FINISHED, &types.ProcessFinished{
 			Id: process.Id, Code: uint8(status), Ack: make(chan bool, 1),
 		})
