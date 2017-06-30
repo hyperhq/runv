@@ -94,6 +94,26 @@ func (sv *Supervisor) StartContainer(container string, spec *specs.Spec) (c *Con
 	return nil, nil, fmt.Errorf("container %s is not found for StartContainer()", container)
 }
 
+func (sv *Supervisor) DeleteContainer(container string) error {
+	glog.Infof("delete container %s", container)
+	sv.Lock()
+	defer sv.Unlock()
+
+	if c, ok := sv.Containers[container]; ok {
+		c.reap()
+		delete(c.ownerPod.Containers, container)
+		delete(sv.Containers, container)
+
+		if len(c.ownerPod.Containers) == 0 {
+			c.ownerPod.reap()
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("Container %s not found", container)
+}
+
 func (sv *Supervisor) AddProcess(container, processId, stdin, stdout, stderr string, spec *specs.Process) (*Process, error) {
 	sv.Lock()
 	defer sv.Unlock()
@@ -163,14 +183,6 @@ func (sv *Supervisor) reap(container, processId string) {
 			if p.init {
 				// TODO: kill all the other existing processes in the same container
 			}
-		}
-		if len(c.Processes) == 0 {
-			c.reap()
-			delete(c.ownerPod.Containers, container)
-			delete(sv.Containers, container)
-		}
-		if len(c.ownerPod.Containers) == 0 {
-			c.ownerPod.reap()
 		}
 	}
 }

@@ -26,6 +26,7 @@ const (
 	ContainerStateCreated  = "created"
 	ContainerStateRunning  = "running"
 	ContainerStateStopped  = "stopped"
+	ContainerStateDeleted  = "deleted" // special state that will lead to deleting the container resources
 )
 
 type Container struct {

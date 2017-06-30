@@ -35,9 +35,9 @@ func (s *RunVSuite) TestKillKILL(c *check.C) {
 
 	timeout := true
 	for count := 0; count < 10; count++ {
-		out, exitCode := s.runvCommand(c, "list")
+		out, exitCode := s.runvCommand(c, "state", ctrName)
 		c.Assert(exitCode, checker.Equals, 0)
-		if !strings.Contains(out, ctrName) {
+		if !strings.Contains(out, "running") {
 			timeout = false
 			break
 		}

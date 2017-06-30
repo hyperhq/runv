@@ -162,6 +162,7 @@ func main() {
 		pauseCommand,
 		resumeCommand,
 		containerd.ContainerdCommand,
+		deleteCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "%v", err)

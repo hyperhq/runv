@@ -147,7 +147,17 @@ func (s *apiServer) State(ctx context.Context, r *types.StateRequest) (*types.St
 }
 
 func (s *apiServer) UpdateContainer(ctx context.Context, r *types.UpdateContainerRequest) (*types.UpdateContainerResponse, error) {
-	return nil, errors.New("UpdateContainer() not implemented yet")
+	glog.V(3).Infof("gRPC handle UpdateContainer")
+
+	if r.Status != supervisor.ContainerStateDeleted {
+		return nil, fmt.Errorf("UpdateContainer() status %s not supported", r.Status)
+	}
+
+	err := s.sv.DeleteContainer(r.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &types.UpdateContainerResponse{}, nil
 }
 
 func (s *apiServer) UpdateProcess(ctx context.Context, r *types.UpdateProcessRequest) (*types.UpdateProcessResponse, error) {
