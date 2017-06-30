@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/hyperhq/runv/containerd/api/grpc/types"
+	_ "github.com/hyperhq/runv/nsenter"
 	"github.com/kardianos/osext"
 	"github.com/kr/pty"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -238,6 +240,8 @@ func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) error
 // * In runv, shared namespaces multiple containers are located in the same VM which is managed by a runv-daemon.
 // * Any running container can exit in any arbitrary order, the runv-daemon and the VM are existed until the last container of the VM is existed
 
+type createFunction func(stdin, stdout, stderr string) (int, error)
+
 func createContainer(context *cli.Context, container, namespace string, config *specs.Spec) error {
 	address := filepath.Join(namespace, "namespaced.sock")
 	c, err := getClient(address)
@@ -245,7 +249,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 		return err
 	}
 
-	return ociCreate(context, container, "init", func(stdin, stdout, stderr string) error {
+	return ociCreate(context, container, "init", func(stdin, stdout, stderr string) (int, error) {
 		r := &types.CreateContainerRequest{
 			Id:         container,
 			Runtime:    "runv-create",
@@ -255,21 +259,23 @@ func createContainer(context *cli.Context, container, namespace string, config *
 			Stderr:     stderr,
 		}
 
-		if _, err := c.CreateContainer(netcontext.Background(), r); err != nil {
-			return err
+		ctr, err := c.CreateContainer(netcontext.Background(), r)
+		if err != nil {
+			return -1, err
 		}
+		nslPID := retrieveNslPID(ctr.Container.Labels)
 
 		// create symbol link to namespace file
 		namespaceDir := filepath.Join(context.GlobalString("root"), container, "namespace")
 		if err := os.Symlink(namespace, namespaceDir); err != nil {
-			return fmt.Errorf("failed to create symbol link %q: %v", filepath.Join(namespaceDir, "namespaced.sock"), err)
+			return -1, fmt.Errorf("failed to create symbol link %q: %v", filepath.Join(namespaceDir, "namespaced.sock"), err)
 		}
-		return nil
+		return nslPID, nil
 	})
 
 }
 
-func ociCreate(context *cli.Context, container, process string, createFunc func(stdin, stdout, stderr string) error) error {
+func ociCreate(context *cli.Context, container, process string, createFunc createFunction) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
@@ -303,7 +309,7 @@ func ociCreate(context *cli.Context, container, process string, createFunc func(
 		stdout = tty.Name()
 		stderr = tty.Name()
 	}
-	err = createFunc(stdin, stdout, stderr)
+	listenerPID, err := createFunc(stdin, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -338,6 +344,9 @@ func ociCreate(context *cli.Context, container, process string, createFunc func(
 				Setsid:  true,
 			},
 		}
+		if listenerPID > 0 {
+			cmd.Env = []string{fmt.Sprintf("_NSLISTENERPID=%d", listenerPID)}
+		}
 		err = cmd.Start()
 		if err != nil {
 			return err
@@ -371,4 +380,17 @@ func createPidFile(path string, pid int) error {
 		return err
 	}
 	return os.Rename(tmpName, path)
+}
+
+func retrieveNslPID(labels []string) int {
+	for _, v := range labels {
+		s := strings.SplitN(v, "=", 2)
+		if len(s) == 2 && s[0] == "nslistener" {
+			pid, err := strconv.Atoi(s[1])
+			if err == nil {
+				return pid
+			}
+		}
+	}
+	return -1
 }

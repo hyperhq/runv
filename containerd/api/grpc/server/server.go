@@ -232,6 +232,7 @@ func supervisorContainer2ApiContainer(c *supervisor.Container) *types.Container 
 		BundlePath: c.BundlePath,
 		Status:     "running",
 		Runtime:    "runv",
+		Labels:     []string{fmt.Sprintf("nslistener=%d", c.Processes["init"].ProcId)},
 	}
 }
 

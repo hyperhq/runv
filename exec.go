@@ -208,7 +208,7 @@ func runProcess(context *cli.Context, container string, config *specs.Process) (
 		monitorTtySize(c, container, process)
 	}
 
-	err = ociCreate(context, container, process, func(stdin, stdout, stderr string) error {
+	err = ociCreate(context, container, process, func(stdin, stdout, stderr string) (int, error) {
 		p := &types.AddProcessRequest{
 			Id:       container,
 			Pid:      process,
@@ -225,9 +225,9 @@ func runProcess(context *cli.Context, container string, config *specs.Process) (
 			Stderr: stderr,
 		}
 		if _, err := c.AddProcess(netcontext.Background(), p); err != nil {
-			return err
+			return -1, err
 		}
-		return nil
+		return -1, nil
 	})
 	if err != nil {
 		return -1, err
