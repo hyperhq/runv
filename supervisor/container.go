@@ -126,7 +126,7 @@ func (c *Container) create() error {
 	}
 
 	// save the state
-	glog.V(3).Infof("save state id %s, boundle %s", c.Id, c.BundlePath)
+	glog.V(3).Infof("save state id %s, bundle %s", c.Id, c.BundlePath)
 	stateDir := filepath.Join(c.ownerPod.sv.StateDir, c.Id)
 	_, err = os.Stat(stateDir)
 	if err == nil {
@@ -167,12 +167,6 @@ func (c *Container) create() error {
 	err = execPrestartHooks(c.Spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
-		return err
-	}
-
-	err = c.ownerPod.initPodNetwork(c)
-	if err != nil {
-		glog.Errorf("fail to initialize pod network %v", err)
 		return err
 	}
 

@@ -59,7 +59,7 @@ func (s *apiServer) CreateContainer(ctx context.Context, r *types.CreateContaine
 	var p *supervisor.Process
 
 	if r.Runtime == "" || r.Runtime == "runv" || r.Runtime == "runv-create" {
-		c, err = s.sv.CreateContainer(r.Id, r.BundlePath, r.Stdin, r.Stdout, r.Stderr, &spec)
+		c, err = s.sv.CreateContainer(r.Id, r.BundlePath, r.Stdin, r.Stdout, r.Stderr, int(r.NslistenerPid), &spec)
 		if err != nil {
 			return nil, err
 		}
@@ -210,6 +210,14 @@ func (s *apiServer) ListCheckpoint(ctx context.Context, r *types.ListCheckpointR
 // TODO implement
 func (s *apiServer) Stats(ctx context.Context, r *types.StatsRequest) (*types.StatsResponse, error) {
 	return nil, errors.New("Stats() not implemented yet")
+}
+
+func (s *apiServer) UpdateNetlink(ctx context.Context, r *types.NetlinkUpdateRequest) (*types.NetlinkUpdateResponse, error) {
+	err := s.sv.UpdateNetlink(r.Container, r.UpdateMessage)
+	if err != nil {
+		return nil, err
+	}
+	return &types.NetlinkUpdateResponse{}, nil
 }
 
 func supervisorProcess2ApiProcess(p *supervisor.Process) *types.Process {

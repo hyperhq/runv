@@ -17,6 +17,7 @@ service API {
 	rpc State(StateRequest) returns (StateResponse) {}
 	rpc Events(EventsRequest) returns (stream Event) {}
 	rpc Stats(StatsRequest) returns (StatsResponse) {}
+	rpc UpdateNetlink(NetlinkUpdateRequest) returns (NetlinkUpdateResponse){}
 }
 
 message GetServerVersionRequest {
@@ -52,6 +53,7 @@ message CreateContainerRequest {
 	string runtime = 9;
 	repeated string runtimeArgs = 10;
 	string checkpointDir = 11; // Directory where checkpoints are stored
+	uint32 nslistenerPid = 12;  // nslistener(shim) command pid
 }
 
 message CreateContainerResponse {
@@ -318,3 +320,11 @@ message StatsResponse {
 message StatsRequest {
 	string id = 1;
 }
+
+message NetlinkUpdateRequest {
+	string id = 1;
+	string container = 2;
+	string UpdateMessage = 3;
+}
+
+message NetlinkUpdateResponse{}
