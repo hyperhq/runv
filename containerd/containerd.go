@@ -189,9 +189,9 @@ func namespaceShare(sv *supervisor.Supervisor, namespace, state string) {
 	events := sv.Events.Events(time.Time{})
 	containerCount := 0
 	for e := range events {
-		if e.Type == supervisor.EventContainerStart {
+		if e.Type == supervisor.EventContainerCreate {
 			containerCount++
-		} else if e.Type == supervisor.EventExit && e.PID == "init" {
+		} else if e.Type == supervisor.EventContainerDelete {
 			containerCount--
 			if containerCount == 0 {
 				syscall.Kill(0, syscall.SIGQUIT)

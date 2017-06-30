@@ -230,7 +230,7 @@ func supervisorContainer2ApiContainer(c *supervisor.Container) *types.Container 
 	return &types.Container{
 		Id:         c.Id,
 		BundlePath: c.BundlePath,
-		Status:     "running",
+		Status:     c.Status,
 		Runtime:    "runv",
 	}
 }
