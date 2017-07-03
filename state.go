@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hyperhq/runv/supervisor"
 	"github.com/urfave/cli"
 )
 
@@ -79,11 +80,17 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 		return nil, fmt.Errorf("Load state file %s failed: %s", stateFile, err.Error())
 	}
 
+	status := supervisor.ContainerStateStopped // if we can't connect to runv-containerd then the container is stopped
+	if c, err := getContainerApi(context, name); err == nil {
+		status = c.Status
+	}
+
+	// FIXME: refactor to get container state only via API
 	s := &cState{
 		Version:        state.Version,
 		ID:             state.ID,
 		InitProcessPid: state.Pid,
-		Status:         "running",
+		Status:         status,
 		Bundle:         state.Bundle,
 		Rootfs:         filepath.Join(state.Bundle, "rootfs"),
 		Created:        fi.ModTime(),
