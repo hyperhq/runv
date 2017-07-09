@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
+	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -40,9 +41,12 @@ func (ctx *VmContext) newContainer(id string) error {
 	if ok {
 		ctx.Log(TRACE, "start sending INIT_NEWCONTAINER")
 		var err error
-		c.stdinPipe, c.stdoutPipe, c.stderrPipe, err = ctx.hyperstart.NewContainer(c.VmSpec())
-		if err == nil && c.tty != nil {
-			go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
+		err = ctx.hyperstart.NewContainer(c.VmSpec())
+		if err == nil {
+			c.stdinPipe, c.stdoutPipe, c.stderrPipe = libhyperstart.StdioPipe(ctx.hyperstart, id, "init")
+			if c.tty != nil {
+				go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
+			}
 		}
 		ctx.Log(TRACE, "sent INIT_NEWCONTAINER")
 		go func() {
@@ -80,7 +84,7 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 		return false, fmt.Errorf("try to associate a container not exist in sandbox")
 	}
 	// FIXME do we need filter some error type? error=stopped isn't always true.
-	c.stdinPipe, c.stdoutPipe, c.stderrPipe, err = ctx.hyperstart.RestoreContainer(c.VmSpec())
+	err = ctx.hyperstart.RestoreContainer(c.VmSpec())
 	if err != nil {
 		ctx.Log(ERROR, "restore conatiner failed in hyperstart, mark as stopped: %v", err)
 		if strings.Contains(err.Error(), "hyperstart closed") {
@@ -168,18 +172,13 @@ func (tty *TtyIO) Close() {
 }
 
 // TODO move this logic to hyperd
-func streamCopy(tty *TtyIO, stdinPipe io.WriteCloser, stdoutPipe, stderrPipe io.ReadCloser) {
+func streamCopy(tty *TtyIO, stdinPipe io.WriteCloser, stdoutPipe, stderrPipe io.Reader) {
 	var wg sync.WaitGroup
 	// old way cleanup all(expect stdinPipe) no matter what kinds of fails, TODO: change it
 	var once sync.Once
 	// cleanup closes tty.Stdin and thus terminates the first go routine
 	cleanup := func() {
 		tty.Close()
-		// stdinPipe is directly closed in the first go routine
-		stdoutPipe.Close()
-		if stderrPipe != nil {
-			stderrPipe.Close()
-		}
 	}
 	if tty.Stdin != nil {
 		go func() {
@@ -216,6 +215,7 @@ func streamCopy(tty *TtyIO, stdinPipe io.WriteCloser, stdoutPipe, stderrPipe io.
 }
 
 func (ctx *VmContext) startPod() error {
+	ctx.Log(INFO, "startPod: %#v", ctx.networks.sandboxInfo())
 	err := ctx.hyperstart.StartSandbox(ctx.networks.sandboxInfo())
 	if err == nil {
 		ctx.Log(INFO, "pod start successfully")
@@ -235,8 +235,8 @@ func (ctx *VmContext) shutdownVM() {
 		ctx.Log(DEBUG, "POD destroyed")
 		ctx.poweroffVM(false, "")
 	} else {
-		ctx.Log(WARNING, "Destroy pod failed")
-		ctx.poweroffVM(true, "Destroy pod failed")
+		ctx.Log(WARNING, "Destroy pod failed: %#v", err)
+		ctx.poweroffVM(true, fmt.Sprintf("Destroy pod failed: %#v", err))
 		ctx.Close()
 	}
 }

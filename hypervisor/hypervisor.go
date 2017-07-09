@@ -65,16 +65,21 @@ loop:
 }
 
 func (ctx *VmContext) Launch() {
+	var err error
+
 	ctx.DCtx.Launch(ctx)
 
 	//launch routines
 	if ctx.Boot.BootFromTemplate {
 		ctx.Log(TRACE, "boot from template")
 		ctx.PauseState = PauseStatePaused
-		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
+		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
 	} else {
-		ctx.hyperstart = libhyperstart.NewJsonBasedHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
+		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
 		go ctx.watchHyperstart()
+	}
+	if err != nil {
+		ctx.Log(ERROR, "failed to create hypervisor")
 	}
 	if ctx.LogLevel(DEBUG) {
 		go watchVmConsole(ctx)
@@ -94,6 +99,10 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		return nil, err
 	}
 
+	if hlog.IsLogLevel(hlog.DEBUG) {
+		hlog.Log(DEBUG, "VM %s trying to reload with deserialized pinfo: %#v", vmId, pinfo)
+	}
+
 	if pinfo.Id != vmId {
 		return nil, fmt.Errorf("VM ID mismatch, %v vs %v", vmId, pinfo.Id)
 	}
@@ -104,7 +113,12 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 	}
 
 	paused := context.PauseState == PauseStatePaused
-	context.hyperstart = libhyperstart.NewJsonBasedHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
+	context.hyperstart, err = libhyperstart.NewHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
+	if err != nil {
+		context.Log(ERROR, "failed to create hypervisor")
+		return nil, err
+	}
+
 	context.DCtx.Associate(context)
 
 	if context.LogLevel(DEBUG) {

@@ -15,6 +15,7 @@ import (
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
+	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -498,7 +499,7 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 		}
 	}
 
-	stdinPipe, stdoutPipe, stderrPipe, err := vm.ctx.hyperstart.AddProcess(process.Container, &hyperstartapi.Process{
+	err := vm.ctx.hyperstart.AddProcess(process.Container, &hyperstartapi.Process{
 		Id:       process.Id,
 		Terminal: process.Terminal,
 		Args:     process.Args,
@@ -511,8 +512,12 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 	if err != nil {
 		return fmt.Errorf("exec command %v failed: %v", process.Args, err)
 	}
+	if tty == nil {
+		return nil
+	}
 
-	go streamCopy(tty, stdinPipe, stdoutPipe, stderrPipe)
+	inPipe, outPipe, errPipe := libhyperstart.StdioPipe(vm.ctx.hyperstart, process.Container, process.Id)
+	go streamCopy(tty, inPipe, outPipe, errPipe)
 	go func() {
 		status := vm.ctx.hyperstart.WaitProcess(process.Container, process.Id)
 		vm.ctx.reportProcessFinished(types.E_EXEC_FINISHED, &types.ProcessFinished{
@@ -630,6 +635,14 @@ func (vm *Vm) Stats() *types.PodStats {
 		return nil
 	}
 	return stats
+}
+
+func (vm *Vm) ContainerList() []string {
+	if !vm.ctx.IsRunning() {
+		vm.ctx.Log(WARNING, "could not get container list from non-running pod")
+		return nil
+	}
+	return vm.ctx.containerList()
 }
 
 func (vm *Vm) Pause(pause bool) error {

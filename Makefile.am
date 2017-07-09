@@ -22,7 +22,7 @@ install-exec-local:
 	$(INSTALL_PROGRAM) runv $(bindir)
 
 build-runv:
-	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o runv .
+	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o runv ./cli/
 test-integration:
 	cd integration-test/test_data && make
 	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} .

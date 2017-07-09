@@ -385,6 +385,17 @@ func (ctx *VmContext) RemoveContainer(id string, result chan<- api.Result) {
 	cc.root.remove(result)
 }
 
+func (ctx *VmContext) containerList() []string {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	list := []string{}
+	for c := range ctx.containers {
+		list = append(list, c)
+	}
+	return list
+}
+
 func (ctx *VmContext) AddVolume(vol *api.VolumeDescription, result chan api.Result) {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
