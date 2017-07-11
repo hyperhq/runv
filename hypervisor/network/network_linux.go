@@ -1049,8 +1049,6 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 		return nil, err
 	}
 
-	maskSize, _ := BridgeIPv4Net.Mask.Size()
-
 	mac, err := GenRandomMac()
 	if err != nil {
 		glog.Errorf("Generate Random Mac address failed")
@@ -1058,36 +1056,20 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 	}
 
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     BridgeIPv4Net.IP.String(),
-		Bridge:      BridgeIface,
-		IPPrefixLen: maskSize,
-		Device:      "",
-		File:        nil,
-		Automatic:   true,
+		Mac:       mac,
+		IPAddress: []string{ip.String()},
+		Mtu:       DefaultMtu,
+		Gateway:   BridgeIPv4Net.IP.String(),
+		Bridge:    BridgeIface,
+		Device:    "",
+		File:      nil,
+		Automatic: true,
 	}, nil
 }
 
 func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
-
-	ip, mask, err := ipParser(inf.Ip)
-	if err != nil {
-		glog.Errorf("Parse config IP failed %s", err)
-		return nil, err
-	}
-
-	maskSize, _ := mask.Size()
-
-	/* TODO: Move port maps out of the plugging procedure
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
-	*/
-
 	mac := inf.Mac
+	var err error
 	if mac == "" {
 		mac, err = GenRandomMac()
 		if err != nil {
@@ -1098,14 +1080,14 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 
 	if addrOnly {
 		return &Settings{
-			Mac:         mac,
-			IPAddress:   ip.String(),
-			Gateway:     inf.Gw,
-			Bridge:      inf.Bridge,
-			IPPrefixLen: maskSize,
-			Device:      inf.TapName,
-			File:        nil,
-			Automatic:   false,
+			Mac:       mac,
+			IPAddress: inf.Ip,
+			Mtu:       inf.Mtu,
+			Gateway:   inf.Gw,
+			Bridge:    inf.Bridge,
+			Device:    inf.TapName,
+			File:      nil,
+			Automatic: false,
 		}, nil
 	}
 
@@ -1115,14 +1097,14 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 	}
 
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     inf.Gw,
-		Bridge:      inf.Bridge,
-		IPPrefixLen: maskSize,
-		Device:      device,
-		File:        tapFile,
-		Automatic:   false,
+		Mac:       mac,
+		IPAddress: inf.Ip,
+		Mtu:       inf.Mtu,
+		Gateway:   inf.Gw,
+		Bridge:    inf.Bridge,
+		Device:    device,
+		File:      tapFile,
+		Automatic: false,
 	}, nil
 }
 

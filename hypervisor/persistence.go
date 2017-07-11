@@ -109,7 +109,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			Index:      nic.Index,
 			PciAddr:    nic.PCIAddr,
 			DeviceName: nic.DeviceName,
-			IpAddr:     nic.IpAddr,
+			IpAddr:     nic.IpAddr[0],
 		}
 		nid++
 	}
@@ -120,7 +120,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			Index:      nic.Index,
 			PciAddr:    nic.PCIAddr,
 			DeviceName: nic.DeviceName,
-			IpAddr:     nic.IpAddr,
+			IpAddr:     nic.IpAddr[0],
 		}
 		nid++
 	}
@@ -207,7 +207,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 			Index:      pi.Index,
 			PCIAddr:    pi.PciAddr,
 			DeviceName: pi.DeviceName,
-			IpAddr:     pi.IpAddr,
+			IpAddr:     []string{pi.IpAddr},
 		}
 		// if empty, may be old data, generate one for compatibility.
 		if ifc.Id == "" {

@@ -19,6 +19,10 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
+var (
+	ErrNoSuchInf error = errors.New("No such interface")
+)
+
 type Vm struct {
 	Id string
 
@@ -296,6 +300,10 @@ func (vm *Vm) AssociateContainer(container string) (alive bool, err error) {
 
 func (vm *Vm) AddRoute() error {
 	routes := vm.ctx.networks.getRoutes()
+	return vm.AddHyperstartRoutes(routes)
+}
+
+func (vm *Vm) AddHyperstartRoutes(routes []hyperstartapi.Route) error {
 	return vm.ctx.hyperstart.AddRoute(routes)
 }
 
@@ -315,10 +323,22 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	if vm.ctx.LogLevel(TRACE) {
 		vm.Log(TRACE, "finial vmSpec.Interface is %#v", vm.ctx.networks.getInterface(info.Id))
 	}
-	return vm.ctx.updateInterface(info.Id)
+	return vm.ctx.hyperstartAddInterface(info.Id)
+}
+
+func (vm *Vm) GetNic(id string) (*InterfaceCreated, error) {
+	inf := vm.ctx.networks.getInterface(id)
+	if inf == nil {
+		return nil, ErrNoSuchInf
+	}
+	return inf, nil
 }
 
 func (vm *Vm) DeleteNic(id string) error {
+	if err := vm.ctx.hyperstartDeleteInterface(id); err != nil {
+		return fmt.Errorf("hyperstart delete interface error: %v", err)
+	}
+
 	client := make(chan api.Result, 1)
 	vm.ctx.RemoveInterface(id, client)
 
@@ -331,6 +351,30 @@ func (vm *Vm) DeleteNic(id string) error {
 		return fmt.Errorf("remove device failed")
 	}
 	return nil
+}
+
+func (vm *Vm) AddIPAddr(id, ip string) error {
+	if err := vm.ctx.AddIPAddr(id, ip); err != nil {
+		return err
+	}
+
+	return vm.ctx.hyperstartAddIPAddr(id, ip)
+}
+
+func (vm *Vm) DeleteIPAddr(id, ip string) error {
+	if err := vm.ctx.DeleteIPAddr(id, ip); err != nil {
+		return err
+	}
+
+	return vm.ctx.hyperstartDeleteIPAddr(id, ip)
+}
+
+func (vm *Vm) UpdateMtu(id string, mtu uint64) error {
+	if err := vm.ctx.UpdateMtu(id, mtu); err != nil {
+		return err
+	}
+
+	return vm.ctx.hyperstartUpdateMtu(id, mtu)
 }
 
 // TODO: deprecated api, it will be removed after the hyper.git updated

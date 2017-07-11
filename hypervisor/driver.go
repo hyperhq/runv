@@ -44,6 +44,7 @@ type GuestNicInfo struct {
 	Ipaddr  string
 	Index   int
 	Busaddr int
+	Mtu     uint64
 }
 
 type HypervisorDriver interface {

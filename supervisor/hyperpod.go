@@ -15,6 +15,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
+	//hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -35,9 +36,8 @@ type NetlinkUpdate struct {
 	Addr netlink.AddrUpdate
 	// RouteUpdate is used to pass information back from RouteSubscribe()
 	Route netlink.RouteUpdate
-	// Veth is used to pass information back from LinkSubscribe().
 	// We only support veth link at present.
-	Veth *netlink.Veth
+	Link netlink.LinkUpdate
 
 	// UpdateType indicates which part of the netlink information has been changed.
 	UpdateType NetlinkUpdateType
@@ -53,12 +53,16 @@ type HyperPod struct {
 	sv *Supervisor
 
 	nslistener *nsListener
+
+	// networkInited indicates whether the network namespace has already been set or not.
+	networkInited bool
 }
 
 type InterfaceInfo struct {
 	Index     int
 	PeerIndex int
 	Ip        string
+	Mac       string
 }
 
 type nsListener struct {
@@ -133,7 +137,7 @@ func GetBridgeFromIndex(idx int) (string, string, error) {
 
 func (hp *HyperPod) initPodNetwork(c *Container) error {
 	// Only start first container will setup netns
-	if len(hp.Containers) > 1 {
+	if hp.networkInited == true {
 		return nil
 	}
 
@@ -184,10 +188,11 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id:      nicId, //ip as an id
+			Id:      nicId, // link index as an id
 			Lo:      false,
 			Bridge:  bridge,
-			Ip:      info.Ip,
+			Ip:      []string{info.Ip},
+			Mac:     info.Mac,
 			Options: options,
 		}
 
@@ -212,10 +217,111 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		return err
 	}
 
+	hp.networkInited = true
+
 	go hp.nsListenerStrap()
 
 	return nil
 }
+
+func (hp *HyperPod) handleLinkUpdate(update *NetlinkUpdate) {
+	link := update.Link
+
+	stringid := fmt.Sprintf("%d", link.Attrs().Index)
+	infCreated, err := hp.vm.GetNic(stringid)
+	if err != nil {
+		glog.Error(err)
+		return
+	}
+
+	// only update mtu when link is up
+	if link.IfInfomsg.Flags&syscall.IFF_UP == 1 {
+		if infCreated.Mtu != uint64(link.Attrs().MTU) {
+			glog.V(3).Infof("[netns] MTU changed from %d to %d\n", infCreated.Mtu, link.Attrs().MTU)
+			if err := hp.vm.UpdateMtu(stringid, uint64(link.Attrs().MTU)); err != nil {
+				glog.Error("failed to set mtu to %d: %v", uint64(link.Attrs().MTU), err)
+			}
+		}
+	}
+}
+
+func (hp *HyperPod) handleAddrUpdate(update *NetlinkUpdate) {
+	link := update.Link
+	stringid := fmt.Sprintf("%d", link.Attrs().Index)
+	infCreated, getNicErr := hp.vm.GetNic(stringid)
+
+	// true=added false=deleted
+	if update.Addr.NewAddr == false {
+		// if we want to delete ip (or remove the whole nic), make sure it exist
+		if getNicErr != nil {
+			glog.Errorf("failed to get nic %q: %v", stringid, getNicErr)
+			return
+		}
+
+		if len(infCreated.IpAddr) <= 1 {
+			// if this is last ip, remove the whole nic
+			if err := hp.vm.DeleteNic(stringid); err != nil {
+				glog.Errorf("[netns] delete nic failed: %v", err)
+				return
+			}
+			glog.V(3).Infof("interface %s deleted", stringid)
+		} else {
+			// remove single ip address
+			if err := hp.vm.DeleteIPAddr(stringid, update.Addr.LinkAddress.String()); err != nil {
+				glog.Errorf("[netns] delete ip address failed: %v", err)
+				return
+			}
+			glog.V(3).Infof("IP(%q) of nic %s deleted", update.Addr.LinkAddress.String(), stringid)
+		}
+		return
+	}
+
+	// This is just a sanity check.
+	//
+	// The link should be the one which the address on it has been changed.
+	if link.Attrs().Index != update.Addr.LinkIndex {
+		glog.Errorf("Get the wrong link with ID %d, expect %d", link.Attrs().Index, update.Addr.LinkIndex)
+		return
+	}
+
+	if getNicErr != nil {
+		if getNicErr != hypervisor.ErrNoSuchInf {
+			glog.Error(getNicErr)
+			return
+		}
+
+		// add a new interface
+		bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
+		if err != nil {
+			glog.Error(err)
+			return
+		}
+
+		inf := &api.InterfaceDescription{
+			Id:      strconv.Itoa(link.Attrs().Index),
+			Lo:      false,
+			Bridge:  bridge,
+			Ip:      []string{update.Addr.LinkAddress.String()},
+			Mac:     link.Attrs().HardwareAddr.String(),
+			Mtu:     uint64(link.Attrs().MTU),
+			Options: options,
+		}
+
+		err = hp.vm.AddNic(inf)
+		if err != nil {
+			glog.Error(err)
+			return
+		}
+	} else {
+		// interface exists, we only want to add a new IP address
+		if err := hp.vm.AddIPAddr(stringid, update.Addr.LinkAddress.String()); err != nil {
+			glog.Error("failed to add ip address %q to network: %v", err)
+			return
+		}
+	}
+}
+
+func (hp *HyperPod) handleRouteUpdate(update *NetlinkUpdate) {}
 
 func (hp *HyperPod) nsListenerStrap() {
 	listener := hp.nslistener
@@ -236,63 +342,14 @@ func (hp *HyperPod) nsListenerStrap() {
 
 		glog.V(3).Infof("network namespace information of %s has been changed", update.UpdateType)
 		switch update.UpdateType {
+		case UpdateTypeRoute:
 		case UpdateTypeLink:
-			link := update.Veth
-			if link.Attrs().ParentIndex == 0 {
-				glog.V(3).Infof("The deleted link: %s", link)
-				err = hp.vm.DeleteNic(strconv.Itoa(link.Attrs().Index))
-				if err != nil {
-					glog.Error(err)
-					continue
-				}
-
-			} else {
-				glog.V(3).Infof("The changed link: %s", link)
-			}
+			glog.V(3).Infof("[netns] link has been changed: %#v", update.Link)
+			hp.handleLinkUpdate(&update)
 
 		case UpdateTypeAddr:
-			glog.V(3).Infof("The changed address: %s", update.Addr)
-
-			link := update.Veth
-
-			// If there is a delete operation upon an link, it will also trigger
-			// the address change event which the link will be NIL since it has
-			// already been deleted before the address change event be triggered.
-			if link == nil {
-				glog.V(3).Info("Link for this address has already been deleted.")
-				continue
-			}
-
-			// This is just a sanity check.
-			//
-			// The link should be the one which the address on it has been changed.
-			if link.Attrs().Index != update.Addr.LinkIndex {
-				glog.Errorf("Get the wrong link with ID %d, expect %d", link.Attrs().Index, update.Addr.LinkIndex)
-				continue
-			}
-
-			bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
-			inf := &api.InterfaceDescription{
-				Id:      strconv.Itoa(link.Attrs().Index),
-				Lo:      false,
-				Bridge:  bridge,
-				Ip:      update.Addr.LinkAddress.String(),
-				Options: options,
-			}
-
-			err = hp.vm.AddNic(inf)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
-		case UpdateTypeRoute:
-
+			glog.V(3).Infof("[netns] address has been changed: %#v", update.Addr)
+			hp.handleAddrUpdate(&update)
 		}
 	}
 }
@@ -344,6 +401,7 @@ func (hp *HyperPod) startNsListener() (err error) {
 
 	enc := gob.NewEncoder(parentPipe)
 	dec := gob.NewDecoder(parentPipe)
+	gob.Register(&netlink.Veth{})
 
 	hp.nslistener = &nsListener{
 		enc: enc,

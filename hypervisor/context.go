@@ -270,6 +270,27 @@ func (ctx *VmContext) RemoveInterface(id string, result chan api.Result) {
 	ctx.networks.removeInterface(id, result)
 }
 
+func (ctx *VmContext) AddIPAddr(id, ip string) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	return ctx.networks.AddIPAddr(id, ip)
+}
+
+func (ctx *VmContext) DeleteIPAddr(id, ip string) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	return ctx.networks.DeleteIPAddr(id, ip)
+}
+
+func (ctx *VmContext) UpdateMtu(id string, mtu uint64) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	return ctx.networks.UpdateMtu(id, mtu)
+}
+
 func (ctx *VmContext) validateContainer(c *api.ContainerDescription) error {
 	for vn, vr := range c.Volumes {
 		if _, ok := ctx.volumes[vn]; !ok {

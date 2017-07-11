@@ -27,6 +27,7 @@ type Hyperstart interface {
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)
 	AddRoute(r []hyperstartapi.Route) error
-	UpdateInterface(dev, ip, mask string) error
+	AddInterface(inf *hyperstartapi.NetworkInf) error
+	DeleteInterface(inf *hyperstartapi.NetworkInf) error
 	OnlineCpuMem() error
 }

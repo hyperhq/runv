@@ -29,6 +29,7 @@ const (
 	INIT_REMOVECONTAINER
 	INIT_PROCESSASYNCEVENT
 	INIT_SIGNALPROCESS
+	INIT_DELETEINTERFACE // 25
 )
 
 // "hyperstart" is the special container ID for adding processes.
