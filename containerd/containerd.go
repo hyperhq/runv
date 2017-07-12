@@ -32,8 +32,8 @@ const (
 	defaultStateDir     = "/run/runv-containerd"
 	defaultListenType   = "unix"
 	defaultGRPCEndpoint = "/run/runv-containerd/containerd.sock"
-	// runv-containerd is a relativly short term program
-	// since we can't change the flush interval in glog, flush here manaully.
+	// runv-containerd is a relatively short term program
+	// since we can't change the flush interval in glog, flush here manually.
 	glogFlushInterval = 5 * time.Second
 )
 
