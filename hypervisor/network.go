@@ -225,9 +225,9 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 
 	if HDriver.BuildinNetwork() {
 		/* VBox doesn't support join to bridge */
-		settings, err = nc.sandbox.DCtx.ConfigureNetwork(nc.sandbox.Id, "", inf)
+		settings, err = nc.sandbox.DCtx.ConfigureNetwork(inf)
 	} else {
-		settings, err = network.Configure(nc.sandbox.Id, "", false, inf)
+		settings, err = network.Configure(false, inf)
 	}
 
 	if err != nil {

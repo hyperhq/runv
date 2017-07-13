@@ -3,7 +3,6 @@ package vbox
 import (
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
@@ -61,33 +60,7 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) erro
 	return nil
 }
 
-func (vc *VBoxContext) AllocateNetwork(vmId, requestedIP string) (*network.Settings, error) {
-	ip, err := network.IpAllocator.RequestIP(network.BridgeIPv4Net, net.ParseIP(requestedIP))
-	if err != nil {
-		return nil, err
-	}
-
-	maskSize, _ := network.BridgeIPv4Net.Mask.Size()
-
-	//err = SetupPortMaps(vmId, ip.String(), maps)
-	//if err != nil {
-	//	glog.Errorf("Setup Port Map failed %s", err)
-	//	return nil, err
-	//}
-
-	return &network.Settings{
-		Mac:         "",
-		IPAddress:   ip.String(),
-		Gateway:     network.BridgeIPv4Net.IP.String(),
-		Bridge:      "",
-		IPPrefixLen: maskSize,
-		Device:      "",
-		File:        nil,
-	}, nil
-}
-
-func (vc *VBoxContext) ConfigureNetwork(vmId,
-	requestedIP string, config *api.InterfaceDescription) (*network.Settings, error) {
+func (vc *VBoxContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
 	ip, ipnet, err := net.ParseCIDR(config.Ip)
 	if err != nil {
 		glog.Errorf("Parse interface IP failed %s", err)
@@ -95,12 +68,6 @@ func (vc *VBoxContext) ConfigureNetwork(vmId,
 	}
 
 	maskSize, _ := ipnet.Mask.Size()
-
-	//err = SetupPortMaps(vmId, ip.String(), maps)
-	//if err != nil {
-	//	glog.Errorf("Setup Port Map failed %s", err)
-	//	return nil, err
-	//}
 
 	return &network.Settings{
 		Mac:         config.Mac,
@@ -114,7 +81,7 @@ func (vc *VBoxContext) ConfigureNetwork(vmId,
 }
 
 // Release an interface for a select ip
-func (vc *VBoxContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
+func (vc *VBoxContext) ReleaseNetwork(releasedIP string) error {
 	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}

@@ -1069,32 +1069,7 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 	}, nil
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
-
-	setting, err := AllocateAddr(requestedIP)
-	if err != nil {
-		return nil, err
-	}
-
-	//TODO: will move to a dedicate method
-	//err = SetupPortMaps(ip.String(), maps)
-	//if err != nil {
-	//	glog.Errorf("Setup Port Map failed %s", err)
-	//	return nil, err
-	//}
-
-	device, tapFile, err := GetTapFd("", BridgeIface, "")
-	if err != nil {
-		IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(setting.IPAddress))
-		return nil, err
-	}
-
-	setting.Device = device
-	setting.File = tapFile
-	return setting, nil
-}
-
-func Configure(vmId, requestedIP string, addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
+func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
 
 	ip, mask, err := ipParser(inf.Ip)
 	if err != nil {
@@ -1166,7 +1141,7 @@ func ReleaseAddr(releasedIP string) error {
 }
 
 // Release an interface for a select ip
-func Release(vmId, releasedIP string) error {
+func Release(releasedIP string) error {
 
 	if err := ReleaseAddr(releasedIP); err != nil {
 		return err
