@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"errors"
-	"os"
 
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
@@ -85,9 +84,8 @@ type DriverContext interface {
 
 	Pause(ctx *VmContext, pause bool) error
 
-	ConfigureNetwork(vmId, requestedIP string, config *api.InterfaceDescription) (*network.Settings, error)
-	AllocateNetwork(vmId, requestedIP string) (*network.Settings, error)
-	ReleaseNetwork(vmId, releasedIP string, file *os.File) error
+	ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error)
+	ReleaseNetwork(releasedIP string) error
 
 	Stats(ctx *VmContext) (*types.PodStats, error)
 
@@ -167,15 +165,11 @@ func (ec *EmptyContext) Pause(ctx *VmContext, pause bool) error { return nil }
 
 func (ec *EmptyContext) BuildinNetwork() bool { return false }
 
-func (ec *EmptyContext) ConfigureNetwork(vmId, requestedIP string, config *api.InterfaceDescription) (*network.Settings, error) {
+func (ec *EmptyContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
 	return nil, nil
 }
 
-func (ec *EmptyContext) AllocateNetwork(vmId, requestedIP string) (*network.Settings, error) {
-	return nil, nil
-}
-
-func (ec *EmptyContext) ReleaseNetwork(vmId, releasedIP string, file *os.File) error {
+func (ec *EmptyContext) ReleaseNetwork(releasedIP string) error {
 	return nil
 }
 
