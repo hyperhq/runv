@@ -298,13 +298,13 @@ func (vm *Vm) AssociateContainer(container string) (alive bool, err error) {
 	return vm.ctx.restoreContainer(container)
 }
 
-func (vm *Vm) AddRoute() error {
+func (vm *Vm) AddDefaultRoute() error {
 	routes := vm.ctx.networks.getRoutes()
-	return vm.AddHyperstartRoutes(routes)
+	return vm.AddRoute(routes)
 }
 
-func (vm *Vm) AddHyperstartRoutes(routes []hyperstartapi.Route) error {
-	return vm.ctx.hyperstart.AddRoute(routes)
+func (vm *Vm) AddRoute(route []hyperstartapi.Route) error {
+	return vm.ctx.hyperstartAddRoute(route)
 }
 
 func (vm *Vm) AddNic(info *api.InterfaceDescription) error {

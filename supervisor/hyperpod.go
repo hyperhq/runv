@@ -15,7 +15,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
-	//hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/kardianos/osext"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -211,7 +211,7 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 		}
 	}
 
-	err = hp.vm.AddRoute()
+	err = hp.vm.AddDefaultRoute()
 	if err != nil {
 		glog.Error(err)
 		return err
@@ -321,7 +321,30 @@ func (hp *HyperPod) handleAddrUpdate(update *NetlinkUpdate) {
 	}
 }
 
-func (hp *HyperPod) handleRouteUpdate(update *NetlinkUpdate) {}
+func (hp *HyperPod) handleRouteUpdate(update *NetlinkUpdate) {
+	route := update.Route
+	if route.Type == syscall.RTM_DELROUTE || route.Type == syscall.RTM_GETROUTE {
+		glog.V(3).Infof("currently we only support adding new route, delete or query isn't supported")
+		return
+	}
+
+	stringid := fmt.Sprintf("%d", route.LinkIndex)
+	infCreated, err := hp.vm.GetNic(stringid)
+	if err != nil {
+		glog.Errorf("failed to get information of nic with id %d", route.LinkIndex)
+		return
+	}
+
+	r := hyperstartapi.Route{
+		Dest:    route.Dst.String(),
+		Gateway: route.Gw.String(),
+		Device:  infCreated.DeviceName,
+	}
+	if err = hp.vm.AddRoute([]hyperstartapi.Route{r}); err != nil {
+		glog.Errorf("failed to add route: %v", err)
+		return
+	}
+}
 
 func (hp *HyperPod) nsListenerStrap() {
 	listener := hp.nslistener
@@ -343,10 +366,11 @@ func (hp *HyperPod) nsListenerStrap() {
 		glog.V(3).Infof("network namespace information of %s has been changed", update.UpdateType)
 		switch update.UpdateType {
 		case UpdateTypeRoute:
+			glog.V(3).Infof("[netns] route has been changed: %#v", update.Route)
+			hp.handleRouteUpdate(&update)
 		case UpdateTypeLink:
 			glog.V(3).Infof("[netns] link has been changed: %#v", update.Link)
 			hp.handleLinkUpdate(&update)
-
 		case UpdateTypeAddr:
 			glog.V(3).Infof("[netns] address has been changed: %#v", update.Addr)
 			hp.handleAddrUpdate(&update)
@@ -392,6 +416,7 @@ func (hp *HyperPod) startNsListener() (err error) {
 	cmd := exec.Command(path)
 	cmd.Args[0] = "containerd-nslistener"
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: syscall.CLONE_NEWNET}
 	if err = cmd.Start(); err != nil {
 		glog.Errorf("start containerd-nslistener failed: %v", err)
 		return err

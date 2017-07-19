@@ -2,9 +2,7 @@ package proxy
 
 import (
 	"encoding/gob"
-	"fmt"
 	"os"
-	"runtime"
 	"syscall"
 
 	"github.com/docker/docker/pkg/reexec"
@@ -23,15 +21,6 @@ func setupNsListener() {
 	// ==============DEBUG BEGIN=====================
 	// flag.CommandLine.Parse([]string{"-v", "3", "--log_dir", "/tmp/", "--alsologtostderr"})
 	// =============DEBUG END=======================
-
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	/* create own netns */
-	if err := syscall.Unshare(syscall.CLONE_NEWNET); err != nil {
-		glog.Error(err)
-		return
-	}
 
 	childPipe := os.NewFile(uintptr(3), "child")
 	enc := gob.NewEncoder(childPipe)
@@ -130,7 +119,7 @@ func collectionInterfaceInfo() []supervisor.InterfaceInfo {
 // use to init the network namespace trap.
 func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
 	// Subscribe for links change event
-	chLink := make(chan netlink.LinkUpdate)
+	chLink := make(chan netlink.LinkUpdate, 64)
 	doneLink := make(chan struct{})
 	defer close(doneLink)
 	if err := netlink.LinkSubscribe(chLink, doneLink); err != nil {
@@ -138,7 +127,7 @@ func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
 	}
 
 	// Subscribe for addresses change event
-	chAddr := make(chan netlink.AddrUpdate)
+	chAddr := make(chan netlink.AddrUpdate, 64)
 	doneAddr := make(chan struct{})
 	defer close(doneAddr)
 	if err := netlink.AddrSubscribe(chAddr, doneAddr); err != nil {
@@ -146,7 +135,7 @@ func setupNetworkNsTrap(netNs2Containerd func(supervisor.NetlinkUpdate)) {
 	}
 
 	// Subscribe for route change event
-	chRoute := make(chan netlink.RouteUpdate)
+	chRoute := make(chan netlink.RouteUpdate, 64)
 	doneRoute := make(chan struct{})
 	defer close(doneRoute)
 	if err := netlink.RouteSubscribe(chRoute, doneRoute); err != nil {
@@ -232,13 +221,7 @@ func handleRoute(update netlink.RouteUpdate, callback func(supervisor.NetlinkUpd
 	case syscall.RTM_DELROUTE:
 		glog.V(3).Infof("[Remove a route]\t%+v\n", update)
 	case syscall.RTM_GETROUTE:
-		fmt.Printf("[Receive info of a route]\t%+v\n", update)
-	}
-
-	// we would like to only handle the gateway change
-	if update.Route.Dst != nil {
-		fmt.Println("[Route] is not a gateway, skip")
-		return
+		glog.V(3).Infof("[Receive info of a route]\t%+v\n", update)
 	}
 
 	netlinkUpdate := supervisor.NetlinkUpdate{}
@@ -252,15 +235,15 @@ func handleRoute(update netlink.RouteUpdate, callback func(supervisor.NetlinkUpd
 	// and ping the IP will get duplicate ICMP replies.
 	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 	if err != nil {
-		fmt.Printf("[Get RouteList] Error:%v\n", err)
+		glog.Errorf("[Get RouteList] Error:%v\n", err)
 		return
 	}
 
 	for _, r := range routes {
 		if err := netlink.RouteDel(&r); err != nil {
-			fmt.Printf("[Remove route] Error:%v\n", err)
+			glog.Errorf("[Remove route] Error:%v\n", err)
 		} else {
-			fmt.Printf("[Remove route] route:%+v\n", r)
+			glog.V(3).Infof("[Remove route] route:%+v\n", r)
 		}
 	}
 }

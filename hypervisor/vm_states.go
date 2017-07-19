@@ -130,6 +130,13 @@ func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	}
 }
 
+func (ctx *VmContext) hyperstartAddRoute(r []hyperstartapi.Route) error {
+	if err := ctx.hyperstart.AddRoute(r); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
