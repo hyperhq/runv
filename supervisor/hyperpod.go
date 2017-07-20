@@ -227,6 +227,11 @@ func (hp *HyperPod) initPodNetwork(c *Container) error {
 func (hp *HyperPod) handleLinkUpdate(update *NetlinkUpdate) {
 	link := update.Link
 
+	if link.Link == nil {
+		glog.Errorf("Link update must have an non-nil Link param!")
+		return
+	}
+
 	stringid := fmt.Sprintf("%d", link.Attrs().Index)
 	infCreated, err := hp.vm.GetNic(stringid)
 	if err != nil {
@@ -234,7 +239,16 @@ func (hp *HyperPod) handleLinkUpdate(update *NetlinkUpdate) {
 		return
 	}
 
-	// only update mtu when link is up
+	// ParentIndex==0 means link is to be deleted
+	if link.Attrs().ParentIndex == 0 {
+		if err := hp.vm.DeleteNic(stringid); err != nil {
+			glog.Errorf("[netns] delete nic failed: %v", err)
+			return
+		}
+		glog.V(3).Infof("interface %s deleted", stringid)
+		return
+	}
+
 	if link.IfInfomsg.Flags&syscall.IFF_UP == 1 {
 		if infCreated.Mtu != uint64(link.Attrs().MTU) {
 			glog.V(3).Infof("[netns] MTU changed from %d to %d\n", infCreated.Mtu, link.Attrs().MTU)
@@ -247,8 +261,17 @@ func (hp *HyperPod) handleLinkUpdate(update *NetlinkUpdate) {
 
 func (hp *HyperPod) handleAddrUpdate(update *NetlinkUpdate) {
 	link := update.Link
+
+	// If there is a delete operation upon an link, it will also trigger
+	// the address change event which the link will be NIL since it has
+	// already been deleted before the address change event be triggered.
+	if link.Link == nil {
+		glog.V(3).Infof("Link for this address has already been deleted.")
+		return
+	}
+
 	stringid := fmt.Sprintf("%d", link.Attrs().Index)
-	infCreated, getNicErr := hp.vm.GetNic(stringid)
+	_, getNicErr := hp.vm.GetNic(stringid)
 
 	// true=added false=deleted
 	if update.Addr.NewAddr == false {
@@ -258,21 +281,12 @@ func (hp *HyperPod) handleAddrUpdate(update *NetlinkUpdate) {
 			return
 		}
 
-		if len(infCreated.IpAddr) <= 1 {
-			// if this is last ip, remove the whole nic
-			if err := hp.vm.DeleteNic(stringid); err != nil {
-				glog.Errorf("[netns] delete nic failed: %v", err)
-				return
-			}
-			glog.V(3).Infof("interface %s deleted", stringid)
-		} else {
-			// remove single ip address
-			if err := hp.vm.DeleteIPAddr(stringid, update.Addr.LinkAddress.String()); err != nil {
-				glog.Errorf("[netns] delete ip address failed: %v", err)
-				return
-			}
-			glog.V(3).Infof("IP(%q) of nic %s deleted", update.Addr.LinkAddress.String(), stringid)
+		// remove single ip address
+		if err := hp.vm.DeleteIPAddr(stringid, update.Addr.LinkAddress.String()); err != nil {
+			glog.Errorf("[netns] delete ip address failed: %v", err)
+			return
 		}
+		glog.V(3).Infof("IP(%q) of nic %s deleted", update.Addr.LinkAddress.String(), stringid)
 		return
 	}
 
