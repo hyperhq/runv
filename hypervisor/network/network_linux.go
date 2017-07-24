@@ -959,20 +959,23 @@ func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
 	return nil
 }
 
-func UpAndAddToBridge(name string) error {
+func UpAndAddToBridge(name, bridge string) error {
 	inf, err := net.InterfaceByName(name)
 	if err != nil {
 		glog.Error("cannot find network interface ", name)
 		return err
 	}
-	brg, err := net.InterfaceByName(BridgeIface)
+	if bridge == "" {
+		bridge = BridgeIface
+	}
+	brg, err := net.InterfaceByName(bridge)
 	if err != nil {
-		glog.Error("cannot find bridge interface ", BridgeIface)
+		glog.Error("cannot find bridge interface ", bridge)
 		return err
 	}
 	err = AddToBridge(inf, brg, "")
 	if err != nil {
-		glog.Errorf("cannot add %s to %s ", name, BridgeIface)
+		glog.Errorf("cannot add %s to %s ", name, bridge)
 		return err
 	}
 	err = NetworkLinkUp(inf)

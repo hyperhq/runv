@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/hypervisor/kvmtool"
 	"github.com/hyperhq/runv/hypervisor/libvirt"
 	"github.com/hyperhq/runv/hypervisor/qemu"
 	"github.com/hyperhq/runv/hypervisor/xen"
@@ -52,6 +53,12 @@ func Probe(driver string) (hd hypervisor.HypervisorDriver, err error) {
 		if qd != nil {
 			glog.V(1).Infof("Driver \"qemu\" loaded")
 			return qd, nil
+		}
+	case "kvmtool":
+		kd := kvmtool.InitDriver()
+		if kd != nil {
+			glog.V(1).Infof("Driver \"kvmtool\" loaded")
+			return kd, nil
 		}
 	}
 
