@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	EventExit           = "exit"
-	EventContainerStart = "start-container"
-	EventProcessStart   = "start-process"
+	EventExit            = "exit"
+	EventContainerCreate = "create-container"
+	EventContainerStart  = "start-container"
+	EventContainerDelete = "delete-container"
+	EventProcessStart    = "start-process"
 )
 
 var (

@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/hyperhq/runv/supervisor"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -110,15 +111,22 @@ func getContainers(context *cli.Context) ([]containerState, error) {
 			if err != nil && !os.IsNotExist(err) {
 				return nil, fmt.Errorf("Stat file %s error: %s", stateFile, err.Error())
 			}
+
 			state, err := loadStateFile(stateFile)
 			if err != nil {
 				return nil, fmt.Errorf("Load state file %s failed: %s", stateFile, err.Error())
 			}
 
+			status := supervisor.ContainerStateStopped // if we can't connect to runv-containerd then the container is stopped
+			if c, err := getContainerApi(context, item.Name()); err == nil {
+				status = c.Status
+			}
+
+			// FIXME: refactor to get container state only via API
 			s = append(s, containerState{
 				ID:             state.ID,
 				InitProcessPid: state.Pid,
-				Status:         "running",
+				Status:         status,
 				Bundle:         state.Bundle,
 				Created:        fi.ModTime(),
 			})

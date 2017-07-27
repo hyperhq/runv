@@ -20,8 +20,18 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// container states
+const (
+	ContainerStateCreating = "creating"
+	ContainerStateCreated  = "created"
+	ContainerStateRunning  = "running"
+	ContainerStateStopped  = "stopped"
+	ContainerStateDeleted  = "deleted" // special state that will lead to deleting the container resources
+)
+
 type Container struct {
 	Id         string
+	Status     string
 	BundlePath string
 	Spec       *specs.Spec
 	Processes  map[string]*Process
@@ -50,6 +60,7 @@ func (c *Container) start(p *Process) error {
 	}
 
 	go func() {
+		c.Status = ContainerStateRunning
 		e := Event{
 			ID:        c.Id,
 			Type:      EventContainerStart,
@@ -58,6 +69,7 @@ func (c *Container) start(p *Process) error {
 		c.ownerPod.sv.Events.notifySubscribers(e)
 
 		exit, err := c.wait(p, res)
+		c.Status = ContainerStateStopped
 		e = Event{
 			ID:        c.Id,
 			Type:      EventExit,
@@ -75,6 +87,7 @@ func (c *Container) start(p *Process) error {
 }
 
 func (c *Container) create() error {
+	c.Status = ContainerStateCreating
 	glog.V(3).Infof("prepare hypervisor info")
 	config := api.ContainerDescriptionFromOCF(c.Id, c.Spec)
 
@@ -181,6 +194,14 @@ func (c *Container) create() error {
 	if err != nil {
 		return err
 	}
+
+	c.Status = ContainerStateCreated
+	e := Event{
+		ID:        c.Id,
+		Type:      EventContainerCreate,
+		Timestamp: time.Now(),
+	}
+	c.ownerPod.sv.Events.notifySubscribers(e)
 
 	return nil
 }
@@ -354,6 +375,13 @@ func (c *Container) reap() {
 	utils.Umount(containerRoot)
 	os.RemoveAll(containerRoot)
 	os.RemoveAll(filepath.Join(c.ownerPod.sv.StateDir, c.Id))
+
+	e := Event{
+		ID:        c.Id,
+		Type:      EventContainerDelete,
+		Timestamp: time.Now(),
+	}
+	c.ownerPod.sv.Events.notifySubscribers(e)
 }
 
 func mountToRootfs(m *specs.Mount, rootfs, mountLabel string) error {
