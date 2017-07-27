@@ -46,9 +46,9 @@ var psCommand = cli.Command{
 				fatal(err)
 			}
 		case "json":
-			pids := make([]string, 0)
+			pids := make([]int, 0)
 			for _, p := range c.Processes {
-				pids = append(pids, p.Pid)
+				pids = append(pids, int(p.SystemPid))
 			}
 
 			data, err := json.Marshal(pids)
