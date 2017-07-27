@@ -161,7 +161,15 @@ func (sv *Supervisor) reap(container, processId string) {
 			delete(c.ownerPod.Processes, p.inerId)
 			delete(c.Processes, processId)
 			if p.init {
-				// TODO: kill all the other existing processes in the same container
+				// if init exits, clean up the container's all other processes
+				procs := c.Processes
+				c.Processes = nil
+				go func() {
+					for id, proc := range procs {
+						delete(c.ownerPod.Processes, id)
+						go proc.reap()
+					}
+				}()
 			}
 		}
 		if len(c.Processes) == 0 {
