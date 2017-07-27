@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -106,11 +108,85 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 	return true, nil
 }
 
-func (ctx *VmContext) updateInterface(id string) error {
+func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		return ctx.hyperstart.UpdateInterface(inf.DeviceName, inf.IpAddr, inf.NetMask)
+		for _, addr := range inf.IpAddr {
+			ip, net, err := net.ParseCIDR(addr)
+			if err != nil {
+				return fmt.Errorf("can't parse ip %q: %v", inf.IpAddr, err)
+			}
+			if err = ctx.hyperstart.AddInterface(&hyperstartapi.NetworkInf{
+				Device:    inf.DeviceName,
+				IpAddress: ip.String(),
+				NetMask:   fmt.Sprintf("%d.%d.%d.%d", net.Mask[0], net.Mask[1], net.Mask[2], net.Mask[3]),
+				Mtu:       inf.Mtu,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func (ctx *VmContext) hyperstartAddRoute(r []hyperstartapi.Route) error {
+	if err := ctx.hyperstart.AddRoute(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		return ctx.hyperstart.DeleteInterface(&hyperstartapi.NetworkInf{
+			Device: inf.DeviceName,
+		})
+	}
+}
+
+func (ctx *VmContext) hyperstartAddIPAddr(id, ipaddr string) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		ip, net, err := net.ParseCIDR(ipaddr)
+		if err != nil {
+			return fmt.Errorf("can't parse ip %q: %v", ipaddr, err)
+		}
+		return ctx.hyperstart.AddInterface(&hyperstartapi.NetworkInf{
+			Device:    inf.DeviceName,
+			IpAddress: ip.String(),
+			NetMask:   fmt.Sprintf("%d.%d.%d.%d", net.Mask[0], net.Mask[1], net.Mask[2], net.Mask[3]),
+		})
+	}
+}
+
+func (ctx *VmContext) hyperstartDeleteIPAddr(id, ipaddr string) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		ip, net, err := net.ParseCIDR(ipaddr)
+		if err != nil {
+			return fmt.Errorf("can't parse ip %q: %v", ipaddr, err)
+		}
+		return ctx.hyperstart.AddInterface(&hyperstartapi.NetworkInf{
+			Device:    inf.DeviceName,
+			IpAddress: fmt.Sprintf("-%s", ip.String()), // start with '-' means delete instead of add
+			NetMask:   fmt.Sprintf("%d.%d.%d.%d", net.Mask[0], net.Mask[1], net.Mask[2], net.Mask[3]),
+		})
+	}
+}
+
+func (ctx *VmContext) hyperstartUpdateMtu(id string, mtu uint64) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		return ctx.hyperstart.AddInterface(&hyperstartapi.NetworkInf{
+			Device: inf.DeviceName,
+			Mtu:    mtu,
+		})
 	}
 }
 

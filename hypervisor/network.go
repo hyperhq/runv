@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/hyperhq/runv/api"
@@ -84,7 +83,7 @@ func (nc *NetworkContext) freeSlot(slot int) {
 
 func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	if inf.Lo {
-		if inf.Ip == "" {
+		if inf.Ip == nil || len(inf.Ip) == 0 {
 			estr := fmt.Sprintf("creating an interface without an IP address: %#v", inf)
 			nc.sandbox.Log(ERROR, estr)
 			result <- NewSpecError(inf.Id, estr)
@@ -92,11 +91,12 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 		}
 		i := &InterfaceCreated{
 			Id:         inf.Id,
+			Mtu:        inf.Mtu,
 			DeviceName: DEFAULT_LO_DEVICE_NAME,
 			IpAddr:     inf.Ip,
-			NetMask:    "255.255.255.255",
+			Desc:       inf,
 		}
-		nc.lo[inf.Ip] = i
+		nc.lo[inf.Ip[0]] = i
 		nc.idMap[inf.Id] = i
 
 		result <- &api.ResultBase{
@@ -158,7 +158,7 @@ func (nc *NetworkContext) removeInterface(id string, result chan api.Result) {
 		return
 	} else if inf.HostDevice == "" { // a virtual interface
 		delete(nc.idMap, id)
-		delete(nc.lo, inf.IpAddr)
+		delete(nc.lo, inf.IpAddr[0])
 		result <- api.NewResultBase(id, true, "")
 		return
 	} else {
@@ -242,6 +242,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 		result <- &DeviceFailed{Session: created}
 		return
 	}
+	created.Desc = inf
 
 	h := &HostNicInfo{
 		Id:      created.Id,
@@ -253,9 +254,10 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 	}
 	g := &GuestNicInfo{
 		Device:  created.DeviceName,
-		Ipaddr:  created.IpAddr,
+		Ipaddr:  created.IpAddr[0],
 		Index:   created.Index,
 		Busaddr: created.PCIAddr,
+		Mtu:     created.Mtu,
 	}
 
 	nc.eth[index] = created
@@ -282,13 +284,61 @@ func (nc *NetworkContext) getInterface(id string) *InterfaceCreated {
 	return nil
 }
 
+func (nc *NetworkContext) AddIPAddr(id, ip string) error {
+	nc.slotLock.RLock()
+	defer nc.slotLock.RUnlock()
+	inf, ok := nc.idMap[id]
+	if !ok {
+		return ErrNoSuchInf
+	}
+	inf.IpAddr = append(inf.IpAddr, ip)
+	inf.Desc.Ip = append(inf.Desc.Ip, ip)
+	return nil
+}
+
+func (nc *NetworkContext) DeleteIPAddr(id, ip string) error {
+	nc.slotLock.RLock()
+	defer nc.slotLock.RUnlock()
+	inf, ok := nc.idMap[id]
+	if !ok {
+		return ErrNoSuchInf
+	}
+
+	for i, v := range inf.IpAddr {
+		if v == ip {
+			inf.IpAddr = append(inf.IpAddr[:i], inf.IpAddr[i+1:]...)
+			break
+		}
+	}
+
+	for i, v := range inf.Desc.Ip {
+		if v == ip {
+			inf.IpAddr = append(inf.Desc.Ip[:i], inf.Desc.Ip[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
+func (nc *NetworkContext) UpdateMtu(id string, mtu uint64) error {
+	nc.slotLock.RLock()
+	defer nc.slotLock.RUnlock()
+	inf, ok := nc.idMap[id]
+	if !ok {
+		return ErrNoSuchInf
+	}
+	inf.Mtu = mtu
+	inf.Desc.Mtu = mtu
+	return nil
+}
+
 func (nc *NetworkContext) getIpAddrs() []string {
 	nc.slotLock.RLock()
 	defer nc.slotLock.RUnlock()
 
 	res := []string{}
 	for _, inf := range nc.eth {
-		res = append(res, inf.IpAddr)
+		res = append(res, inf.IpAddr...)
 	}
 
 	return res
@@ -325,13 +375,6 @@ func (nc *NetworkContext) close() {
 }
 
 func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
-	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
-	if err != nil {
-		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
-	}
-	var tmp []byte = nw.Mask
-	var mask net.IP = tmp
-
 	rt := []*RouteRule{}
 	/* Route rule is generated automaticly on first interface,
 	 * or generated on the gateway configured interface. */
@@ -351,8 +394,8 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		DeviceName: name,
 		Fd:         inf.File,
 		MacAddr:    inf.Mac,
-		IpAddr:     ip.String(),
-		NetMask:    mask.String(),
+		IpAddr:     inf.IPAddress,
+		Mtu:        inf.Mtu,
 		RouteTable: rt,
 	}, nil
 }

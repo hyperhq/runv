@@ -2,6 +2,9 @@ syntax = "proto3";
 
 package api;
 
+// To generate description.pb.go, run:
+// $ protoc --go_out=. descriptions.proto
+
 message SandboxConfig {
     string hostname = 1;
     repeated string dns = 2;
@@ -54,11 +57,12 @@ message InterfaceDescription {
     string id = 1;
     bool lo = 2;
     string bridge = 3;
-    string ip = 4;
+    repeated string ip = 4;
     string mac = 5;
-    string gw = 6;
-    string tapName = 7;
-    string options = 8;
+    uint64 mtu = 6;
+    string gw = 7;
+    string tapName = 8;
+    string options = 9;
 }
 
 message PortDescription {

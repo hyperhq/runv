@@ -646,12 +646,12 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(dev, ip, mask string) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
-		Device:    dev,
-		IpAddress: ip,
-		NetMask:   mask,
-	})
+func (h *jsonBasedHyperstart) AddInterface(inf *hyperstartapi.NetworkInf) error {
+	return h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf)
+}
+
+func (h *jsonBasedHyperstart) DeleteInterface(inf *hyperstartapi.NetworkInf) error {
+	return h.hyperstartCommand(hyperstartapi.INIT_DELETEINTERFACE, inf)
 }
 
 func (h *jsonBasedHyperstart) TtyWinResize4242(container, process string, row, col uint16) error {
