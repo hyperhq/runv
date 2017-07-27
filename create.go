@@ -245,7 +245,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 		return err
 	}
 
-	return ociCreate(context, container, func(stdin, stdout, stderr string) error {
+	return ociCreate(context, container, "init", func(stdin, stdout, stderr string) error {
 		r := &types.CreateContainerRequest{
 			Id:         container,
 			Runtime:    "runv-create",
@@ -269,7 +269,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 
 }
 
-func ociCreate(context *cli.Context, container string, createFunc func(stdin, stdout, stderr string) error) error {
+func ociCreate(context *cli.Context, container, process string, createFunc func(stdin, stdout, stderr string) error) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
@@ -319,7 +319,7 @@ func ociCreate(context *cli.Context, container string, createFunc func(stdin, st
 		if context.GlobalBool("debug") {
 			args = append(args, "--debug")
 		}
-		args = append(args, "shim", "--container", container, "--process", "init")
+		args = append(args, "shim", "--container", container, "--process", process)
 		if context.String("pid-file") != "" {
 			args = append(args, "--proxy-exit-code", "--proxy-signal")
 		}
