@@ -16,6 +16,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 	netcontext "golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 )
 
 var createCommand = cli.Command{
@@ -245,7 +246,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 		return err
 	}
 
-	return ociCreate(context, container, "init", func(stdin, stdout, stderr string) error {
+	return ociCreate(context, container, "init", namespace, func(stdin, stdout, stderr string) error {
 		r := &types.CreateContainerRequest{
 			Id:         container,
 			Runtime:    "runv-create",
@@ -269,7 +270,7 @@ func createContainer(context *cli.Context, container, namespace string, config *
 
 }
 
-func ociCreate(context *cli.Context, container, process string, createFunc func(stdin, stdout, stderr string) error) error {
+func ociCreate(context *cli.Context, container, process, namespace string, createFunc func(stdin, stdout, stderr string) error) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot find self executable path for %s: %v\n", os.Args[0], err)
@@ -298,10 +299,15 @@ func ociCreate(context *cli.Context, container, process string, createFunc func(
 		stdout = fmt.Sprintf("/proc/%d/fd/1", pid)
 		stderr = fmt.Sprintf("/proc/%d/fd/2", pid)
 	} else {
-		defer tty.Close()
-		stdin = tty.Name()
-		stdout = tty.Name()
-		stderr = tty.Name()
+		streamDir := filepath.Join(namespace, container)
+		if _, ex := os.Stat(streamDir); ex != nil && os.IsNotExist(ex) {
+			os.MkdirAll(streamDir, 0755)
+		}
+
+		stdin = fmt.Sprintf("%s/%s-0", streamDir, process)
+		unix.Mkfifo(stdin, 0)
+		stdout = fmt.Sprintf("%s/%s-1", streamDir, process)
+		unix.Mkfifo(stdout, 0)
 	}
 	err = createFunc(stdin, stdout, stderr)
 	if err != nil {
@@ -324,7 +330,7 @@ func ociCreate(context *cli.Context, container, process string, createFunc func(
 			args = append(args, "--proxy-exit-code", "--proxy-signal")
 		}
 		if tty != nil {
-			args = append(args, "--proxy-winsize")
+			args = append(args, "--proxy-winsize", "--input-pipe", stdin, "--output-pipe", stdout)
 		}
 		cmd = &exec.Cmd{
 			Path:   path,
