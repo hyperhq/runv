@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -33,11 +34,46 @@ var shimCommand = cli.Command{
 		cli.BoolFlag{
 			Name: "proxy-winsize",
 		},
+		cli.StringFlag{
+			Name: "input-pipe",
+		},
+		cli.StringFlag{
+			Name: "output-pipe",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		root := context.GlobalString("root")
 		container := context.String("container")
 		process := context.String("process")
+
+		var stdinStream, stdoutStream io.ReadWriteCloser
+		var err error
+		stdinPath := context.String("input-pipe")
+		stdoutPath := context.String("output-pipe")
+		if context.Bool("proxy-winsize") {
+			stdinStream, err = os.OpenFile(stdinPath, syscall.O_WRONLY, 0)
+			if err != nil {
+				return err
+			}
+
+			stdoutStream, err = os.OpenFile(stdoutPath, syscall.O_RDONLY, 0)
+			if err != nil {
+				return err
+			}
+		}
+
+		if stdinStream != nil {
+			go func() {
+				io.Copy(stdinStream, os.Stdin)
+			}()
+		}
+
+		if stdoutStream != nil {
+			go func() {
+				io.Copy(os.Stdout, stdoutStream)
+			}()
+		}
+
 		c, err := getClient(filepath.Join(root, container, "namespace", "namespaced.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
