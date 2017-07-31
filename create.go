@@ -432,7 +432,9 @@ func findSharedContainer(root, nsPath string) (container string, err error) {
 			shimPidFile := filepath.Join(absRoot, item.Name(), "shim-init.pid")
 			spidByte, err := ioutil.ReadFile(shimPidFile)
 			if err != nil {
-				return "", fmt.Errorf("failed to read shim pid file %q: %v", shimPidFile, err)
+				// for backward compatibility, if dir doesn't contain "shim-init.pid"
+				// it could be old legacy dir, ignore and skip it.
+				continue
 			}
 			spid := strings.TrimSpace(string(spidByte))
 			if pid == spid {
