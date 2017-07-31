@@ -103,3 +103,23 @@ func loadSpec(ocffile string) (*specs.Spec, error) {
 	}
 	return &spec, nil
 }
+
+func updateSpec(spec *specs.Spec, ocffile string) error {
+	if _, err := os.Stat(ocffile); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%q doesn't exists", ocffile)
+		}
+		return fmt.Errorf("Stat %q error: %v", ocffile, err)
+	}
+
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to marshal spec file during update: %v", err)
+	}
+
+	if err = ioutil.WriteFile(ocffile, data, 0640); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -50,7 +50,7 @@ in json format:
 		},
 	},
 	Action: func(context *cli.Context) {
-		s, err := getContainers(context)
+		s, err := getContainers(context.GlobalString("root"))
 		if err != nil {
 			fatal(err)
 		}
@@ -91,8 +91,7 @@ in json format:
 	},
 }
 
-func getContainers(context *cli.Context) ([]containerState, error) {
-	root := context.GlobalString("root")
+func getContainers(root string) ([]containerState, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
