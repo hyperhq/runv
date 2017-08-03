@@ -556,7 +556,7 @@ func (s *streamIn) Write(data []byte) (ret int, err error) {
 		if s.h == nil {
 			return len(data) - len(b), fmt.Errorf("closed")
 		}
-		nr := 16
+		nr := 4000 // should be less than 4096-12 every time
 		if len(b) < nr {
 			nr = len(b)
 		}
