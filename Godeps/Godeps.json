@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/hyperhq/runv",
-	"GoVersion": "go1.7",
+	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -25,11 +25,6 @@
 			"ImportPath": "github.com/cloudfoundry/gosigar",
 			"Comment": "scotty_09012012-31-gdfaa4d4",
 			"Rev": "dfaa4d491586af21e1ce06028df3926389a99654"
-		},
-		{
-			"ImportPath": "github.com/urfave/cli",
-			"Comment": "v1.19.1-36-gd70f47e",
-			"Rev": "d70f47eeca3afd795160003bc6e28b001d60c67c"
 		},
 		{
 			"ImportPath": "github.com/docker/docker/integration-cli/checker",
@@ -85,23 +80,27 @@
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
-			"Rev": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317"
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes",
-			"Rev": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317"
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/any",
-			"Rev": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317"
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/duration",
-			"Rev": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317"
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf/ptypes/empty",
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 		},
 		{
 			"ImportPath": "github.com/golang/protobuf/ptypes/timestamp",
-			"Rev": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317"
+			"Rev": "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
 		},
 		{
 			"ImportPath": "github.com/golang/snappy",
@@ -147,6 +146,11 @@
 			"ImportPath": "github.com/tinylib/msgp/msgp",
 			"Comment": "v1.0-1-g362bfb3",
 			"Rev": "362bfb3384d53ae4d5dd745983a4d70b6d23628c"
+		},
+		{
+			"ImportPath": "github.com/urfave/cli",
+			"Comment": "v1.19.1-36-gd70f47e",
+			"Rev": "d70f47eeca3afd795160003bc6e28b001d60c67c"
 		},
 		{
 			"ImportPath": "github.com/vdemeester/shakers",
