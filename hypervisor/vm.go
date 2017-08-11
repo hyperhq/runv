@@ -334,11 +334,6 @@ func (vm *Vm) DeleteNic(id string) error {
 	return nil
 }
 
-// TODO: deprecated api, it will be removed after the hyper.git updated
-func (vm *Vm) AddCpu(totalCpu int) error {
-	return vm.SetCpus(totalCpu)
-}
-
 func (vm *Vm) SetCpus(cpus int) error {
 	if vm.Cpu >= cpus {
 		return nil
