@@ -230,7 +230,7 @@ func (xc *XenContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hyperviso
 	format := blockInfo.Format
 	id := blockInfo.ScsiId
 
-	go diskRoutine(false, xc, ctx, "", "", filename, format, id, callback, result)
+	go diskRoutine(false, xc, ctx, "", filename, format, id, callback, result)
 }
 
 func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
