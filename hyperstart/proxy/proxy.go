@@ -106,7 +106,6 @@ func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *hyperstartgrpc.Tt
 	return pbEmpty(err), err
 }
 
-// misc (TODO: some rpcs can be replaced by hyperstart-exec)
 func (proxy *jsonProxy) StartSandbox(ctx context.Context, req *hyperstartgrpc.StartSandboxRequest) (*google_protobuf.Empty, error) {
 	pod := &hyperstartjson.Pod{
 		Hostname: req.Hostname,

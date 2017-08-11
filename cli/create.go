@@ -99,8 +99,7 @@ func cmdCreateContainer(context *cli.Context, createOnly bool) error {
 					return fmt.Errorf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only")
 				}
 				if ns.Type == "mount" {
-					// TODO support it!
-					return fmt.Errorf("Runv doesn't support shared mount namespace currently")
+					return fmt.Errorf("Runv doesn't support containers with shared mount namespace, use `runv exec` instead")
 				}
 				sharedContainer = ns.Path
 				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJSON))

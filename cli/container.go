@@ -116,7 +116,6 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 
 	err = execPrestartHooks(spec, state)
 	if err != nil {
-		// cli refator todo stop container
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
 		return nil, err
 	}
@@ -126,7 +125,6 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	// Create the listener process which will enters into the netns of the shim
 	options.withContainer = state
 	if err = startNsListener(options, vm); err != nil {
-		// cli refator todo stop container
 		glog.Errorf("start ns listener fail: %v", err)
 		return nil, err
 	}
