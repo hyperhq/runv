@@ -43,14 +43,12 @@ pkgs+=" valgrind"
 pkgs+=" libdevmapper-dev"
 pkgs+=" libvirt-dev"
 pkgs+=" libvirt-bin"
-pkgs+=" qemu"
 
 # runtime dependencies
 pkgs+=" uuid-dev"
 pkgs+=" libmnl-dev"
 pkgs+=" libffi-dev"
 pkgs+=" libpcre3-dev"
-pkgs+=" qemu-system-x86"
 
 # runtime + qemu-lite
 pkgs+=" zlib1g-dev"
@@ -81,6 +79,8 @@ pkgs+=" libgpgme11-dev"
 
 sudo apt-get -qq update
 eval sudo apt-get -qq install "$pkgs"
+
+wget https://s3-us-west-1.amazonaws.com/hypercontainer-download/qemu-hyper/qemu-hyper_2.4.1-1_amd64.deb && sudo dpkg -i --force-all qemu-hyper_2.4.1-1_amd64.deb
 
 function cheat_cc_setup(){
     # clone specified commit cc-oci-runtime repo
