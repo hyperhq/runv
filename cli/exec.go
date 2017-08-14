@@ -160,7 +160,7 @@ func getProcess(context *cli.Context, spec *specs.Spec) (*specs.Process, error) 
 	return &p, nil
 }
 
-func runProcess(context *cli.Context, container string, cState *specs.State, config *specs.Process) (int, error) {
+func runProcess(context *cli.Context, container string, cState *State, config *specs.Process) (int, error) {
 	pid := os.Getpid()
 	process := fmt.Sprintf("p-%x", pid+0xabcdef) // uniq name
 

@@ -17,7 +17,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *specs.State) error {
+func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *State) error {
 	err := vm.StartContainer(container)
 	if err != nil {
 		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v\n", err)
@@ -102,12 +102,14 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 		}
 	}()
 
-	state := &specs.State{
-		Version: spec.Version,
-		ID:      container,
-		Status:  "created",
-		Pid:     shim.Pid,
-		Bundle:  bundle,
+	state := &State{
+		specs.State{
+			Version: spec.Version,
+			ID:      container,
+			Status:  "created",
+			Pid:     shim.Pid,
+			Bundle:  bundle,
+		},
 	}
 	glog.V(3).Infof("save state id %s, boundle %s", container, bundle)
 	if err = saveStateFile(stateRoot, container, state); err != nil {
@@ -132,7 +134,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	return shim, nil
 }
 
-func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *specs.State) error {
+func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
 
 	// todo: check the container from vm.ContainerList()
 	// todo: check the process of state.Pid in case it is a new unrelated process
@@ -213,7 +215,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 	return shim, nil
 }
 
-func execHook(hook specs.Hook, state *specs.State) error {
+func execHook(hook specs.Hook, state *State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -227,7 +229,7 @@ func execHook(hook specs.Hook, state *specs.State) error {
 	return cmd.Run()
 }
 
-func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
+func execPrestartHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}
@@ -241,7 +243,7 @@ func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
 	return nil
 }
 
-func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
+func execPoststartHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}
@@ -255,7 +257,7 @@ func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
 	return nil
 }
 
-func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
+func execPoststopHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}

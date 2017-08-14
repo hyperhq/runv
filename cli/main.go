@@ -9,7 +9,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
 
@@ -152,7 +151,7 @@ func main() {
 // runvOptions is used for create aux runv processes (networklistener/shim/proxy)
 type runvOptions struct {
 	*cli.Context
-	withContainer *specs.State
+	withContainer *State
 }
 
 func cmdPrepare(context *cli.Context, setupHypervisor, canLogToStderr bool) error {

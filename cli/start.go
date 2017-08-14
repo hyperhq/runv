@@ -45,7 +45,7 @@ your host.`,
 	},
 }
 
-func cmdStartContainer(context *cli.Context, container string, config *specs.Spec, state *specs.State) error {
+func cmdStartContainer(context *cli.Context, container string, config *specs.Spec, state *State) error {
 	vm, fileLock, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
 	if err != nil {
 		return err
