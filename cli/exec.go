@@ -117,6 +117,7 @@ following will output a list of processes running in the container:
 		}
 		return nil
 	},
+	SkipArgReorder: true,
 }
 
 func getProcess(context *cli.Context, spec *specs.Spec) (*specs.Process, error) {
