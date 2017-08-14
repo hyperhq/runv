@@ -128,6 +128,8 @@ func loadProcessConfig(path string) (*specs.Process, error) {
 
 type State struct {
 	specs.State
+	ShimCreateTime      uint64 `json:"shim_create_time"`
+	ContainerCreateTime int64  `json:"container_create_time"`
 }
 
 func saveStateFile(root, container string, state *State) error {

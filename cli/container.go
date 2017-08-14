@@ -14,6 +14,7 @@ import (
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/linuxsignal"
+	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -32,6 +33,7 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 
 	glog.V(3).Infof("change the status of container %s to `running`", container)
 	state.Status = "running"
+	state.ContainerCreateTime = time.Now().UTC().Unix()
 	if err = saveStateFile(root, container, state); err != nil {
 		return err
 	}
@@ -102,14 +104,21 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 		}
 	}()
 
+	var stat system.Stat_t
+	stat, err = system.Stat(shim.Pid)
+	if err != nil {
+		return nil, err
+	}
+
 	state := &State{
-		specs.State{
+		State: specs.State{
 			Version: spec.Version,
 			ID:      container,
 			Status:  "created",
 			Pid:     shim.Pid,
 			Bundle:  bundle,
 		},
+		ShimCreateTime: stat.StartTime,
 	}
 	glog.V(3).Infof("save state id %s, boundle %s", container, bundle)
 	if err = saveStateFile(stateRoot, container, state); err != nil {
