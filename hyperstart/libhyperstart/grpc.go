@@ -3,6 +3,7 @@ package libhyperstart
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -12,6 +13,7 @@ import (
 	hyperstartgrpc "github.com/hyperhq/runv/hyperstart/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/hyperstart/api/json"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -102,7 +104,10 @@ func (h *grpcBasedHyperstart) WriteStdin(container, process string, data []byte)
 	if err == nil {
 		return int(ret.Len), nil
 	}
-	// todo check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	// check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	if grpc.Code(err) == codes.OutOfRange && grpc.ErrorDesc(err) == "EOF" {
+		return 0, io.EOF
+	}
 	return 0, err
 }
 
@@ -116,7 +121,10 @@ func (h *grpcBasedHyperstart) ReadStdout(container, process string, data []byte)
 		copy(data, ret.Data)
 		return len(ret.Data), nil
 	}
-	// todo check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	// check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	if grpc.Code(err) == codes.OutOfRange && grpc.ErrorDesc(err) == "EOF" {
+		return 0, io.EOF
+	}
 	return 0, err
 }
 
@@ -130,7 +138,10 @@ func (h *grpcBasedHyperstart) ReadStderr(container, process string, data []byte)
 		copy(data, ret.Data)
 		return len(ret.Data), nil
 	}
-	// todo check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	// check if it is &grpc.rpcError{code:0xb, desc:"EOF"} and return io.EOF instead
+	if grpc.Code(err) == codes.OutOfRange && grpc.ErrorDesc(err) == "EOF" {
+		return 0, io.EOF
+	}
 	return 0, err
 }
 

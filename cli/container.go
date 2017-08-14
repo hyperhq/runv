@@ -17,7 +17,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func startContainer(vm *hypervisor.Vm, container string, spec *specs.Spec, state *specs.State) error {
+func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *specs.State) error {
 	err := vm.StartContainer(container)
 	if err != nil {
 		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v\n", err)
@@ -27,6 +27,12 @@ func startContainer(vm *hypervisor.Vm, container string, spec *specs.Spec, state
 	err = syscall.Kill(state.Pid, syscall.SIGUSR1)
 	if err != nil {
 		glog.V(1).Infof("failed to notify the shim to work", err.Error())
+		return err
+	}
+
+	glog.V(3).Infof("change the status of container %s to `running`", container)
+	state.Status = "running"
+	if err = saveStateFile(root, container, state); err != nil {
 		return err
 	}
 
@@ -99,17 +105,17 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	state := &specs.State{
 		Version: spec.Version,
 		ID:      container,
+		Status:  "created",
 		Pid:     shim.Pid,
 		Bundle:  bundle,
 	}
 	glog.V(3).Infof("save state id %s, boundle %s", container, bundle)
-	if err = saveStateFile(filepath.Join(stateDir, "state.json"), state); err != nil {
+	if err = saveStateFile(stateRoot, container, state); err != nil {
 		return nil, err
 	}
 
 	err = execPrestartHooks(spec, state)
 	if err != nil {
-		// cli refator todo stop container
 		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
 		return nil, err
 	}
@@ -119,7 +125,6 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	// Create the listener process which will enters into the netns of the shim
 	options.withContainer = state
 	if err = startNsListener(options, vm); err != nil {
-		// cli refator todo stop container
 		glog.Errorf("start ns listener fail: %v", err)
 		return nil, err
 	}

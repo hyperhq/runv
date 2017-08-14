@@ -79,7 +79,6 @@ var shimCommand = cli.Command{
 		}
 
 		if context.Bool("proxy-signal") {
-			// TODO
 			glog.V(3).Infof("using shim to proxy signal")
 			sigc := forwardAllSignals(h, container, process)
 			defer signal.Stop(sigc)

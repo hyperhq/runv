@@ -126,7 +126,8 @@ func loadProcessConfig(path string) (*specs.Process, error) {
 	return s, nil
 }
 
-func saveStateFile(stateFile string, state *specs.State) error {
+func saveStateFile(root, container string, state *specs.State) error {
+	stateFile := filepath.Join(root, container, stateJSON)
 	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
