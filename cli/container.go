@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -191,13 +192,27 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 }
 
 func addProcess(options runvOptions, vm *hypervisor.Vm, container, process string, spec *specs.Process) (shim *os.Process, err error) {
-	err = vm.AddProcess(&api.Process{
+	p := &api.Process{
 		Container: container,
 		Id:        process,
 		Terminal:  spec.Terminal,
 		Args:      spec.Args,
 		Envs:      spec.Env,
-		Workdir:   spec.Cwd}, nil)
+		Workdir:   spec.Cwd,
+	}
+	if spec.User.UID != 0 {
+		p.User = strconv.FormatUint(uint64(spec.User.UID), 10)
+	}
+	if spec.User.GID != 0 {
+		p.Group = strconv.FormatUint(uint64(spec.User.GID), 10)
+	}
+	if len(spec.User.AdditionalGids) > 0 {
+		ag := []string{}
+		for _, g := range spec.User.AdditionalGids {
+			ag = append(ag, strconv.FormatUint(uint64(g), 10))
+		}
+	}
+	err = vm.AddProcess(p, nil)
 
 	if err != nil {
 		glog.V(1).Infof("add process to container failed: %v\n", err)
