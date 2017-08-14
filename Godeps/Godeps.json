@@ -124,9 +124,14 @@
 			"Rev": "90eadee771aeab36e8bf796039b8c261bebebe4f"
 		},
 		{
+			"ImportPath": "github.com/opencontainers/runc/libcontainer/system",
+			"Comment": "v1.0.0-rc3-123-g429a538",
+			"Rev": "429a5387123625040bacfbb60d96b1cbd02293ab"
+		},
+		{
 			"ImportPath": "github.com/opencontainers/runc/libcontainer/utils",
-			"Comment": "v1.0.0-rc3-14-g653207b",
-			"Rev": "653207bc29a6d2d62b5d4f55b596467cb715a128"
+			"Comment": "v1.0.0-rc3-123-g429a538",
+			"Rev": "429a5387123625040bacfbb60d96b1cbd02293ab"
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
