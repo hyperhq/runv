@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/urfave/cli"
 )
 
@@ -69,7 +70,7 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 	}
 
 	stateFile := filepath.Join(absRoot, name, stateJSON)
-	fi, err := os.Stat(stateFile)
+	_, err = os.Stat(stateFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("State file of %s not found", name)
@@ -82,14 +83,25 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 		return nil, fmt.Errorf("Load state file %s failed: %s", stateFile, err.Error())
 	}
 
+	status := state.Status
+	var stat system.Stat_t
+	stat, err = system.Stat(state.Pid)
+	if err != nil || stat.StartTime != state.ShimCreateTime || stat.State == system.Zombie || stat.State == system.Dead {
+		status = "stopped"
+	}
+
+	if state.Status != status {
+		saveStateFile(absRoot, name, state)
+	}
+
 	s := &cState{
 		Version:        state.Version,
 		ID:             state.ID,
 		InitProcessPid: state.Pid,
-		Status:         "running",
+		Status:         status,
 		Bundle:         state.Bundle,
 		Rootfs:         filepath.Join(state.Bundle, "rootfs"),
-		Created:        fi.ModTime(),
+		Created:        time.Unix(state.ContainerCreateTime, 0),
 	}
 	return s, nil
 }

@@ -62,7 +62,7 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 	},
 }
 
-func cmdDeleteContainer(context *cli.Context, container string, force bool, spec *specs.Spec, state *specs.State) error {
+func cmdDeleteContainer(context *cli.Context, container string, force bool, spec *specs.Spec, state *State) error {
 	vm, lockFile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
 	if err != nil {
 		return err

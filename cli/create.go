@@ -114,7 +114,7 @@ func cmdCreateContainer(context *cli.Context, createOnly bool) error {
 		}
 	}
 
-	var scState *specs.State
+	var scState *State
 	var vm *hypervisor.Vm
 	var lockFile *os.File
 	if sharedContainer != "" {

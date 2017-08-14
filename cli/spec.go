@@ -126,7 +126,13 @@ func loadProcessConfig(path string) (*specs.Process, error) {
 	return s, nil
 }
 
-func saveStateFile(root, container string, state *specs.State) error {
+type State struct {
+	specs.State
+	ShimCreateTime      uint64 `json:"shim_create_time"`
+	ContainerCreateTime int64  `json:"container_create_time"`
+}
+
+func saveStateFile(root, container string, state *State) error {
 	stateFile := filepath.Join(root, container, stateJSON)
 	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
@@ -141,7 +147,7 @@ func saveStateFile(root, container string, state *specs.State) error {
 	return nil
 }
 
-func loadStateFile(root, container string) (*specs.State, error) {
+func loadStateFile(root, container string) (*State, error) {
 	stateFile := filepath.Join(root, container, stateJSON)
 	file, err := os.Open(stateFile)
 	if err != nil {
@@ -149,14 +155,14 @@ func loadStateFile(root, container string) (*specs.State, error) {
 	}
 	defer file.Close()
 
-	var state specs.State
+	var state State
 	if err = json.NewDecoder(file).Decode(&state); err != nil {
 		return nil, fmt.Errorf("Decode state file %s error: %s", stateFile, err.Error())
 	}
 	return &state, nil
 }
 
-func loadStateAndSpec(root, container string) (*specs.State, *specs.Spec, error) {
+func loadStateAndSpec(root, container string) (*State, *specs.Spec, error) {
 	state, err := loadStateFile(root, container)
 	if err != nil {
 		return nil, nil, err

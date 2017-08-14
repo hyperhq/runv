@@ -14,10 +14,11 @@ import (
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/linuxsignal"
+	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *specs.State) error {
+func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *State) error {
 	err := vm.StartContainer(container)
 	if err != nil {
 		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v\n", err)
@@ -32,6 +33,7 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 
 	glog.V(3).Infof("change the status of container %s to `running`", container)
 	state.Status = "running"
+	state.ContainerCreateTime = time.Now().UTC().Unix()
 	if err = saveStateFile(root, container, state); err != nil {
 		return err
 	}
@@ -102,12 +104,21 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 		}
 	}()
 
-	state := &specs.State{
-		Version: spec.Version,
-		ID:      container,
-		Status:  "created",
-		Pid:     shim.Pid,
-		Bundle:  bundle,
+	var stat system.Stat_t
+	stat, err = system.Stat(shim.Pid)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &State{
+		State: specs.State{
+			Version: spec.Version,
+			ID:      container,
+			Status:  "created",
+			Pid:     shim.Pid,
+			Bundle:  bundle,
+		},
+		ShimCreateTime: stat.StartTime,
 	}
 	glog.V(3).Infof("save state id %s, boundle %s", container, bundle)
 	if err = saveStateFile(stateRoot, container, state); err != nil {
@@ -132,7 +143,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	return shim, nil
 }
 
-func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *specs.State) error {
+func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
 
 	// todo: check the container from vm.ContainerList()
 	// todo: check the process of state.Pid in case it is a new unrelated process
@@ -213,7 +224,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 	return shim, nil
 }
 
-func execHook(hook specs.Hook, state *specs.State) error {
+func execHook(hook specs.Hook, state *State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -227,7 +238,7 @@ func execHook(hook specs.Hook, state *specs.State) error {
 	return cmd.Run()
 }
 
-func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
+func execPrestartHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}
@@ -241,7 +252,7 @@ func execPrestartHooks(rt *specs.Spec, state *specs.State) error {
 	return nil
 }
 
-func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
+func execPoststartHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}
@@ -255,7 +266,7 @@ func execPoststartHooks(rt *specs.Spec, state *specs.State) error {
 	return nil
 }
 
-func execPoststopHooks(rt *specs.Spec, state *specs.State) error {
+func execPoststopHooks(rt *specs.Spec, state *State) error {
 	if rt.Hooks == nil {
 		return nil
 	}
