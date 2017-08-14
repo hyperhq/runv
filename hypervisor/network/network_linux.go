@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
-	"github.com/hyperhq/runv/hypervisor/network/iptables"
 	"github.com/vishvananda/netlink"
 )
 
@@ -39,9 +37,8 @@ const (
 )
 
 var (
-	native          binary.ByteOrder
-	nextSeqNr       uint32
-	disableIptables bool
+	native    binary.ByteOrder
+	nextSeqNr uint32
 )
 
 type ifReq struct {
@@ -119,101 +116,6 @@ func setupIPForwarding() error {
 	return nil
 }
 
-func setupIPTables(addr net.Addr) error {
-	if disableIptables {
-		return nil
-	}
-
-	// Enable NAT
-	natArgs := []string{"-s", addr.String(), "!", "-o", BridgeIface, "-j", "MASQUERADE"}
-
-	if !iptables.Exists(iptables.Nat, "POSTROUTING", natArgs...) {
-		if output, err := iptables.Raw(append([]string{
-			"-t", string(iptables.Nat), "-I", "POSTROUTING"}, natArgs...)...); err != nil {
-			return fmt.Errorf("Unable to enable network bridge NAT: %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "POSTROUTING", Output: output}
-		}
-	}
-
-	// Create HYPER iptables Chain
-	iptables.Raw("-N", "HYPER")
-
-	// Goto HYPER chain
-	gotoArgs := []string{"-o", BridgeIface, "-j", "HYPER"}
-	if !iptables.Exists(iptables.Filter, "FORWARD", gotoArgs...) {
-		if output, err := iptables.Raw(append([]string{"-I", "FORWARD"}, gotoArgs...)...); err != nil {
-			return fmt.Errorf("Unable to setup goto HYPER rule %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "FORWARD goto HYPER", Output: output}
-		}
-	}
-
-	// Accept all outgoing packets
-	outgoingArgs := []string{"-i", BridgeIface, "-j", "ACCEPT"}
-	if !iptables.Exists(iptables.Filter, "FORWARD", outgoingArgs...) {
-		if output, err := iptables.Raw(append([]string{"-I", "FORWARD"}, outgoingArgs...)...); err != nil {
-			return fmt.Errorf("Unable to allow outgoing packets: %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "FORWARD outgoing", Output: output}
-		}
-	}
-
-	// Accept incoming packets for existing connections
-	existingArgs := []string{"-o", BridgeIface, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT"}
-
-	if !iptables.Exists(iptables.Filter, "FORWARD", existingArgs...) {
-		if output, err := iptables.Raw(append([]string{"-I", "FORWARD"}, existingArgs...)...); err != nil {
-			return fmt.Errorf("Unable to allow incoming packets: %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "FORWARD incoming", Output: output}
-		}
-	}
-
-	err := Modprobe("br_netfilter")
-	if err != nil {
-		glog.V(1).Infof("modprobe br_netfilter failed %s", err)
-	}
-
-	file, err := os.OpenFile("/proc/sys/net/bridge/bridge-nf-call-iptables",
-		os.O_RDWR, 0)
-	if err != nil {
-		return err
-	}
-
-	_, err = file.WriteString("1")
-	if err != nil {
-		return err
-	}
-
-	// Create HYPER iptables Chain
-	iptables.Raw("-t", string(iptables.Nat), "-N", "HYPER")
-	// Goto HYPER chain
-	gotoArgs = []string{"-m", "addrtype", "--dst-type", "LOCAL", "!",
-		"-d", "127.0.0.1/8", "-j", "HYPER"}
-	if !iptables.Exists(iptables.Nat, "OUTPUT", gotoArgs...) {
-		if output, err := iptables.Raw(append([]string{"-t", string(iptables.Nat),
-			"-I", "OUTPUT"}, gotoArgs...)...); err != nil {
-			return fmt.Errorf("Unable to setup goto HYPER rule %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "OUTPUT goto HYPER", Output: output}
-		}
-	}
-
-	gotoArgs = []string{"-m", "addrtype", "--dst-type", "LOCAL",
-		"-j", "HYPER"}
-	if !iptables.Exists(iptables.Nat, "PREROUTING", gotoArgs...) {
-		if output, err := iptables.Raw(append([]string{"-t", string(iptables.Nat),
-			"-I", "PREROUTING"}, gotoArgs...)...); err != nil {
-			return fmt.Errorf("Unable to setup goto HYPER rule %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "PREROUTING goto HYPER", Output: output}
-		}
-	}
-
-	return nil
-}
-
 func init() {
 	var x uint32 = 0x01020304
 	if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
@@ -234,11 +136,6 @@ func InitNetwork(bIface, bIP string, disable bool) error {
 		BridgeIP = DefaultBridgeIP
 	} else {
 		BridgeIP = bIP
-	}
-
-	disableIptables = disable
-	if disableIptables {
-		glog.V(1).Info("Iptables is disabled")
 	}
 
 	addr, err := GetIfaceAddr(BridgeIface)
@@ -280,11 +177,6 @@ func InitNetwork(bIface, bIP string, disable bool) error {
 				return fmt.Errorf("Bridge netmask (%d) does not match existing bridge netmask %d", mask1, mask2)
 			}
 		}
-	}
-
-	err = setupIPTables(addr)
-	if err != nil {
-		return err
 	}
 
 	err = setupIPForwarding()
@@ -861,102 +753,6 @@ func GenRandomMac() (string, error) {
 
 	tmp := []string{"52:54", string(bytes[0:2]), string(bytes[2:4]), string(bytes[4:6]), string(bytes[6:8])}
 	return strings.Join(tmp, ":"), nil
-}
-
-func Modprobe(module string) error {
-	modprobePath, err := exec.LookPath("modprobe")
-	if err != nil {
-		return fmt.Errorf("modprobe not found")
-	}
-
-	_, err = exec.Command(modprobePath, module).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("modprobe %s failed", module)
-	}
-
-	return nil
-}
-
-func SetupPortMaps(containerip string, maps []*api.PortDescription) error {
-	if disableIptables || len(maps) == 0 {
-		return nil
-	}
-
-	for _, m := range maps {
-		var proto string
-
-		if strings.EqualFold(m.Protocol, "udp") {
-			proto = "udp"
-		} else {
-			proto = "tcp"
-		}
-
-		natArgs := []string{"-p", proto, "-m", proto, "--dport",
-			strconv.Itoa(int(m.HostPort)), "-j", "DNAT", "--to-destination",
-			net.JoinHostPort(containerip, strconv.Itoa(int(m.ContainerPort)))}
-
-		if iptables.PortMapExists("HYPER", natArgs) {
-			return nil
-		}
-
-		if iptables.PortMapUsed("HYPER", natArgs) {
-			return fmt.Errorf("Host port %d has aleady been used", m.HostPort)
-		}
-
-		err := iptables.OperatePortMap(iptables.Insert, "HYPER", natArgs)
-		if err != nil {
-			return err
-		}
-
-		err = PortMapper.AllocateMap(m.Protocol, int(m.HostPort), containerip, int(m.ContainerPort))
-		if err != nil {
-			return err
-		}
-
-		filterArgs := []string{"-d", containerip, "-p", proto, "-m", proto,
-			"--dport", strconv.Itoa(int(m.ContainerPort)), "-j", "ACCEPT"}
-		if output, err := iptables.Raw(append([]string{"-I", "HYPER"}, filterArgs...)...); err != nil {
-			return fmt.Errorf("Unable to setup forward rule in HYPER chain: %s", err)
-		} else if len(output) != 0 {
-			return &iptables.ChainError{Chain: "HYPER", Output: output}
-		}
-	}
-	/* forbid to map ports twice */
-	return nil
-}
-
-func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
-	if disableIptables || len(maps) == 0 {
-		return nil
-	}
-
-	for _, m := range maps {
-		glog.V(1).Infof("release port map %d", m.HostPort)
-		err := PortMapper.ReleaseMap(m.Protocol, int(m.HostPort))
-		if err != nil {
-			continue
-		}
-
-		var proto string
-
-		if strings.EqualFold(m.Protocol, "udp") {
-			proto = "udp"
-		} else {
-			proto = "tcp"
-		}
-
-		natArgs := []string{"-p", proto, "-m", proto, "--dport",
-			strconv.Itoa(int(m.HostPort)), "-j", "DNAT", "--to-destination",
-			net.JoinHostPort(containerip, strconv.Itoa(int(m.ContainerPort)))}
-
-		iptables.OperatePortMap(iptables.Delete, "HYPER", natArgs)
-
-		filterArgs := []string{"-d", containerip, "-p", proto, "-m", proto,
-			"--dport", strconv.Itoa(int(m.ContainerPort)), "-j", "ACCEPT"}
-		iptables.Raw(append([]string{"-D", "HYPER"}, filterArgs...)...)
-	}
-	/* forbid to map ports twice */
-	return nil
 }
 
 func UpAndAddToBridge(name, bridge string) error {
