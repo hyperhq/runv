@@ -216,7 +216,7 @@ function run_cmd(){
 
 	if [ "$timeout_cmd"  -eq "$timeout_cmd" ] 2> /dev/null
 	then
-		cmd="timeout $timeout_cmd $cmd"
+		cmd="sudo timeout $timeout_cmd $cmd"
 	fi
 	log_msg "Running: $cmd"
 	eval "$cmd" 2>&1
