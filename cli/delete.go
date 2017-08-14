@@ -44,6 +44,17 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 
 		state, spec, err := loadStateAndSpec(root, container)
 		if err != nil {
+			// return success if the container does not exist when force
+			// and also try to remove the empty container state dir
+			if force {
+				if errRmdir := os.Remove(filepath.Join(root, container)); errRmdir == nil || os.IsNotExist(errRmdir) {
+					return nil
+				}
+				_, errState := os.Stat(filepath.Join(root, container, stateJSON))
+				if errState != nil && os.IsNotExist(errState) {
+					return nil
+				}
+			}
 			return cli.NewExitError(err, -1)
 		}
 
