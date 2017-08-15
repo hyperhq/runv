@@ -145,11 +145,14 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 }
 
 func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
-
-	// todo: check the container from vm.ContainerList()
-
 	// non-force killing can only be performed when at least one of the realProcess and shimProcess exited
-	exitedVM := vm.SignalProcess(container, "init", syscall.Signal(0)) != nil // todo: is this check reliable?
+	exitedVM := true
+	for _, c := range vm.ContainerList() {
+		if c == container {
+			exitedVM = vm.SignalProcess(container, "init", syscall.Signal(0)) != nil // todo: is this check reliable?
+			break
+		}
+	}
 	exitedHost := !containerShimAlive(state)
 	if !exitedVM && !exitedHost && !force {
 		// don't perform deleting
