@@ -54,7 +54,7 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		return cmdPrepare(context, true, context.Bool("detach"))
 	},
 	Action: func(context *cli.Context) (retErr error) {
-		if err := cmdCreateContainer(context, false); err != nil {
+		if err := cmdCreateContainer(context, !context.Bool("detach")); err != nil {
 			return cli.NewExitError(fmt.Sprintf("Run Container error: %v", err), -1)
 		}
 
