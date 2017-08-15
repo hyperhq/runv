@@ -48,6 +48,24 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 }
 
 func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, stateRoot string, spec *specs.Spec) (shim *os.Process, err error) {
+	// Prepare container state directory
+	stateDir := filepath.Join(stateRoot, container)
+	_, err = os.Stat(stateDir)
+	if err == nil {
+		glog.Errorf("Container %s exists", container)
+		return nil, fmt.Errorf("Container %s exists", container)
+	}
+	err = os.MkdirAll(stateDir, 0644)
+	if err != nil {
+		glog.V(1).Infof("%s", err.Error())
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(stateDir)
+		}
+	}()
+
 	if err = setupContainerFs(vm, bundle, container, spec); err != nil {
 		return nil, err
 	}
@@ -66,24 +84,6 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	defer func() {
 		if err != nil {
 			vm.RemoveContainer(container)
-		}
-	}()
-
-	// Prepare container state directory
-	stateDir := filepath.Join(stateRoot, container)
-	_, err = os.Stat(stateDir)
-	if err == nil {
-		glog.Errorf("Container %s exists", container)
-		return nil, fmt.Errorf("Container %s exists", container)
-	}
-	err = os.MkdirAll(stateDir, 0644)
-	if err != nil {
-		glog.V(1).Infof("%s", err.Error())
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(stateDir)
 		}
 	}()
 
