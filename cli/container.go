@@ -22,7 +22,7 @@ import (
 func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *State) error {
 	err := vm.StartContainer(container)
 	if err != nil {
-		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v\n", err)
+		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v", err)
 		return err
 	}
 
@@ -41,7 +41,7 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 
 	err = execPoststartHooks(spec, state)
 	if err != nil {
-		glog.V(1).Infof("execute Poststart hooks failed %s\n", err.Error())
+		glog.V(1).Infof("execute Poststart hooks failed %s", err.Error())
 	}
 
 	return err
@@ -73,12 +73,12 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	stateDir := filepath.Join(stateRoot, container)
 	_, err = os.Stat(stateDir)
 	if err == nil {
-		glog.Errorf("Container %s exists\n", container)
+		glog.Errorf("Container %s exists", container)
 		return nil, fmt.Errorf("Container %s exists", container)
 	}
 	err = os.MkdirAll(stateDir, 0644)
 	if err != nil {
-		glog.V(1).Infof("%s\n", err.Error())
+		glog.V(1).Infof("%s", err.Error())
 		return nil, err
 	}
 	defer func() {
@@ -128,7 +128,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 
 	err = execPrestartHooks(spec, state)
 	if err != nil {
-		glog.V(1).Infof("execute Prestart hooks failed, %s\n", err.Error())
+		glog.V(1).Infof("execute Prestart hooks failed, %s", err.Error())
 		return nil, err
 	}
 
@@ -145,13 +145,15 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 }
 
 func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
-
-	// todo: check the container from vm.ContainerList()
-	// todo: check the process of state.Pid in case it is a new unrelated process
-
 	// non-force killing can only be performed when at least one of the realProcess and shimProcess exited
-	exitedVM := vm.SignalProcess(container, "init", syscall.Signal(0)) != nil // todo: is this check reliable?
-	exitedHost := syscall.Kill(state.Pid, syscall.Signal(0)) != nil
+	exitedVM := true
+	for _, c := range vm.ContainerList() {
+		if c == container {
+			exitedVM = vm.SignalProcess(container, "init", syscall.Signal(0)) != nil // todo: is this check reliable?
+			break
+		}
+	}
+	exitedHost := !containerShimAlive(state)
 	if !exitedVM && !exitedHost && !force {
 		// don't perform deleting
 		return fmt.Errorf("the container %s is still alive, use -f to force kill it?", container)
@@ -172,7 +174,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 		for i := 0; i < 100; i++ {
 			syscall.Kill(state.Pid, syscall.SIGKILL)
 			time.Sleep(100 * time.Millisecond)
-			if syscall.Kill(state.Pid, syscall.Signal(0)) != nil {
+			if !containerShimAlive(state) {
 				break
 			}
 		}
@@ -181,7 +183,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 	vm.RemoveContainer(container)
 	err := execPoststopHooks(spec, state)
 	if err != nil {
-		glog.V(1).Infof("execute Poststop hooks failed %s\n", err.Error())
+		glog.V(1).Infof("execute Poststop hooks failed %s", err.Error())
 		removeContainerFs(vm, container)
 		os.RemoveAll(filepath.Join(root, container))
 		return err // return err of the hooks
@@ -215,7 +217,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 	err = vm.AddProcess(p, nil)
 
 	if err != nil {
-		glog.V(1).Infof("add process to container failed: %v\n", err)
+		glog.V(1).Infof("add process to container failed: %v", err)
 		return nil, err
 	}
 	defer func() {
@@ -293,4 +295,9 @@ func execPoststopHooks(rt *specs.Spec, state *State) error {
 	}
 
 	return nil
+}
+
+func containerShimAlive(state *State) bool {
+	stat, err := system.Stat(state.Pid)
+	return err == nil && stat.StartTime == state.ShimCreateTime && stat.State != system.Zombie && stat.State != system.Dead
 }
