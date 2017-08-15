@@ -127,7 +127,7 @@ func forwardAllSignals(h libhyperstart.Hyperstart, container, process string) ch
 	sigc := make(chan os.Signal, 2048)
 	// handle all signals for the process.
 	signal.Notify(sigc)
-	signal.Ignore(syscall.SIGCHLD, syscall.SIGPIPE, syscall.SIGWINCH)
+	signal.Ignore(syscall.SIGCHLD, syscall.SIGPIPE)
 
 	go func() {
 		for s := range sigc {
