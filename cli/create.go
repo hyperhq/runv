@@ -54,14 +54,14 @@ command(s) that get executed on start, edit the args parameter of the spec. See
 		return cmdPrepare(context, true, true)
 	},
 	Action: func(context *cli.Context) error {
-		if err := cmdCreateContainer(context, true); err != nil {
+		if err := cmdCreateContainer(context, false); err != nil {
 			return cli.NewExitError(fmt.Sprintf("Run Container error: %v", err), -1)
 		}
 		return nil
 	},
 }
 
-func cmdCreateContainer(context *cli.Context, createOnly bool) error {
+func cmdCreateContainer(context *cli.Context, attach bool) error {
 	root := context.GlobalString("root")
 	bundle := context.String("bundle")
 	container := context.Args().First()
@@ -83,7 +83,7 @@ func cmdCreateContainer(context *cli.Context, createOnly bool) error {
 	if err == nil {
 		return fmt.Errorf("container %q exists", container)
 	}
-	if err = checkConsole(context, &spec.Process, createOnly); err != nil {
+	if err = checkConsole(context, &spec.Process, attach); err != nil {
 		return err
 	}
 
@@ -138,7 +138,7 @@ func cmdCreateContainer(context *cli.Context, createOnly bool) error {
 	}
 	defer putSandbox(vm, lockFile)
 
-	options := runvOptions{Context: context, withContainer: scState}
+	options := runvOptions{Context: context, withContainer: scState, attach: attach}
 	_, err = createContainer(options, vm, container, bundle, root, spec)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %v", err)
@@ -147,15 +147,11 @@ func cmdCreateContainer(context *cli.Context, createOnly bool) error {
 	return nil
 }
 
-func checkConsole(context *cli.Context, p *specs.Process, createOnly bool) error {
+func checkConsole(context *cli.Context, p *specs.Process, attach bool) error {
 	if context.String("console") != "" && context.String("console-socket") != "" {
 		return fmt.Errorf("only one of --console & --console-socket can be specified")
 	}
-	detach := createOnly
-	if !createOnly {
-		detach = context.Bool("detach")
-	}
-	if (context.String("console") != "" || context.String("console-socket") != "") && !detach {
+	if (context.String("console") != "" || context.String("console-socket") != "") && attach {
 		return fmt.Errorf("--console[-socket] should be used on detached mode")
 	}
 	if (context.String("console") != "" || context.String("console-socket") != "") && !p.Terminal {

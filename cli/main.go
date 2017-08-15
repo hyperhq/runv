@@ -152,6 +152,7 @@ func main() {
 type runvOptions struct {
 	*cli.Context
 	withContainer *State
+	attach        bool
 }
 
 func cmdPrepare(context *cli.Context, setupHypervisor, canLogToStderr bool) error {

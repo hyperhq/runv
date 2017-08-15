@@ -165,7 +165,7 @@ func runProcess(context *cli.Context, container string, cState *State, config *s
 	pid := os.Getpid()
 	process := fmt.Sprintf("p-%x", pid+0xabcdef) // uniq name
 
-	options := runvOptions{Context: context, withContainer: cState}
+	options := runvOptions{Context: context, withContainer: cState, attach: !context.Bool("detach")}
 
 	vm, lockFile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
 	if err != nil {

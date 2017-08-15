@@ -16,6 +16,7 @@ import (
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/kardianos/osext"
 	"github.com/kr/pty"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
 
@@ -126,7 +127,7 @@ func forwardAllSignals(h libhyperstart.Hyperstart, container, process string) ch
 	sigc := make(chan os.Signal, 2048)
 	// handle all signals for the process.
 	signal.Notify(sigc)
-	signal.Ignore(syscall.SIGCHLD, syscall.SIGPIPE, syscall.SIGWINCH)
+	signal.Ignore(syscall.SIGCHLD, syscall.SIGPIPE)
 
 	go func() {
 		for s := range sigc {
@@ -152,7 +153,7 @@ func forwardAllSignals(h libhyperstart.Hyperstart, container, process string) ch
 	return sigc
 }
 
-func createShim(options runvOptions, container, process string) (*os.Process, error) {
+func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
 	path, err := osext.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
@@ -184,7 +185,7 @@ func createShim(options runvOptions, container, process string) (*os.Process, er
 	}
 	args = append(args, "shim", "--container", container, "--process", process)
 	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
-	if tty != nil {
+	if spec.Terminal {
 		args = append(args, "--proxy-winsize")
 	}
 
@@ -194,7 +195,7 @@ func createShim(options runvOptions, container, process string) (*os.Process, er
 		Dir:  "/",
 		SysProcAttr: &syscall.SysProcAttr{
 			Setctty: tty != nil,
-			Setsid:  true,
+			Setsid:  tty != nil || !options.attach,
 		},
 	}
 	if options.withContainer == nil {
@@ -203,6 +204,7 @@ func createShim(options runvOptions, container, process string) (*os.Process, er
 		cmd.Env = append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
 	}
 	if tty == nil {
+		// inherit stdio/tty
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
