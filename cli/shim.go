@@ -16,6 +16,7 @@ import (
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/kardianos/osext"
 	"github.com/kr/pty"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
 
@@ -152,7 +153,7 @@ func forwardAllSignals(h libhyperstart.Hyperstart, container, process string) ch
 	return sigc
 }
 
-func createShim(options runvOptions, container, process string) (*os.Process, error) {
+func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
 	path, err := osext.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
@@ -184,7 +185,7 @@ func createShim(options runvOptions, container, process string) (*os.Process, er
 	}
 	args = append(args, "shim", "--container", container, "--process", process)
 	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
-	if tty != nil {
+	if spec.Terminal {
 		args = append(args, "--proxy-winsize")
 	}
 
