@@ -195,7 +195,7 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		Dir:  "/",
 		SysProcAttr: &syscall.SysProcAttr{
 			Setctty: tty != nil,
-			Setsid:  true,
+			Setsid:  tty != nil || !options.attach,
 		},
 	}
 	if options.withContainer == nil {
@@ -204,6 +204,7 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		cmd.Env = append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
 	}
 	if tty == nil {
+		// inherit stdio/tty
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -138,7 +138,7 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 	}
 	defer putSandbox(vm, lockFile)
 
-	options := runvOptions{Context: context, withContainer: scState}
+	options := runvOptions{Context: context, withContainer: scState, attach: attach}
 	_, err = createContainer(options, vm, container, bundle, root, spec)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %v", err)
