@@ -39,6 +39,19 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 		return err
 	}
 
+	var pl *ProcessList
+	if pl, err = NewProcessList(root, container); err != nil {
+		return err
+	}
+	defer pl.Release()
+
+	// No need to load, container init process must be the first
+	var p []Process
+	p = append(p, Process{Id: "init", Pid: state.Pid, CreateTime: state.ShimCreateTime})
+	if err = pl.Save(p); err != nil {
+		return err
+	}
+
 	err = execPoststartHooks(spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Poststart hooks failed %s", err.Error())
@@ -236,7 +249,21 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		}
 	}()
 
-	// cli refactor todo (for the purpose of 'runv ps` command) save <container, process, shim-pid, spec> to persist file.
+	var stat system.Stat_t
+	stat, err = system.Stat(shim.Pid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pl *ProcessList
+	if pl, err = NewProcessList(options.GlobalString("root"), container); err != nil {
+		return nil, err
+	}
+	defer pl.Release()
+	err = pl.Add(Process{Id: process, Pid: shim.Pid, CreateTime: stat.StartTime})
+	if err != nil {
+		return nil, err
+	}
 
 	return shim, nil
 }
