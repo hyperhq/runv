@@ -98,18 +98,17 @@ signal to the init process of the "ubuntu01" container:
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}
 
-		plist := make([]string, 0)
-
+		var plist []Process
 		if context.Bool("all") {
 			if plist, err = getProcessList(context, container); err != nil {
 				return cli.NewExitError(fmt.Sprintf("can't get process list, %v", err), -1)
 			}
 		} else {
-			plist = append(plist, "init")
+			plist = append(plist, Process{Id: "init"})
 		}
 
 		for _, p := range plist {
-			if err = h.SignalProcess(container, p, signal); err != nil && len(plist) == 1 {
+			if err = h.SignalProcess(container, p.Id, signal); err != nil && len(plist) == 1 {
 				return cli.NewExitError(fmt.Sprintf("kill signal failed, %v", err), -1)
 			}
 		}
@@ -117,7 +116,7 @@ signal to the init process of the "ubuntu01" container:
 	},
 }
 
-func getProcessList(context *cli.Context, container string) ([]string, error) {
+func getProcessList(context *cli.Context, container string) ([]Process, error) {
 	pl, err := NewProcessList(context.GlobalString("root"), container)
 	if err != nil {
 		return nil, err
@@ -129,14 +128,14 @@ func getProcessList(context *cli.Context, container string) ([]string, error) {
 		return nil, err
 	}
 
+	var (
+		alive  []Process
+		update bool
+	)
 	// check if every shim is still alive
-	var alive []Process
-	var pids []string
-	var update bool
 	for _, p := range plist {
 		if shimProcessAlive(p.Pid, p.CreateTime) {
 			alive = append(alive, p)
-			pids = append(pids, strconv.Itoa(p.Pid))
 		} else {
 			update = true
 			glog.V(3).Infof("container %s process %s shim pid %s is dead", container, p.Id, p.Pid)
@@ -150,7 +149,7 @@ func getProcessList(context *cli.Context, container string) ([]string, error) {
 		}
 	}
 
-	return pids, nil
+	return alive, nil
 }
 
 func parseSignal(rawSignal string) (syscall.Signal, error) {
