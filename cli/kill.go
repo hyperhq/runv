@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/lib/linuxsignal"
 	"github.com/urfave/cli"
@@ -117,7 +118,39 @@ signal to the init process of the "ubuntu01" container:
 }
 
 func getProcessList(context *cli.Context, container string) ([]string, error) {
-	return nil, fmt.Errorf("getProcessList of container is not supported yet")
+	pl, err := NewProcessList(context.GlobalString("root"), container)
+	if err != nil {
+		return nil, err
+	}
+	defer pl.Release()
+
+	var plist []Process
+	if plist, err = pl.Load(); err != nil {
+		return nil, err
+	}
+
+	// check if every shim is still alive
+	var alive []Process
+	var pids []string
+	var update bool
+	for _, p := range plist {
+		if shimProcessAlive(p.Pid, p.CreateTime) {
+			alive = append(alive, p)
+			pids = append(pids, strconv.Itoa(p.Pid))
+		} else {
+			update = true
+			glog.V(3).Infof("container %s process %s shim pid %s is dead", container, p.Id, p.Pid)
+		}
+	}
+
+	// update process json contents
+	if update {
+		if err = pl.Save(alive); err != nil {
+			glog.Error(err)
+		}
+	}
+
+	return pids, nil
 }
 
 func parseSignal(rawSignal string) (syscall.Signal, error) {

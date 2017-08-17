@@ -166,7 +166,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 			break
 		}
 	}
-	exitedHost := !containerShimAlive(state)
+	exitedHost := !shimProcessAlive(state.Pid, state.ShimCreateTime)
 	if !exitedVM && !exitedHost && !force {
 		// don't perform deleting
 		return fmt.Errorf("the container %s is still alive, use -f to force kill it?", container)
@@ -187,7 +187,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 		for i := 0; i < 100; i++ {
 			syscall.Kill(state.Pid, syscall.SIGKILL)
 			time.Sleep(100 * time.Millisecond)
-			if !containerShimAlive(state) {
+			if !shimProcessAlive(state.Pid, state.ShimCreateTime) {
 				break
 			}
 		}
@@ -324,7 +324,7 @@ func execPoststopHooks(rt *specs.Spec, state *State) error {
 	return nil
 }
 
-func containerShimAlive(state *State) bool {
-	stat, err := system.Stat(state.Pid)
-	return err == nil && stat.StartTime == state.ShimCreateTime && stat.State != system.Zombie && stat.State != system.Dead
+func shimProcessAlive(pid int, createTime uint64) bool {
+	stat, err := system.Stat(pid)
+	return err == nil && stat.StartTime == createTime && stat.State != system.Zombie && stat.State != system.Dead
 }
