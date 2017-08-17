@@ -45,8 +45,6 @@ var psCommand = cli.Command{
 				fatal(err)
 			}
 		case "json":
-			pids := make([]string, 0)
-
 			data, err := json.Marshal(pids)
 			if err != nil {
 				fatal(err)
