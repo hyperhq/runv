@@ -39,7 +39,7 @@ var psCommand = cli.Command{
 			for _, p := range plist {
 				fmt.Fprintf(w, "%d\t%s\n",
 					p.Pid,
-					"todo process.Args")
+					p.CMD)
 			}
 			if err := w.Flush(); err != nil {
 				fatal(err)

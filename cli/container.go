@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,7 +48,8 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 
 	// No need to load, container init process must be the first
 	var p []Process
-	p = append(p, Process{Id: "init", Pid: state.Pid, CreateTime: state.ShimCreateTime})
+	cmd := strings.Join(spec.Process.Args, " ")
+	p = append(p, Process{Id: "init", Pid: state.Pid, CMD: cmd, CreateTime: state.ShimCreateTime})
 	if err = pl.Save(p); err != nil {
 		return err
 	}
@@ -260,7 +262,8 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		return nil, err
 	}
 	defer pl.Release()
-	err = pl.Add(Process{Id: process, Pid: shim.Pid, CreateTime: stat.StartTime})
+	cmd := strings.Join(spec.Args, " ")
+	err = pl.Add(Process{Id: process, Pid: shim.Pid, CMD: cmd, CreateTime: stat.StartTime})
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,8 @@ type Process struct {
 	Id string `json:"id"`
 	// process shim pid
 	Pid int `json:"pid"`
+	// Process command line
+	CMD string `json:"cmd"`
 	// process shim created time
 	CreateTime uint64 `json:"create_time"`
 }
