@@ -47,8 +47,13 @@ func (pl *ProcessList) Release() {
 }
 
 func (pl *ProcessList) Load() ([]Process, error) {
+	_, err := pl.file.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, fmt.Errorf("Seek process json file failed: %s", err.Error())
+	}
+
 	var p []Process
-	if err := json.NewDecoder(pl.file).Decode(&p); err != nil {
+	if err = json.NewDecoder(pl.file).Decode(&p); err != nil {
 		return nil, fmt.Errorf("Decode process json file failed: %s", err.Error())
 	}
 
@@ -62,11 +67,15 @@ func (pl *ProcessList) Save(p []Process) error {
 		return fmt.Errorf("Placing LOCK_EX on process json file failed: %s", err.Error())
 	}
 
+	if err = pl.file.Truncate(0); err != nil {
+		return fmt.Errorf("Failed to truncate process json file: %s", err.Error())
+	}
+
 	data, err := json.MarshalIndent(p, "", "\t")
 	if err != nil {
 		return err
 	}
-	if _, err = pl.file.Write(data); err != nil {
+	if _, err = pl.file.WriteAt(data, 0); err != nil {
 		return fmt.Errorf("Saving process json file failed: %s", err.Error())
 	}
 
