@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/urfave/cli"
@@ -25,13 +24,11 @@ type cState struct {
 	// InitProcessPid is the init process id in the parent namespace
 	InitProcessPid int `json:"pid"`
 	// Bundle is the path on the filesystem to the bundle
-	Bundle string `json:"bundlePath"`
-	// Rootfs is a path to a directory containing the container's root filesystem.
-	Rootfs string `json:"rootfsPath"`
+	Bundle string `json:"bundle"`
 	// Status is the current status of the container, running, paused, ...
 	Status string `json:"status"`
-	// Created is the unix timestamp for the creation time of the container in UTC
-	Created time.Time `json:"created"`
+	// Annotations contains the list of annotations associated with the container
+	Annotations map[string]string `json:"annotations"`
 }
 
 var stateCommand = cli.Command{
@@ -100,9 +97,8 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 		InitProcessPid: state.Pid,
 		Status:         status,
 		Bundle:         state.Bundle,
-		Rootfs:         filepath.Join(state.Bundle, "rootfs"),
-		Created:        time.Unix(state.ContainerCreateTime, 0),
 	}
+
 	return s, nil
 }
 
