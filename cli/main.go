@@ -18,9 +18,10 @@ var (
 )
 
 const (
-	specConfig = "config.json"
-	stateJSON  = "state.json"
-	usage      = `Open Container Initiative hypervisor-based runtime
+	specConfig  = "config.json"
+	stateJSON   = "state.json"
+	processJSON = "process.json"
+	usage       = `Open Container Initiative hypervisor-based runtime
 
 runv is a command line client for running applications packaged according to
 the Open Container Format (OCF) and is a compliant implementation of the

@@ -33,7 +33,7 @@ var pauseCommand = cli.Command{
 		}
 
 		for _, p := range plist {
-			if err := h.SignalProcess(container, p, linuxsignal.SIGSTOP); err != nil {
+			if err := h.SignalProcess(container, p.Id, linuxsignal.SIGSTOP); err != nil {
 				return cli.NewExitError(fmt.Sprintf("suspend signal failed, %v", err), -1)
 			}
 		}
@@ -66,7 +66,7 @@ var resumeCommand = cli.Command{
 		}
 
 		for _, p := range plist {
-			if err := h.SignalProcess(container, p, linuxsignal.SIGCONT); err != nil {
+			if err := h.SignalProcess(container, p.Id, linuxsignal.SIGCONT); err != nil {
 				return cli.NewExitError(fmt.Sprintf("resume signal failed, %v", err), -1)
 			}
 		}

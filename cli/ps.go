@@ -27,7 +27,7 @@ var psCommand = cli.Command{
 		if container == "" {
 			return cli.NewExitError("container id cannot be empty", -1)
 		}
-		pids, err := getProcessList(context, container)
+		plist, err := getProcessList(context, container)
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("can't access container, %v", err), -1)
 		}
@@ -36,17 +36,19 @@ var psCommand = cli.Command{
 		case "table":
 			w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
 			fmt.Fprint(w, "PROCESS\tCMD\n")
-			for _, p := range pids {
-				fmt.Fprintf(w, "%s\t%s\n",
-					p,
-					"todo process.Args")
+			for _, p := range plist {
+				fmt.Fprintf(w, "%d\t%s\n",
+					p.Pid,
+					p.CMD)
 			}
 			if err := w.Flush(); err != nil {
 				fatal(err)
 			}
 		case "json":
-			pids := make([]string, 0)
-
+			var pids []int
+			for _, p := range plist {
+				pids = append(pids, p.Pid)
+			}
 			data, err := json.Marshal(pids)
 			if err != nil {
 				fatal(err)

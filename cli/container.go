@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,6 +37,20 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 	state.Status = "running"
 	state.ContainerCreateTime = time.Now().UTC().Unix()
 	if err = saveStateFile(root, container, state); err != nil {
+		return err
+	}
+
+	var pl *ProcessList
+	if pl, err = NewProcessList(root, container); err != nil {
+		return err
+	}
+	defer pl.Release()
+
+	// No need to load, container init process must be the first
+	var p []Process
+	cmd := strings.Join(spec.Process.Args, " ")
+	p = append(p, Process{Id: "init", Pid: state.Pid, CMD: cmd, CreateTime: state.ShimCreateTime})
+	if err = pl.Save(p); err != nil {
 		return err
 	}
 
@@ -153,7 +168,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 			break
 		}
 	}
-	exitedHost := !containerShimAlive(state)
+	exitedHost := !shimProcessAlive(state.Pid, state.ShimCreateTime)
 	if !exitedVM && !exitedHost && !force {
 		// don't perform deleting
 		return fmt.Errorf("the container %s is still alive, use -f to force kill it?", container)
@@ -174,7 +189,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 		for i := 0; i < 100; i++ {
 			syscall.Kill(state.Pid, syscall.SIGKILL)
 			time.Sleep(100 * time.Millisecond)
-			if !containerShimAlive(state) {
+			if !shimProcessAlive(state.Pid, state.ShimCreateTime) {
 				break
 			}
 		}
@@ -236,7 +251,22 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		}
 	}()
 
-	// cli refactor todo (for the purpose of 'runv ps` command) save <container, process, shim-pid, spec> to persist file.
+	var stat system.Stat_t
+	stat, err = system.Stat(shim.Pid)
+	if err != nil {
+		return nil, err
+	}
+
+	var pl *ProcessList
+	if pl, err = NewProcessList(options.GlobalString("root"), container); err != nil {
+		return nil, err
+	}
+	defer pl.Release()
+	cmd := strings.Join(spec.Args, " ")
+	err = pl.Add(Process{Id: process, Pid: shim.Pid, CMD: cmd, CreateTime: stat.StartTime})
+	if err != nil {
+		return nil, err
+	}
 
 	return shim, nil
 }
@@ -297,7 +327,7 @@ func execPoststopHooks(rt *specs.Spec, state *State) error {
 	return nil
 }
 
-func containerShimAlive(state *State) bool {
-	stat, err := system.Stat(state.Pid)
-	return err == nil && stat.StartTime == state.ShimCreateTime && stat.State != system.Zombie && stat.State != system.Dead
+func shimProcessAlive(pid int, createTime uint64) bool {
+	stat, err := system.Stat(pid)
+	return err == nil && stat.StartTime == createTime && stat.State != system.Zombie && stat.State != system.Dead
 }

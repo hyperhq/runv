@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/lib/linuxsignal"
 	"github.com/urfave/cli"
@@ -97,18 +98,17 @@ signal to the init process of the "ubuntu01" container:
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}
 
-		plist := make([]string, 0)
-
+		var plist []Process
 		if context.Bool("all") {
 			if plist, err = getProcessList(context, container); err != nil {
 				return cli.NewExitError(fmt.Sprintf("can't get process list, %v", err), -1)
 			}
 		} else {
-			plist = append(plist, "init")
+			plist = append(plist, Process{Id: "init"})
 		}
 
 		for _, p := range plist {
-			if err = h.SignalProcess(container, p, signal); err != nil && len(plist) == 1 {
+			if err = h.SignalProcess(container, p.Id, signal); err != nil && len(plist) == 1 {
 				return cli.NewExitError(fmt.Sprintf("kill signal failed, %v", err), -1)
 			}
 		}
@@ -116,8 +116,40 @@ signal to the init process of the "ubuntu01" container:
 	},
 }
 
-func getProcessList(context *cli.Context, container string) ([]string, error) {
-	return nil, fmt.Errorf("getProcessList of container is not supported yet")
+func getProcessList(context *cli.Context, container string) ([]Process, error) {
+	pl, err := NewProcessList(context.GlobalString("root"), container)
+	if err != nil {
+		return nil, err
+	}
+	defer pl.Release()
+
+	var plist []Process
+	if plist, err = pl.Load(); err != nil {
+		return nil, err
+	}
+
+	var (
+		alive  []Process
+		update bool
+	)
+	// check if every shim is still alive
+	for _, p := range plist {
+		if shimProcessAlive(p.Pid, p.CreateTime) {
+			alive = append(alive, p)
+		} else {
+			update = true
+			glog.V(3).Infof("container %s process %s shim pid %s is dead", container, p.Id, p.Pid)
+		}
+	}
+
+	// update process json contents
+	if update {
+		if err = pl.Save(alive); err != nil {
+			glog.Error(err)
+		}
+	}
+
+	return alive, nil
 }
 
 func parseSignal(rawSignal string) (syscall.Signal, error) {
