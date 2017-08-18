@@ -22,7 +22,8 @@ var pauseCommand = cli.Command{
 			return cli.NewExitError(fmt.Sprintf("container id cannot be empty"), -1)
 		}
 
-		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
+		root := context.GlobalString("root")
+		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(root, container, "sandbox", "hyperstartgrpc.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get hyperstart: %v", err), -1)
 		}
@@ -35,6 +36,9 @@ var pauseCommand = cli.Command{
 		for _, p := range plist {
 			if err := h.SignalProcess(container, p.Id, linuxsignal.SIGSTOP); err != nil {
 				return cli.NewExitError(fmt.Sprintf("suspend signal failed, %v", err), -1)
+			}
+			if p.Id == "init" {
+				updateContainerStatus(context.GlobalString("root"), container, "paused")
 			}
 		}
 
@@ -55,7 +59,8 @@ var resumeCommand = cli.Command{
 			return cli.NewExitError(fmt.Sprintf("container id cannot be empty"), -1)
 		}
 
-		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
+		root := context.GlobalString("root")
+		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(root, container, "sandbox", "hyperstartgrpc.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}
@@ -68,6 +73,9 @@ var resumeCommand = cli.Command{
 		for _, p := range plist {
 			if err := h.SignalProcess(container, p.Id, linuxsignal.SIGCONT); err != nil {
 				return cli.NewExitError(fmt.Sprintf("resume signal failed, %v", err), -1)
+			}
+			if p.Id == "init" {
+				updateContainerStatus(root, container, "running")
 			}
 		}
 
