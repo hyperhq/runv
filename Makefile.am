@@ -24,5 +24,7 @@ install-exec-local:
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o runv ./cli/
 test-integration:
-	cd integration-test/test_data && make
-	cd integration-test && go test -check.v -test.timeout=120m ${TESTFLAGS} .
+	cd tests/go-integration/test_data && make
+	cd tests/go-integration && go test -check.v -test.timeout=120m ${TESTFLAGS} .
+	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o ./tests/recvtty/recvtty ./tests/recvtty/
+	bats tests/bats-integration/

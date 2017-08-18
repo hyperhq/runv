@@ -10,7 +10,7 @@ matrix:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq autoconf automake pkg-config libdevmapper-dev libvirt-dev libvirt-bin wget libaio1 libpixman-1-0
+  - sudo apt-get install -y -qq autoconf automake pkg-config libdevmapper-dev libvirt-dev libvirt-bin wget libaio1 libpixman-1-0 jq
   - wget https://s3-us-west-1.amazonaws.com/hypercontainer-download/qemu-hyper/qemu-hyper_2.4.1-1_amd64.deb && sudo dpkg -i --force-all qemu-hyper_2.4.1-1_amd64.deb
   - git clone https://github.com/hyperhq/hyperstart.git ${GOPATH}/src/github.com/hyperhq/hyperstart
 
