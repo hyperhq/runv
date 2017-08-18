@@ -1,0 +1,5 @@
+#!/bin/bash
+
+bash @ABS_BUILDDIR@/data/run-bats.sh @ABS_BUILDDIR@/tests/functional/
+functional_tests_exit_code="$?"
+exit "$functional_tests_exit_code"

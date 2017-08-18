@@ -1,0 +1,351 @@
+#!/bin/bash
+
+source "@srcdir@/.ci/ci-common.sh"
+
+RUNV_BINARY="/usr/local/bin/runv"
+
+# Make temporal tests directory
+function mktemp_tests_dir(){
+	mktemp -d --tmpdir="$BATS_TMPDIR" --suffix=-cor-test
+}
+
+# Test data dir.
+TEST_DATA_DIR="$(readlink -e "${BATS_TEST_DIRNAME}")/data"
+#Configuration files
+CONFIG="${TEST_DATA_DIR}/config-minimal-cc-oci.json"
+
+BUNDLE_DIR="@BUNDLE_TEST_PATH@"
+[ -n "$BUNDLE_DIR" ] && ROOTFS_DIR="$BUNDLE_DIR/rootfs"
+HYPERSTART_INITRD="@CONTAINERS_IMG@"
+HYPERSTART_KERNEL="@CONTAINER_KERNEL@"
+HYPERVISOR_PATH="@QEMU_PATH@"
+
+# Verify components needed by Clear Containers
+# If there is a missing component, the tests is skipped
+function check_ccontainers() {
+
+	if [ ! -d "$BUNDLE_DIR" ]
+	then
+		skip "bundle directory does not exist,\
+ provide a valid bundle in $BUNDLE_DIR"
+	elif [ ! -d "$ROOTFS_DIR" ]
+	then
+		skip "$ROOTFS_DIR directory does not exist,\
+ provide a rootfs"
+	elif [ ! -f "$HYPERSTART_INITRD" ]
+	then
+		skip "hyperstart initrd image $HYPERSTART_INITRD does\
+ not exist, provide an image"
+	elif [ ! -f "$HYPERSTART_KERNEL" ]
+	then
+		skip "hyperstart kernel $HYPERSTART_KERNEL does\
+ not exist, provide a kernel"
+	elif [ ! -x "$HYPERVISOR_PATH" ]
+	then
+		 skip "execute permission is not granted: $HYPERVISOR_PATH"
+	fi
+
+	for f in  $BUNDLE_DIR $ROOTFS_DIR
+	do
+		[ -r "$f" ] || skip "cannot read file $f"
+		[ -w "$f" ] || skip "write permission is not granted: $f"
+	done
+
+	cd "$BATS_TEST_DIRNAME"
+}
+
+# Verify the state of the runtime directories
+# @param <container-id>
+# @param <state> container state (created, running, paused,
+#   stopped or killed).
+function verify_runtime_dirs()
+{
+	local id="$1"
+	local state="$2"
+
+	local id_dir="$RUNV_ROOT_DIR/${id}"
+
+	local statefile="$id_dir/state.json"
+#	local console_sock="$id_dir/console.sock"
+#	local hypervisor_sock="$id_dir/hypervisor.sock"
+#	local process_sock="$id_dir/process.sock"
+
+	# common tests
+
+	[ -f "$RUNV_LOG_FILE" ]
+	[ -r "$RUNV_LOG_FILE" ]
+	[ -s "$RUNV_LOG_FILE" ]
+
+	if [ "$state" = "deleted" ]; then
+	    [ ! -d "$id_dir" ]
+	    return 0
+	fi
+
+	if [ "$state" = "stopped" ]
+	then
+        # TODO add check once vm root is ready
+		# If a container is stopped, all container-specific
+		# state is removed.
+		[ ! -d "$id_dir" ]
+
+		return 0
+	fi
+
+	[ -d "$id_dir" ]
+
+	[ -f "$statefile" ]
+	[ -r "$statefile" ]
+	[ -s "$statefile" ]
+
+	run ls $id_dir
+	[ "$status" -eq 0 ]
+
+	# state-specific tests
+	# 'kill' does not kill the VM just kill the container
+	# inside it
+	if [ "$state" = "killed" -o "$state" = "created" -o \
+				  "$state" = "running" -o "$state" = "paused" ]
+	then
+        # TODO add check once vm root is ready
+        echo "pass"
+		#[ "${lines[0]}" = "console.sock" ]
+		#[ "${lines[3]}" = "hypervisor.sock" ]
+		#[ "${lines[4]}" = "process.sock" ]
+		#[ "${lines[5]}" = "state.json" ]
+		#[ "${lines[6]}" = "" ]
+
+		#[ -S "$console_sock" ]
+		#[ -S "$hypervisor_sock" ]
+		#[ -S "$process_sock" ]
+	else
+		log_msg "Invalid state: '$state'"
+		false
+	fi
+
+	return 0
+}
+
+# Verify a container state
+# @param <container-id>
+# @param <status>  container status to check (created, running,
+#   paused, stopped or killed).
+# @param <timeout> timeout to check container status
+# return true if containter have the <status>, false if
+#        the status is not the expected after timeout
+function testcontainer() {
+	local container_id="$1"
+	local status="$2"
+	local timeout_cmd=${3:-5}
+	local i=0
+	local got=0
+	local cmd="$COR list --format table"
+	[ "$timeout_cmd"  -eq "$timeout_cmd" ] || \
+	{ log_msg "timeout is not a number"; false; }
+
+	# The status passed to this function needs to be "simplified"
+	# in the case of "killed" to match the acceptable OCI states
+	# when checking the state the runtime assigns to the container.
+	if [ "$status" = "killed" ]
+	then
+		check_status="stopped"
+	else
+		check_status="$status"
+	fi
+
+	while [ "$i" -lt "$timeout_cmd" ]
+	do
+		local output=$(run_cmd "$cmd | grep ${container_id} | grep ${check_status}")
+		if [ -n "${output}" ] 
+		then
+			got=1
+			#Wait at least one second, for vm bootime
+			#Cor spawns the hypervisor but it does not mean
+			#That the vm is ready to work
+			#Clear containres must boot in less than one second
+			sleep 1
+			break
+		fi
+		sleep 1
+		i=$((i+1))
+	done
+	[ "$got" -eq 1 ] || { log_msg "FAILED"; false; }
+	log_msg "SUCCESS"
+
+	# Pass full status to the verify function
+	verify_runtime_dirs "$container_id" "$status"
+}
+
+# Check if test is running as root, if not
+# the test will be skipped
+function check_root() {
+	if [[ $(id -u) -ne 0 ]]
+	then
+		skip "Test requires root"
+	fi
+}
+
+#Modify config.json's workload to execute a <cmd>
+# @param <cmd>
+# @param <options> ...
+function workload_cmd() {
+	#Copy new, no modified config.json
+	/bin/cp "$CONFIG" "${BUNDLE_DIR}/config.json"
+	local cmd="\"$1\""
+	local opt
+	shift
+	for opt in "$@"
+	do
+	    cmd="$cmd\, \"$opt\""
+	done
+	sed -i "s,\"CMD\",$cmd,g" "$BUNDLE_DIR/config.json"
+}
+
+# Execute a command and vefiy its exit code
+# if exit code is not the expected
+# the current tests will fail
+# @param cmd command to run
+# @param expected_exit_code expected exit code
+# @param timeout time to wait before kill command
+function run_cmd(){
+	local cmd="$1"
+	local expected_exit_code="${2:-0}"
+	local timeout_cmd="$3"
+
+	#Remove -e from bats enviroment
+	set +e
+
+	if [ "$timeout_cmd"  -eq "$timeout_cmd" ] 2> /dev/null
+	then
+		cmd="sudo timeout $timeout_cmd $cmd"
+	fi
+	log_msg "Running: $cmd"
+	eval "$cmd" 2>&1
+	local exit_code="$?"
+	log_msg "exit code: $exit_code"
+	log_msg "expected exit code: $expected_exit_code"
+
+	if [ ! "$exit_code" -eq "$expected_exit_code" ]
+	then
+		if [ -f "$RUNV_LOG_FILE" ]
+		then
+			log_msg "See $TEST_LOG_FILE"
+			cat "$RUNV_LOG_FILE" >> "$TEST_LOG_FILE"
+			cor_ci_env && cat "$TEST_LOG_FILE"
+		fi
+	fi
+	#Restore -e from bats enviroment
+	set -e
+	[ "$exit_code" -eq "$expected_exit_code" ]
+}
+
+function log_msg()
+{
+	local msg="$*"
+	echo "$msg" >&2
+}
+
+# Display the name of a logfile, but if running in a CI environment,
+# also show the log file contents.
+#
+# Param 1: prefix - a human-readable string to be used to introduce
+#   the file to be logged.
+# Param 2: file - path to file to be logged.
+function log_show_file()
+{
+	local prefix="$1"
+	local file="$2"
+
+	[ -z "$prefix" ] && prefix="See"
+
+	log_msg "${prefix}: ${file}"
+
+	# CI systems don't all allow remote access, so display
+	# the file to make debugging easier.
+	cor_ci_env && cat "${file}"
+}
+
+# Common setup for all the tests
+function setup_common(){
+	# save IFS to work around bats bug where IFS is corrupted.
+	[ -z "$OLD_IFS" ] && OLD_IFS=$IFS
+
+	# container-specific directory
+	RUNV_ROOT_DIR=$(mktemp_tests_dir)
+
+	RUNV_LOG_DIR=$(mktemp_tests_dir)
+    RUNV_LOG_FILE="$RUNV_ROOT_DIR/runv.INFO"
+
+	RUNV_ARGS=""
+
+	# always run in debug mode to make problem diagnosis easier
+	RUNV_ARGS="$RUNV_ARGS --debug"
+
+	# Give each container its own directory.
+	# (Note that the arguments to these options must *NOT* be
+	# quoted else odd bats behaviour results).
+	RUNV_ARGS="$RUNV_ARGS --root $RUNV_ROOT_DIR"
+
+	RUNV_ARGS="$RUNV_ARGS --log_dir $RUNV_LOG_DIR"
+	RUNV_ARGS="$RUNV_ARGS --initrd \"${HYPERSTART_INITRD}"\"
+	RUNV_ARGS="$RUNV_ARGS --kernel \"${HYPERSTART_KERNEL}"\"
+    # TODO Support hypervisor driver config here
+
+    # COR == RUNV
+	COR="$RUNV_BINARY $RUNV_ARGS"
+
+	TEST_LOG_FILE="$(pwd)/${BATS_TEST_NAME// /.}.log"
+	if [ -f "$TEST_LOG_FILE" ]
+	then
+		rm "$TEST_LOG_FILE"
+	fi
+}
+
+# Cleanup anything generated by this script
+function cleanup_common(){
+	# kill shim if it is still running
+	#local pid="$(cat ${RUNV_ROOT_DIR}/pid)"
+	#if ["${pid}" -a -n "$(ps -e | grep ${pid})" ]; then
+	#	(>&2 echo "cc-shim is still running")
+	#	kill -15 ${pid}
+	#	BATS_ERROR_STATUS=1
+	#fi
+	if [ "$BATS_ERROR_STATUS" -ne 0 ]
+	then
+		log_msg "Test logs: $RUNV_LOG_FILE"
+
+		#if cor_ci_env
+		#then
+		#	(cd "$RUNV_ROOT_DIR" && for file in *; do echo "== $file =="; cat "$file"; done)
+		#fi
+
+		log_show_file "Global log file" "$RUNV_LOG_FILE"
+
+		log_msg "bats status: $status"
+		log_msg "bats output (lines array contains ${#lines[*]} lines):"
+
+		local i=0
+		local line
+
+		for line in ${lines[@]}
+		do
+			echo >&2 "lines[$i]: '$line'"
+			i=$((i+1))
+		done
+
+		echo >&2 "BUNDLE_DIR: $BUNDLE_DIR"
+		echo >&2 "ROOTFS_DIR: $ROOTFS_DIR"
+
+		# XXX: retain logs if tests fail
+		return
+	fi
+
+	rm -rf "$RUNV_ROOT_DIR" "$RUNV_LOG_DIR"
+}
+
+if [ ! -e "$RUNV_BINARY" ]
+then
+	cat <<EOT >&2
+ERROR: you need run 'make' before running the functional tests.
+EOT
+	exit 1
+fi
