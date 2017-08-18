@@ -26,3 +26,5 @@ build-runv:
 test-integration:
 	cd tests/go-integration/test_data && make
 	cd tests/go-integration && go test -check.v -test.timeout=120m ${TESTFLAGS} .
+	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o ./tests/recvtty/recvtty ./tests/recvtty/
+	bats tests/bats-integration/

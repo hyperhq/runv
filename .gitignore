@@ -59,3 +59,4 @@ _testmain.go
 test_data
 !test_data/Makefile
 /tests/go-integration/config.json
+/tests/recvtty/recvtty
