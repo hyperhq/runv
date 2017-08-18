@@ -105,3 +105,16 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 	}
 	return s, nil
 }
+
+func updateContainerStatus(root, container, status string) error {
+	state, err := loadStateFile(root, container)
+	if err != nil {
+		return err
+	}
+	if state.Status != status {
+		state.Status = status
+		return saveStateFile(root, container, state)
+	}
+
+	return nil
+}
