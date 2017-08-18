@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,13 +17,11 @@ type cState struct {
 	// InitProcessPid is the init process id in the parent namespace
 	InitProcessPid int `json:"pid"`
 	// Bundle is the path on the filesystem to the bundle
-	Bundle string `json:"bundlePath"`
-	// Rootfs is a path to a directory containing the container's root filesystem.
-	Rootfs string `json:"rootfsPath"`
+	Bundle string `json:"bundle"`
 	// Status is the current status of the container, running, paused, ...
 	Status string `json:"status"`
-	// Created is the unix timestamp for the creation time of the container in UTC
-	Created time.Time `json:"created"`
+	// Annotations contains the list of annotations associated with the container
+	Annotations map[string]string `json:"annotations"`
 }
 
 func (s *RunVSuite) TestStateSleep(c *check.C) {
@@ -63,7 +60,7 @@ func (s *RunVSuite) TestStateSleep(c *check.C) {
 	c.Assert(cs.ID, check.Equals, ctrName)
 	c.Assert(cs.InitProcessPid, checker.Not(checker.Equals), 0)
 	c.Assert(cs.Bundle, checker.Equals, s.bundlePath)
-	c.Assert(cs.Rootfs, checker.Equals, filepath.Join(s.bundlePath, spec.Root.Path))
 	c.Assert(cs.Status, checker.Equals, "running")
+	c.Assert(cs.Annotations, checker.IsNil)
 	<-exitChan
 }
