@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/hyperhq/runv/hypervisor/network/ipallocator"
-	"github.com/hyperhq/runv/hypervisor/network/portmapper"
 )
 
 type Settings struct {
@@ -26,7 +25,6 @@ const (
 
 var (
 	IpAllocator   = ipallocator.New()
-	PortMapper    = portmapper.New()
 	BridgeIPv4Net *net.IPNet
 	BridgeIface   string
 	BridgeIP      string
