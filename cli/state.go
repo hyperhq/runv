@@ -32,6 +32,8 @@ type cState struct {
 	Status string `json:"status"`
 	// Created is the unix timestamp for the creation time of the container in UTC
 	Created time.Time `json:"created"`
+	// Owner is the user who creates the container, currently must be root
+	Owner string `json:"owner"`
 }
 
 var stateCommand = cli.Command{
@@ -102,6 +104,7 @@ func getContainer(context *cli.Context, name string) (*cState, error) {
 		Bundle:         state.Bundle,
 		Rootfs:         filepath.Join(state.Bundle, "rootfs"),
 		Created:        time.Unix(state.ContainerCreateTime, 0),
+		Owner:          defaultOwner,
 	}
 	return s, nil
 }
