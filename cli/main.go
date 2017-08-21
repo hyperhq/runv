@@ -146,6 +146,9 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		glog.Errorf("app.Run(os.Args) failed with err: %#v", err)
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+		cli.HandleExitCoder(err)
+		// non-standard errors
+		os.Exit(22)
 	}
 }
 
