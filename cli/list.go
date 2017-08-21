@@ -13,6 +13,7 @@ import (
 )
 
 const formatOptions = `table or json`
+const defaultOwner = "root"
 
 // containerState represents the platform agnostic pieces relating to a
 // running container's status and state
@@ -67,14 +68,15 @@ in json format:
 		switch context.String("format") {
 		case "", "table":
 			w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
-			fmt.Fprint(w, "ID\tPID\tSTATUS\tBUNDLE\tCREATED\n")
+			fmt.Fprint(w, "ID\tPID\tSTATUS\tBUNDLE\tCREATED\tOWNER\n")
 			for _, item := range s {
-				fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%s\t%s\n",
 					item.ID,
 					item.InitProcessPid,
 					item.Status,
 					item.Bundle,
-					item.Created.Format(time.RFC3339Nano))
+					item.Created.Format(time.RFC3339Nano),
+					defaultOwner)
 			}
 			if err := w.Flush(); err != nil {
 				fatal(err)
