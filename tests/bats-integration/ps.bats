@@ -46,6 +46,7 @@ function teardown() {
 
 @test "ps -e -x" {
   # ps is not supported, it requires cgroups
+  skip "runv ps does not support ps options"
   requires root
 
   # start busybox detached
