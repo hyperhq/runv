@@ -73,7 +73,7 @@ root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 
 `runv` is a runtime implementation of [OCI runtime](https://github.com/opencontainers/runtime-spec) and its command line is almost compatible with the runc-0.1.1(keeping updated with the newest released runc). It is still under development and uncompleted, such as container tty is not working currently.
 
-Note, runv project also provides [other smoothly way](https://github.com/hyperhq/runv/tree/master/containerd) to integrate with docker.
+Note, runv project also provides other [smooth way](docs/configure-runv-with-containerd-docker.md) to integrate with later versions of docker and containerd.
 
 Example(requires docker-1.11 who talks runc-0.1.1 command line):
 
