@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/glog"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -24,7 +25,7 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "force, f",
-			Usage: "Forcibly deletes the container if it is still running (uses SIGKILL)",
+			Usage: "Forcibly deletes the container if it is still running (uses SIGKILL) or in other uncertain cases",
 		},
 	},
 	Before: func(context *cli.Context) error {
@@ -65,6 +66,10 @@ status of "ubuntu01" as "stopped" the following will delete resources held for
 func cmdDeleteContainer(context *cli.Context, container string, force bool, spec *specs.Spec, state *State) error {
 	vm, lockFile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
 	if err != nil {
+		glog.Errorf("cmdDeleteContainer() failed to associated to the vm, err: %#v", err)
+		if force {
+			return deleteContainerHost(context.GlobalString("root"), container, spec, state)
+		}
 		return err
 	}
 	defer putSandbox(vm, lockFile)

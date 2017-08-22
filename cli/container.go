@@ -68,7 +68,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	}
 	defer func() {
 		if err != nil {
-			removeContainerFs(vm, container)
+			removeContainerFs(sandboxPath(vm), container)
 		}
 	}()
 
@@ -183,8 +183,13 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 			}
 		}
 	}
+	vm.RemoveContainer(container)
 
-	if !exitedHost { // force kill the shim process in the host
+	return deleteContainerHost(root, container, spec, state)
+}
+
+func deleteContainerHost(root, container string, spec *specs.Spec, state *State) error {
+	if shimProcessAlive(state.Pid, state.ShimCreateTime) { // force kill the shim process in the host
 		time.Sleep(200 * time.Millisecond) // the shim might be going to exit, wait it
 		for i := 0; i < 100; i++ {
 			syscall.Kill(state.Pid, syscall.SIGKILL)
@@ -195,16 +200,15 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 		}
 	}
 
-	vm.RemoveContainer(container)
 	err := execPoststopHooks(spec, state)
 	if err != nil {
 		glog.V(1).Infof("execute Poststop hooks failed %s", err.Error())
-		removeContainerFs(vm, container)
+		removeContainerFs(filepath.Join(root, container, "sandbox"), container)
 		os.RemoveAll(filepath.Join(root, container))
 		return err // return err of the hooks
 	}
 
-	removeContainerFs(vm, container)
+	removeContainerFs(filepath.Join(root, container, "sandbox"), container)
 	return os.RemoveAll(filepath.Join(root, container))
 }
 
