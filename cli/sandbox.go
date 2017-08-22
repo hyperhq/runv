@@ -194,10 +194,10 @@ var getSandbox = lockAndAssociateSandbox
 func putSandbox(vm *hypervisor.Vm, lockFile *os.File) {
 	if len(vm.ContainerList()) > 0 {
 		err := releaseAndUnlockSandbox(vm, lockFile)
-		if err == nil {
-			return
+		if err != nil {
+			glog.Errorf("failed to releaseAndUnlockSandbox(), err: %#v", err)
 		}
-		// fallthrough: can't recover, destory the whole sandbox
+		return
 	}
 	destroySandbox(vm, lockFile)
 }
