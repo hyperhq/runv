@@ -162,9 +162,8 @@ func destroySandbox(vm *hypervisor.Vm, lockFile *os.File) {
 
 	unlockSandbox(lockFile)
 
-	if err := os.RemoveAll(sandboxPath(vm)); err != nil {
-		glog.Errorf("can't remove vm dir %q: %v", filepath.Join(hypervisor.BaseDir, vm.Id), err)
-	}
+	// todo find a robust way to remove the sandboxPath
+
 	glog.Flush()
 }
 
