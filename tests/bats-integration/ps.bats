@@ -24,8 +24,7 @@ function teardown() {
 
   runv ps test_busybox
   [ "$status" -eq 0 ]
-  # skip [[ ${lines[0]} =~ UID\ +PID\ +PPID\ +C\ +STIME\ +TTY\ +TIME\ +CMD+ ]]
-  # skip [[ "${lines[1]}" == *"$(id -un 2>/dev/null)"*[0-9]* ]]
+  [[ ${lines[0]} =~ PID\ +CMD+ ]]
 }
 
 @test "ps -f json" {
@@ -58,6 +57,6 @@ function teardown() {
 
   runv ps test_busybox -e -x
   [ "$status" -eq 0 ]
-  # skip [[ ${lines[0]} =~ \ +PID\ +TTY\ +STAT\ +TIME\ +COMMAND+ ]]
-  # skip [[ "${lines[1]}" =~ [0-9]+ ]]
+  [[ ${lines[0]} =~ \ +PID\ +TTY\ +STAT\ +TIME\ +COMMAND+ ]]
+  [[ "${lines[1]}" =~ [0-9]+ ]]
 }
