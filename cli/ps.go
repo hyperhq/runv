@@ -35,7 +35,7 @@ var psCommand = cli.Command{
 		switch context.String("format") {
 		case "table":
 			w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
-			fmt.Fprint(w, "PROCESS\tCMD\n")
+			fmt.Fprint(w, "PID\tCMD\n")
 			for _, p := range plist {
 				fmt.Fprintf(w, "%d\t%s\n",
 					p.Pid,
