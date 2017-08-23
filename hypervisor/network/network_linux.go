@@ -17,6 +17,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
+	"github.com/hyperhq/runv/lib/utils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -96,6 +97,11 @@ type networkInterface struct {
 type ifaces struct {
 	c map[string]*networkInterface
 	sync.Mutex
+}
+
+type VhostUserInfo struct {
+	Enabled  bool
+	SockPath string
 }
 
 func setupIPForwarding() error {
@@ -841,6 +847,29 @@ func GetTapFd(tapname, bridge, options string) (device string, tapFile *os.File,
 
 }
 
+func GetVhostUserPort(device, bridge, sockPath, option string) (string, error) {
+	if device == "" {
+		// allocate a port name
+		device = utils.RandStr(10, "alpha")
+	}
+
+	glog.V(3).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, device)
+	// append vhost-server-path
+	options := fmt.Sprintf("vhost-server-path=%s/%s", sockPath, device)
+	if option != "" {
+		options = options + "," + option
+	}
+
+	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
+	// PORT and BRIDGE here indicate the device name respectively.
+	out, err := exec.Command("ovs-vsctl", "--may-exist", "add-port", bridge, device, "--", "set", "Interface", device, "type=dpdkvhostuserclient", "options:"+options).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("Ovs failed to add port: %s, error :%v", strings.TrimSpace(string(out)), err)
+	}
+
+	return device, nil
+}
+
 func AllocateAddr(requestedIP string) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
@@ -868,8 +897,11 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 	}, nil
 }
 
-func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
-
+func Configure(addrOnly bool, vInfo *VhostUserInfo, inf *api.InterfaceDescription) (*Settings, error) {
+	var (
+		tapFile *os.File = nil
+		device  string
+	)
 	ip, mask, err := ipParser(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
@@ -877,14 +909,6 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 	}
 
 	maskSize, _ := mask.Size()
-
-	/* TODO: Move port maps out of the plugging procedure
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
-	*/
 
 	mac := inf.Mac
 	if mac == "" {
@@ -908,7 +932,11 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 		}, nil
 	}
 
-	device, tapFile, err := GetTapFd(inf.TapName, inf.Bridge, inf.Options)
+	if vInfo.Enabled {
+		device, err = GetVhostUserPort(inf.TapName, inf.Bridge, vInfo.SockPath, inf.Options)
+	} else {
+		device, tapFile, err = GetTapFd(inf.TapName, inf.Bridge, inf.Options)
+	}
 	if err != nil {
 		return nil, err
 	}
