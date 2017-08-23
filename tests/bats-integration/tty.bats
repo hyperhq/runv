@@ -24,7 +24,6 @@ function teardown() {
 }
 
 @test "runv run [tty owner]" {
-	skip "fix hyperstart for this case at first"
 	# tty chmod is not doable in rootless containers.
 	# TODO: this can be made as a change to the gid test.
 	requires root
@@ -41,7 +40,6 @@ function teardown() {
 }
 
 @test "runv run [tty owner] ({u,g}id != 0)" {
-	skip "fix hyperstart for this case at first"
 	# tty chmod is not doable in rootless containers.
 	requires root
 
@@ -62,7 +60,6 @@ function teardown() {
 }
 
 @test "runv exec [tty ptsname]" {
-	skip "fix hyperstart for this case at first"
 	# run busybox detached
 	runv run -d --console-socket $CONSOLE_SOCKET test_busybox
 	[ "$status" -eq 0 ]
@@ -71,7 +68,7 @@ function teardown() {
 	testcontainer test_busybox running
 
 	# run the exec
-    runv exec test_busybox sh -c 'for file in /proc/self/fd/[012]; do readlink $file; done'
+	runv exec --tty test_busybox sh -c 'for file in /proc/self/fd/[012]; do readlink $file; done'
 	[ "$status" -eq 0 ]
 	[[ ${lines[0]} =~ /dev/pts/+ ]]
 	[[ ${lines[1]} =~ /dev/pts/+ ]]
@@ -79,7 +76,6 @@ function teardown() {
 }
 
 @test "runv exec [tty owner]" {
-	skip "fix hyperstart for this case at first"
 	# tty chmod is not doable in rootless containers.
 	# TODO: this can be made as a change to the gid test.
 	requires root
@@ -92,14 +88,13 @@ function teardown() {
 	testcontainer test_busybox running
 
 	# run the exec
-    runv exec test_busybox sh -c 'stat -c %u:%g $(tty) | tr : \\n'
+	runv exec --tty test_busybox sh -c 'stat -c %u:%g $(tty) | tr : \\n'
 	[ "$status" -eq 0 ]
 	[[ ${lines[0]} =~ 0 ]]
 	[[ ${lines[1]} =~ 5 ]]
 }
 
 @test "runv exec [tty owner] ({u,g}id != 0)" {
-	skip "fix hyperstart for this case at first"
 	# tty chmod is not doable in rootless containers.
 	requires root
 
@@ -116,7 +111,7 @@ function teardown() {
 	testcontainer test_busybox running
 
 	# run the exec
-    runv exec test_busybox sh -c 'stat -c %u:%g $(tty) | tr : \\n'
+	runv exec --tty test_busybox sh -c 'stat -c %u:%g $(tty) | tr : \\n'
 	[ "$status" -eq 0 ]
 	[[ ${lines[0]} =~ 1000 ]]
 	[[ ${lines[1]} =~ 5 ]]
