@@ -73,32 +73,35 @@ root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 
 `runv` is a runtime implementation of [OCI runtime](https://github.com/opencontainers/runtime-spec) and its command line is almost compatible with the runc-0.1.1(keeping updated with the newest released runc). It is still under development and uncompleted, such as container tty is not working currently.
 
-Note, runv project also provides other [smooth way](docs/configure-runv-with-containerd-docker.md) to integrate with later versions of docker and containerd.
+`runV` provides [a detailed walk-though](docs/configure-runv-with-containerd-docker.md) to integrate with latest versions of docker and containerd.
 
-Example(requires docker-1.11 who talks runc-0.1.1 command line):
+Quick example (requires 17.06.1-ce that talks runc-1.0.0-rc3 command line):
 
+Configure docker to use `runV` as the default runtime.
 ```bash
-# in terminal #1
-$ docker-containerd --debug -l /var/run/docker/libcontainerd/docker-containerd.sock \
-  --runtime /path/to/runv --runtime-args --debug --runtime-args --driver=libvirt \
-  --runtime-args --kernel=/opt/hyperstart/build/kernel \
-  --runtime-args --initrd=/opt/hyperstart/build/hyper-initrd.img \
-  --start-timeout 2m
-# in terminal #2
-$ docker daemon -D -l debug --containerd=/var/run/docker/libcontainerd/docker-containerd.sock
-# in terminal #3 for trying it
-$ docker run busybox ls
-bin
-dev
-etc
-home
-lib
-proc
-root
-sys
-tmp
-usr
-var
+$cat /etc/docker/daemon.json
+{
+  "default-runtime": "runv",
+  "runtimes": {
+    "runv": {
+      "path": "runv"
+    }
+  }
+}
+```
+
+Start docker, pull and create busybox container.
+```bash
+$sudo systemctl start docker
+$docker pull busybox
+Using default tag: latest
+latest: Pulling from library/busybox
+Digest: sha256:2605a2c4875ce5eb27a9f7403263190cd1af31e48a2044d400320548356251c4
+Status: Image is up to date for busybox:latest
+$docker run --rm -it busybox
+/ # ls
+bin   dev   etc   home  lib   proc  root  sys   tmp   usr   var
+/ # exit
 ```
 
 ### Example
