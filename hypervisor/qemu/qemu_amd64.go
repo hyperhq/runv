@@ -60,8 +60,13 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,clock=vm,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
 		"-m", memParams, "-smp", cpuParams)
-
-	if boot.BootToBeTemplate || boot.BootFromTemplate {
+	if boot.EnableVhostUser {
+		//TODO: mount hugetlbfs on /dev/hugepages
+		boot.MemoryPath = "/dev/hugepages"
+		memObject := fmt.Sprintf("memory-backend-file,id=hyper-memory,size=%dM,mem-path=%s,share=on", boot.Memory, boot.MemoryPath)
+		nodeConfig := fmt.Sprintf("node,nodeid=0,cpus=0-%d,memdev=hyper-memory", hypervisor.DefaultMaxCpus-1)
+		params = append(params, "-object", memObject, "-numa", nodeConfig)
+	} else if boot.BootToBeTemplate || boot.BootFromTemplate {
 		memObject := fmt.Sprintf("memory-backend-file,id=hyper-template-memory,size=%dM,mem-path=%s", boot.Memory, boot.MemoryPath)
 		if boot.BootToBeTemplate {
 			memObject = memObject + ",share=on"

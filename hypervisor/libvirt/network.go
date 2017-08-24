@@ -16,7 +16,7 @@ func (ld *LibvirtDriver) InitNetwork(bIface, bIP string, disableIptables bool) e
 }
 
 func (lc *LibvirtContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
-	return network.Configure(true, config)
+	return network.Configure(true, &network.VhostUserInfo{}, config)
 }
 
 func (lc *LibvirtContext) ReleaseNetwork(releasedIP string) error {

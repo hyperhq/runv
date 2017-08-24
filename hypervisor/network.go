@@ -120,8 +120,9 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			close(devChan)
 			return
 		}
-
-		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), fmt.Sprintf("eth%d", idx), inf, devChan)
+		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), fmt.Sprintf("eth%d", idx),
+			&network.VhostUserInfo{nc.sandbox.Boot.EnableVhostUser, nc.sandbox.HomeDir},
+			inf, devChan)
 	}()
 
 	go func() {
@@ -217,7 +218,7 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.freeSlot(idx)
 }
 
-func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
+func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, vInfo *network.VhostUserInfo, inf *api.InterfaceDescription, result chan<- VmEvent) {
 	var (
 		err      error
 		settings *network.Settings
@@ -227,7 +228,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 		/* VBox doesn't support join to bridge */
 		settings, err = nc.sandbox.DCtx.ConfigureNetwork(inf)
 	} else {
-		settings, err = network.Configure(false, inf)
+		settings, err = network.Configure(false, vInfo, inf)
 	}
 
 	if err != nil {
@@ -268,7 +269,6 @@ func (nc *NetworkContext) cleanupInf(inf *InterfaceCreated) {
 		network.Close(inf.Fd)
 		inf.Fd = nil
 	}
-
 }
 
 func (nc *NetworkContext) getInterface(id string) *InterfaceCreated {

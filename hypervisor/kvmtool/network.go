@@ -20,7 +20,7 @@ func (kd *KvmtoolDriver) InitNetwork(bIface, bIP string, disableIptables bool) e
 }
 
 func (kc *KvmtoolContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
-	return network.Configure(true, config)
+	return network.Configure(true, &network.VhostUserInfo{}, config)
 }
 
 func (kc *KvmtoolContext) ReleaseNetwork(releasedIP string) error {
