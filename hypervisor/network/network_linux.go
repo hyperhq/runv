@@ -802,7 +802,6 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 		Bridge:      BridgeIface,
 		IPPrefixLen: maskSize,
 		Device:      "",
-		File:        nil,
 		Automatic:   true,
 	}, nil
 }
@@ -832,38 +831,14 @@ func Configure(inf *api.InterfaceDescription) (*Settings, error) {
 		Bridge:      inf.Bridge,
 		IPPrefixLen: maskSize,
 		Device:      inf.TapName,
-		File:        nil,
 		Automatic:   false,
 	}, nil
-}
-
-func Close(file *os.File) error {
-	if file != nil {
-		file.Close()
-	}
-	return nil
 }
 
 func ReleaseAddr(releasedIP string) error {
 	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}
-	return nil
-}
-
-// Release an interface for a select ip
-func Release(releasedIP string) error {
-
-	if err := ReleaseAddr(releasedIP); err != nil {
-		return err
-	}
-
-	/* TODO: call this after release networks
-	if err := ReleasePortMaps(releasedIP, maps); err != nil {
-		glog.Errorf("fail to release port map %s", err)
-		return err
-	}
-	*/
 	return nil
 }
 

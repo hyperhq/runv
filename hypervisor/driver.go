@@ -33,7 +33,6 @@ type BootConfig struct {
 
 type HostNicInfo struct {
 	Id      string
-	Fd      uint64
 	Device  string
 	Mac     string
 	Bridge  string

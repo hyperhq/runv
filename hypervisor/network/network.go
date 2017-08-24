@@ -2,7 +2,6 @@ package network
 
 import (
 	"net"
-	"os"
 
 	"github.com/hyperhq/runv/hypervisor/network/ipallocator"
 )
@@ -14,7 +13,6 @@ type Settings struct {
 	Gateway     string
 	Bridge      string
 	Device      string
-	File        *os.File
 	Automatic   bool
 }
 

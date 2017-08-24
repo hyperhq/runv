@@ -233,7 +233,6 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 
 	h := &HostNicInfo{
 		Id:      created.Id,
-		Fd:      uint64(created.Fd.Fd()),
 		Device:  created.HostDevice,
 		Mac:     created.MacAddr,
 		Bridge:  created.Bridge,
@@ -253,10 +252,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 }
 
 func (nc *NetworkContext) cleanupInf(inf *InterfaceCreated) {
-	if _, ok := HDriver.(BuildinNetworkDriver); !ok && inf.Fd != nil {
-		network.Close(inf.Fd)
-		inf.Fd = nil
-	}
+	network.ReleaseAddr(inf.IpAddr)
 }
 
 func (nc *NetworkContext) getInterface(id string) *InterfaceCreated {
@@ -337,7 +333,6 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		Bridge:     inf.Bridge,
 		HostDevice: inf.Device,
 		DeviceName: name,
-		Fd:         inf.File,
 		MacAddr:    inf.Mac,
 		IpAddr:     ip.String(),
 		NetMask:    mask.String(),
