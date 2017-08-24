@@ -151,6 +151,11 @@ func setupContainerFs(vm *hypervisor.Vm, bundle, container string, spec *specs.S
 		glog.Errorf("Make %q private failed: %v", containerSharedFs, err)
 		return err
 	}
+	defer func() {
+		if err != nil {
+			utils.Umount(containerSharedFs)
+		}
+	}()
 
 	// Mount rootfs
 	err = utils.Mount(rootPath, vmRootfs)
