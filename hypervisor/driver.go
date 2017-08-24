@@ -53,12 +53,16 @@ type HypervisorDriver interface {
 
 	LoadContext(persisted map[string]interface{}) (DriverContext, error)
 
-	BuildinNetwork() bool
-
-	InitNetwork(bIface, bIP string, disableIptables bool) error
-
 	SupportLazyMode() bool
 	SupportVmSocket() bool
+}
+
+type BuildinNetworkDriver interface {
+	HypervisorDriver
+
+	InitNetwork(bIface, bIP string, disableIptables bool) error
+	ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error)
+	ReleaseNetwork(releasedIP string) error
 }
 
 var HDriver HypervisorDriver
@@ -84,9 +88,6 @@ type DriverContext interface {
 	Kill(ctx *VmContext)
 
 	Pause(ctx *VmContext, pause bool) error
-
-	ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error)
-	ReleaseNetwork(releasedIP string) error
 
 	Stats(ctx *VmContext) (*types.PodStats, error)
 

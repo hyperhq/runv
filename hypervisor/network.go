@@ -224,9 +224,8 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, vI
 		settings *network.Settings
 	)
 
-	if HDriver.BuildinNetwork() {
-		/* VBox doesn't support join to bridge */
-		settings, err = nc.sandbox.DCtx.ConfigureNetwork(inf)
+	if driver, ok := HDriver.(BuildinNetworkDriver); ok {
+		settings, err = driver.ConfigureNetwork(inf)
 	} else {
 		settings, err = network.Configure(false, vInfo, inf)
 	}
@@ -265,7 +264,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, vI
 }
 
 func (nc *NetworkContext) cleanupInf(inf *InterfaceCreated) {
-	if !HDriver.BuildinNetwork() && inf.Fd != nil {
+	if _, ok := HDriver.(BuildinNetworkDriver); !ok && inf.Fd != nil {
 		network.Close(inf.Fd)
 		inf.Fd = nil
 	}

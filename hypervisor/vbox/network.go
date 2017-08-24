@@ -9,10 +9,6 @@ import (
 	"github.com/hyperhq/runv/hypervisor/network"
 )
 
-func (vd *VBoxDriver) BuildinNetwork() bool {
-	return true
-}
-
 func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
 	var i = 0
 
@@ -60,7 +56,7 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) erro
 	return nil
 }
 
-func (vc *VBoxContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
+func (vd *VBoxDriver) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
 	ip, ipnet, err := net.ParseCIDR(config.Ip)
 	if err != nil {
 		glog.Errorf("Parse interface IP failed %s", err)
@@ -81,7 +77,7 @@ func (vc *VBoxContext) ConfigureNetwork(config *api.InterfaceDescription) (*netw
 }
 
 // Release an interface for a select ip
-func (vc *VBoxContext) ReleaseNetwork(releasedIP string) error {
+func (vd *VBoxDriver) ReleaseNetwork(releasedIP string) error {
 	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}

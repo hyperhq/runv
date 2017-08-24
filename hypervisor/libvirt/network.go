@@ -7,18 +7,14 @@ import (
 	"github.com/hyperhq/runv/hypervisor/network"
 )
 
-func (ld *LibvirtDriver) BuildinNetwork() bool {
-	return true
-}
-
 func (ld *LibvirtDriver) InitNetwork(bIface, bIP string, disableIptables bool) error {
 	return network.InitNetwork(bIface, bIP, disableIptables)
 }
 
-func (lc *LibvirtContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
+func (ld *LibvirtDriver) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
 	return network.Configure(true, &network.VhostUserInfo{}, config)
 }
 
-func (lc *LibvirtContext) ReleaseNetwork(releasedIP string) error {
+func (ld *LibvirtDriver) ReleaseNetwork(releasedIP string) error {
 	return network.Release(releasedIP)
 }
