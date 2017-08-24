@@ -120,9 +120,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			close(devChan)
 			return
 		}
-		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), fmt.Sprintf("eth%d", idx),
-			&network.VhostUserInfo{nc.sandbox.Boot.EnableVhostUser, nc.sandbox.HomeDir},
-			inf, devChan)
+		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), fmt.Sprintf("eth%d", idx), inf, devChan)
 	}()
 
 	go func() {
@@ -218,18 +216,8 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.freeSlot(idx)
 }
 
-func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, vInfo *network.VhostUserInfo, inf *api.InterfaceDescription, result chan<- VmEvent) {
-	var (
-		err      error
-		settings *network.Settings
-	)
-
-	if driver, ok := HDriver.(BuildinNetworkDriver); ok {
-		settings, err = driver.ConfigureNetwork(inf)
-	} else {
-		settings, err = network.Configure(false, vInfo, inf)
-	}
-
+func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
+	settings, err := network.Configure(inf)
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
 		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: name}
@@ -250,6 +238,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, vI
 		Mac:     created.MacAddr,
 		Bridge:  created.Bridge,
 		Gateway: created.Bridge,
+		Options: inf.Options,
 	}
 	g := &GuestNicInfo{
 		Device:  created.DeviceName,

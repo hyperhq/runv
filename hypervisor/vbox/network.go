@@ -56,35 +56,6 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) erro
 	return nil
 }
 
-func (vd *VBoxDriver) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
-	ip, ipnet, err := net.ParseCIDR(config.Ip)
-	if err != nil {
-		glog.Errorf("Parse interface IP failed %s", err)
-		return nil, err
-	}
-
-	maskSize, _ := ipnet.Mask.Size()
-
-	return &network.Settings{
-		Mac:         config.Mac,
-		IPAddress:   ip.String(),
-		Gateway:     config.Gw,
-		Bridge:      "",
-		IPPrefixLen: maskSize,
-		Device:      "",
-		File:        nil,
-	}, nil
-}
-
-// Release an interface for a select ip
-func (vd *VBoxDriver) ReleaseNetwork(releasedIP string) error {
-	if err := network.IpAllocator.ReleaseIP(network.BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func inc(ip net.IP, count int) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		for i := 0; i < count; i++ {

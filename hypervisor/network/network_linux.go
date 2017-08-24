@@ -17,7 +17,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
-	"github.com/hyperhq/runv/lib/utils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -27,9 +26,6 @@ const (
 	SIOC_BRADDBR   = 0x89a0
 	SIOC_BRDELBR   = 0x89a1
 	SIOC_BRADDIF   = 0x89a2
-	CIFF_TAP       = 0x0002
-	CIFF_NO_PI     = 0x1000
-	CIFF_ONE_QUEUE = 0x2000
 )
 
 const (
@@ -97,11 +93,6 @@ type networkInterface struct {
 type ifaces struct {
 	c map[string]*networkInterface
 	sync.Mutex
-}
-
-type VhostUserInfo struct {
-	Enabled  bool
-	SockPath string
 }
 
 func setupIPForwarding() error {
@@ -761,7 +752,7 @@ func GenRandomMac() (string, error) {
 	return strings.Join(tmp, ":"), nil
 }
 
-func UpAndAddToBridge(name, bridge string) error {
+func UpAndAddToBridge(name, bridge, options string) error {
 	inf, err := net.InterfaceByName(name)
 	if err != nil {
 		glog.Error("cannot find network interface ", name)
@@ -775,7 +766,7 @@ func UpAndAddToBridge(name, bridge string) error {
 		glog.Error("cannot find bridge interface ", bridge)
 		return err
 	}
-	err = AddToBridge(inf, brg, "")
+	err = AddToBridge(inf, brg, options)
 	if err != nil {
 		glog.Errorf("cannot add %s to %s ", name, bridge)
 		return err
@@ -787,87 +778,6 @@ func UpAndAddToBridge(name, bridge string) error {
 	}
 
 	return nil
-}
-
-func GetTapFd(tapname, bridge, options string) (device string, tapFile *os.File, err error) {
-	var (
-		req   ifReq
-		errno syscall.Errno
-	)
-
-	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
-	if err != nil {
-		return "", nil, err
-	}
-
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	if tapname != "" {
-		copy(req.Name[:len(req.Name)-1], []byte(tapname))
-	}
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
-		uintptr(syscall.TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)))
-	if errno != 0 {
-		err = fmt.Errorf("create tap device failed\n")
-		tapFile.Close()
-		return "", nil, err
-	}
-
-	device = strings.Trim(string(req.Name[:]), "\x00")
-
-	tapIface, err := net.InterfaceByName(device)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed %s", device, err)
-		tapFile.Close()
-		return "", nil, err
-	}
-
-	bIface, err := net.InterfaceByName(bridge)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", bridge)
-		tapFile.Close()
-		return "", nil, err
-	}
-
-	err = AddToBridge(tapIface, bIface, options)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", bridge, device)
-		tapFile.Close()
-		return "", nil, err
-	}
-
-	err = NetworkLinkUp(tapIface)
-	if err != nil {
-		glog.Errorf("Link up device %s failed", device)
-		tapFile.Close()
-		return "", nil, err
-	}
-
-	return device, tapFile, nil
-
-}
-
-func GetVhostUserPort(device, bridge, sockPath, option string) (string, error) {
-	if device == "" {
-		// allocate a port name
-		device = utils.RandStr(10, "alpha")
-	}
-
-	glog.V(3).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, device)
-	// append vhost-server-path
-	options := fmt.Sprintf("vhost-server-path=%s/%s", sockPath, device)
-	if option != "" {
-		options = options + "," + option
-	}
-
-	// ovs command "ovs-vsctl add-port BRIDGE PORT" add netwok device PORT to BRIDGE,
-	// PORT and BRIDGE here indicate the device name respectively.
-	out, err := exec.Command("ovs-vsctl", "--may-exist", "add-port", bridge, device, "--", "set", "Interface", device, "type=dpdkvhostuserclient", "options:"+options).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("Ovs failed to add port: %s, error :%v", strings.TrimSpace(string(out)), err)
-	}
-
-	return device, nil
 }
 
 func AllocateAddr(requestedIP string) (*Settings, error) {
@@ -897,11 +807,7 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 	}, nil
 }
 
-func Configure(addrOnly bool, vInfo *VhostUserInfo, inf *api.InterfaceDescription) (*Settings, error) {
-	var (
-		tapFile *os.File = nil
-		device  string
-	)
+func Configure(inf *api.InterfaceDescription) (*Settings, error) {
 	ip, mask, err := ipParser(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
@@ -919,36 +825,14 @@ func Configure(addrOnly bool, vInfo *VhostUserInfo, inf *api.InterfaceDescriptio
 		}
 	}
 
-	if addrOnly {
-		return &Settings{
-			Mac:         mac,
-			IPAddress:   ip.String(),
-			Gateway:     inf.Gw,
-			Bridge:      inf.Bridge,
-			IPPrefixLen: maskSize,
-			Device:      inf.TapName,
-			File:        nil,
-			Automatic:   false,
-		}, nil
-	}
-
-	if vInfo.Enabled {
-		device, err = GetVhostUserPort(inf.TapName, inf.Bridge, vInfo.SockPath, inf.Options)
-	} else {
-		device, tapFile, err = GetTapFd(inf.TapName, inf.Bridge, inf.Options)
-	}
-	if err != nil {
-		return nil, err
-	}
-
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
 		Gateway:     inf.Gw,
 		Bridge:      inf.Bridge,
 		IPPrefixLen: maskSize,
-		Device:      device,
-		File:        tapFile,
+		Device:      inf.TapName,
+		File:        nil,
 		Automatic:   false,
 	}, nil
 }

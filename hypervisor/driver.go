@@ -38,6 +38,7 @@ type HostNicInfo struct {
 	Mac     string
 	Bridge  string
 	Gateway string
+	Options string
 }
 
 type GuestNicInfo struct {
@@ -61,8 +62,6 @@ type BuildinNetworkDriver interface {
 	HypervisorDriver
 
 	InitNetwork(bIface, bIP string, disableIptables bool) error
-	ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error)
-	ReleaseNetwork(releasedIP string) error
 }
 
 var HDriver HypervisorDriver
