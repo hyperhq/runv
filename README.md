@@ -15,10 +15,10 @@
 ### Hypervisor
 
 The current release of `runV` supports the following hypervisors:
-- KVM (QEMU 2.0 or later)
+- KVM (QEMU 2.1 or later)
 - KVM (Kvmtool)
 - Xen (4.5 or later)
-- VirtualBox (Mac OS X)
+- QEMU without KVM (NOT RECOMMENDED. QEMU 2.1 or later)
 
 ### Distro
 
@@ -30,11 +30,11 @@ The current release of `runV` supports the following distros:
 	- 14.04 Trusty
 - CentOS 64bit
 	- 7.0
-	- 6.x (upgrade to QEMU 2.0)
+	- 6.x (upgrade to QEMU 2.1)
 - Fedora 20-22 64bit
 - Debian 64bit
 	- 8.0 jessie
-	- 7.x wheezy (upgrade to QEMU 2.0)
+	- 7.x wheezy (upgrade to QEMU 2.1)
 
 ### Build
 
@@ -58,10 +58,10 @@ $ sudo make install
 
 To run a OCI image, execute `runv` with the [OCI JSON format file](https://github.com/opencontainers/runc#oci-container-json-format) as argument, or have a `config.json` file in `CWD`.
 
-Also, a kernel and initrd images are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to load the `kernel` and `initrd.img` files from `CWD`.
+Also, a kernel and initrd images are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to use the `/var/lib/hyper/kernel` and `/var/lib/hyper/hyper-initrd.img` files as the kernel and initrd images.
 
 ```bash
-runv --kernel kernel --initrd initrd.img
+runv --kernel kernel --initrd initrd.img run mycontainer
 $ ps aux
 USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.0  0.1   4352   232 ttyS0    S+   05:54   0:00 /init
@@ -71,7 +71,7 @@ root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 
 ### Run it with docker
 
-`runv` is a runtime implementation of [OCI runtime](https://github.com/opencontainers/runtime-spec) and its command line is almost compatible with the runc-0.1.1(keeping updated with the newest released runc). It is still under development and uncompleted, such as container tty is not working currently.
+`runv` is a runtime implementation of [OCI runtime](https://github.com/opencontainers/runtime-spec) and its command line is highly compatible with the 1.0.0-rc3(keeping updated with the newest released runc). But it is still under development and uncompleted.
 
 `runV` provides [a detailed walk-though](docs/configure-runv-with-containerd-docker.md) to integrate with latest versions of docker and containerd.
 
