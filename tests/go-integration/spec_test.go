@@ -12,7 +12,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func (s *RunVSuite) TestSpecDefault(c *check.C) {
+func (s *RunVSuite) Test00SpecDefault(c *check.C) {
 	defer s.PrintLog(c)
 	expectedSpec := defaultTestSpec
 	expectedSpec.Process.Terminal = true
