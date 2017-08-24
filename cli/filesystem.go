@@ -177,6 +177,10 @@ func setupContainerFs(vm *hypervisor.Vm, bundle, container string, spec *specs.S
 		}
 	}
 
+	if err = platformSetupFs(vmRootfs, spec); err != nil {
+		return err
+	}
+
 	// set rootfs readonly
 	if spec.Root.Readonly {
 		err = utils.SetReadonly(vmRootfs)
