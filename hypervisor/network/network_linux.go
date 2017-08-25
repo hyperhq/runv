@@ -174,7 +174,7 @@ func addToOpenvswitchBridge(iface, master netlink.Link, options string) error {
 	return nil
 }
 
-func GenRandomMac() (string, error) {
+func genRandomMac() (string, error) {
 	const alphanum = "0123456789abcdef"
 	var bytes = make([]byte, 8)
 	_, err := rand.Read(bytes)
@@ -226,7 +226,7 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 
 	maskSize, _ := BridgeIPv4Net.Mask.Size()
 
-	mac, err := GenRandomMac()
+	mac, err := genRandomMac()
 	if err != nil {
 		glog.Errorf("Generate Random Mac address failed")
 		return nil, err
@@ -254,7 +254,7 @@ func Configure(inf *api.InterfaceDescription) (*Settings, error) {
 
 	mac := inf.Mac
 	if mac == "" {
-		mac, err = GenRandomMac()
+		mac, err = genRandomMac()
 		if err != nil {
 			glog.Errorf("Generate Random Mac address failed")
 			return nil, err
