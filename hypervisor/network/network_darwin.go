@@ -15,7 +15,11 @@ func Configure(addrOnly bool, vInfo *VhostUserInfo, inf *api.InterfaceDescriptio
 	return nil, fmt.Errorf("Generial Network driver is unsupported on this os")
 }
 
+func AllocateAddr(requestedIP string) (*Settings, error) {
+	return nil, fmt.Errorf("Generial Network driver is unsupported on this os")
+}
+
 // Release an interface for a select ip
-func Release(releasedIP string) error {
+func ReleaseAddr(releasedIP string) error {
 	return fmt.Errorf("Generial Network driver is unsupported on this os")
 }

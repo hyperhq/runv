@@ -781,7 +781,6 @@ func UpAndAddToBridge(name, bridge, options string) error {
 }
 
 func AllocateAddr(requestedIP string) (*Settings, error) {
-
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
 		return nil, err
