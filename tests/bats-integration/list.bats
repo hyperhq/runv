@@ -18,7 +18,6 @@ function teardown() {
 }
 
 @test "list" {
-  skip "need to update the output of the runv list or update the check here"
   # run a few busyboxes detached
   ROOT=$HELLO_BUNDLE runv run -d --console-socket $CONSOLE_SOCKET test_box1
   [ "$status" -eq 0 ]
@@ -31,10 +30,10 @@ function teardown() {
 
   ROOT=$HELLO_BUNDLE runv list
   [ "$status" -eq 0 ]
-  [[ ${lines[0]} =~ ID\ +PID\ +STATUS\ +BUNDLE\ +CREATED+ ]]
-  [[ "${lines[1]}" == *"test_box1"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
-  [[ "${lines[2]}" == *"test_box2"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
-  [[ "${lines[3]}" == *"test_box3"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
+  [[ ${lines[0]} =~ ID\ +PID\ +STATUS\ +BUNDLE\ +CREATED\ +OWNER+ ]]
+  [[ "${lines[1]}" == *"test_box1"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
+  [[ "${lines[2]}" == *"test_box2"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
+  [[ "${lines[3]}" == *"test_box3"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
 
   ROOT=$HELLO_BUNDLE runv list -q
   [ "$status" -eq 0 ]
@@ -44,10 +43,10 @@ function teardown() {
 
   ROOT=$HELLO_BUNDLE runv list --format table
   [ "$status" -eq 0 ]
-  [[ ${lines[0]} =~ ID\ +PID\ +STATUS\ +BUNDLE\ +CREATED+ ]]
-  [[ "${lines[1]}" == *"test_box1"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
-  [[ "${lines[2]}" == *"test_box2"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
-  [[ "${lines[3]}" == *"test_box3"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]* ]]
+  [[ ${lines[0]} =~ ID\ +PID\ +STATUS\ +BUNDLE\ +CREATED\ +OWNER+ ]]
+  [[ "${lines[1]}" == *"test_box1"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
+  [[ "${lines[2]}" == *"test_box2"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
+  [[ "${lines[3]}" == *"test_box3"*[0-9]*"running"*$BUSYBOX_BUNDLE*[0-9]*root* ]]
 
   ROOT=$HELLO_BUNDLE runv list --format json
   [ "$status" -eq 0 ]
