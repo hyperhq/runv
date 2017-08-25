@@ -56,18 +56,70 @@ $ sudo make install
 
 ### Run
 
-To run a OCI image, execute `runv` with the [OCI JSON format file](https://github.com/opencontainers/runc#oci-container-json-format) as argument, or have a `config.json` file in `CWD`.
+#### Install qemu
+runv by default uses [qemu](https://www.qemu.org/) to start virtual machines and makes use of [KVM](https://wiki.qemu.org/Features/KVM) if it is supported. Please make sure qemu is installed on the machine.
 
-Also, a kernel and initrd images are needed too. We recommend you to build them from [HyperStart](https://github.com/hyperhq/hyperstart/) repo. If not specified, runV will try to use the `/var/lib/hyper/kernel` and `/var/lib/hyper/hyper-initrd.img` files as the kernel and initrd images.
+#### Install hyperstart
+runv needs [hyperstart](https://github.com/hyperhq/hyperstart) to provide guest kernel and initrd. By default, it looks for kernel and hyper-initrd.img from `/var/lib/hyper/` directory. Build hyperstart and copy them there:
+```
+$ git clone https://github.com/hyperhq/hyperstart.git
+$ cd hyperstart
+$ ./autogen.sh ;./configure ;make
+$ mkdir /var/lib/hyper/
+$ cp build/hyper-initrd.img build/kernel /var/lib/hyper
+```
+
+#### Creating an OCI Bundle
+
+In order to use runv you must have your container in the format of an OCI bundle.
+If you have Docker installed you can use its `export` method to acquire a root filesystem from an existing Docker container.
 
 ```bash
-runv --kernel kernel --initrd initrd.img run mycontainer
+# create the top most bundle directory
+mkdir /containerbundle
+cd /containerbundle
+
+# create the rootfs directory
+mkdir rootfs
+
+# export busybox via Docker into the rootfs directory
+docker export $(docker create busybox) | tar -C rootfs -xvf -
+```
+
+#### Creating an OCI Container Spec
+
+After a root filesystem is populated you just generate a spec in the format of a `config.json` file inside your bundle.
+`runv` provides a `spec` command to generate a base template spec that you are then able to edit.
+To find features and documentation for fields in the spec please refer to the [specs](https://github.com/opencontainers/runtime-spec) repository.
+
+```bash
+runv spec
+```
+
+`runc spec` can be also used here for gernerating the `config.json` for a runv containter, since runv and runc are both OCI compatitible runtime.
+
+#### Running Containers
+
+The convenience command `run` will handle creating, starting, and deleting the container after it exits.
+
+```bash
+# run as root
+cd /containerbundle
+runv --kernel /path/to/kernel --initrd /path/to/initrd.img run mycontainer
+# If you used the unmodified `runv spec` template this should give you a `sh` session inside the container.
 $ ps aux
 USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.0  0.1   4352   232 ttyS0    S+   05:54   0:00 /init
 root         2  0.0  0.5   4448   632 pts/0    Ss   05:54   0:00 sh
 root         4  0.0  1.6  15572  2032 pts/0    R+   05:57   0:00 ps aux
 ```
+
+The arguemnts `--kernel /path/to/kernel` and `--initrd /path/to/initrd.img` can be omitted.
+In this case, `/var/lib/hyper/kernel` and `/var/lib/hyper/hyper-initrd.img` will be used by runv.
+
+A container can be also be run via using the specs lifecycle operations.
+Such as `runv create mycontainer`, `runv start mycontainer` and `runv delete mycontainer`.
+This gives you more power over how the container is created and managed while it is running.
 
 ### Run it with docker
 
@@ -103,7 +155,3 @@ $docker run --rm -it busybox
 bin   dev   etc   home  lib   proc  root  sys   tmp   usr   var
 / # exit
 ```
-
-### Example
-
-Please follow the [instructions in runC](https://github.com/opencontainers/runc#creating-an-oci-bundle) to get the container rootfs and execute `runv spec` to generate a spec in the format of a `config.json` file.
