@@ -135,8 +135,8 @@
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
-			"Comment": "v1.0.0-rc5",
-			"Rev": "035da1dca3dfbb00d752eb58b0b158d6129f3776"
+			"Comment": "v1.0.0",
+			"Rev": "02137cd4e50b37a01665e1731fcd4ac2d2178230"
 		},
 		{
 			"ImportPath": "github.com/philhofer/fwd",
