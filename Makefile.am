@@ -18,13 +18,15 @@ HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
 all-local: build-runv
 clean-local:
 	-rm -f runv
-install-exec-local: 
+install-exec-local:
 	$(INSTALL_PROGRAM) runv $(bindir)
 
 build-runv:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o runv ./cli/
-test-integration:
+go-integration:
 	cd tests/go-integration/test_data && make
 	cd tests/go-integration && go test -check.v -test.timeout=120m ${TESTFLAGS} .
+bats:
 	go build -tags "static_build $(HYPER_BULD_TAGS)" -ldflags ${GOLDFLAGS} -o ./tests/recvtty/recvtty ./tests/recvtty/
 	bats tests/bats-integration/
+test-integration: go-integration bats

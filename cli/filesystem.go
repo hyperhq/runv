@@ -151,6 +151,11 @@ func setupContainerFs(vm *hypervisor.Vm, bundle, container string, spec *specs.S
 		glog.Errorf("Make %q private failed: %v", containerSharedFs, err)
 		return err
 	}
+	defer func() {
+		if err != nil {
+			utils.Umount(containerSharedFs)
+		}
+	}()
 
 	// Mount rootfs
 	err = utils.Mount(rootPath, vmRootfs)
@@ -170,6 +175,10 @@ func setupContainerFs(vm *hypervisor.Vm, bundle, container string, spec *specs.S
 		if err := mountToRootfs(&m, vmRootfs, ""); err != nil {
 			return fmt.Errorf("mounting %q to rootfs %q at %q failed: %v", m.Source, m.Destination, vmRootfs, err)
 		}
+	}
+
+	if err = platformSetupFs(vmRootfs, spec); err != nil {
+		return err
 	}
 
 	// set rootfs readonly

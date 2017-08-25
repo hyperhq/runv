@@ -11,7 +11,7 @@ function setup() {
 	echo "Forbidden information!" > rootfs/testfile
 
 	# add extra masked paths
-	sed -i 's;"maskedPaths": \[;"maskedPaths": \["/testdir","/testfile",;g' config.json
+	sed -i 's;"linux": {;"linux": {"maskedPaths": \["/testdir","/testfile"\],;g' config.json
 }
 
 function teardown() {
@@ -19,14 +19,13 @@ function teardown() {
 }
 
 @test "mask paths [file]" {
-  skip "runv doesn't support mask paths yet"
 	# run busybox detached
 	runv run -d --console-socket $CONSOLE_SOCKET test_busybox
 	[ "$status" -eq 0 ]
 
 	runv exec test_busybox cat /testfile
-	[ "$status" -eq 0 ]
-	[[ "${output}" == "" ]]
+	[ "$status" -eq 1 ]
+	[[ "${output}" == *"Permission denied"* ]]
 
 	runv exec test_busybox rm -f /testfile
 	[ "$status" -eq 1 ]
@@ -34,11 +33,10 @@ function teardown() {
 
 	runv exec test_busybox umount /testfile
 	[ "$status" -eq 1 ]
-	[[ "${output}" == *"Operation not permitted"* ]]
+	[[ "${output}" == *"Invalid argument"* ]]
 }
 
 @test "mask paths [directory]" {
-  skip "runv doesn't support mask paths yet"
 	# run busybox detached
 	runv run -d --console-socket $CONSOLE_SOCKET test_busybox
 	[ "$status" -eq 0 ]
@@ -57,5 +55,5 @@ function teardown() {
 
 	runv exec test_busybox umount /testdir
 	[ "$status" -eq 1 ]
-	[[ "${output}" == *"Operation not permitted"* ]]
+	[[ "${output}" == *"Invalid argument"* ]]
 }

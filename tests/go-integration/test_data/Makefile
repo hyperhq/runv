@@ -36,6 +36,7 @@ busybox.tar: build/busybox
 	touch build/rootfs/.dockerenv
 	install -D build/busybox build/rootfs/bin/busybox
 	set -e; for i in `build/busybox --list`; do ln -s busybox build/rootfs/bin/$$i; done
+	mkdir -p build/rootfs/testdata && cp build/busybox build/rootfs/testdata/foobar
 	cd build/rootfs && tar -cf $(CURDIR)/busybox.tar .
 
 clean:
