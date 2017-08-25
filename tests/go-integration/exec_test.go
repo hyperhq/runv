@@ -17,7 +17,7 @@ import (
 func (s *RunVSuite) TestExecHelloWorld(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "testExecHelloWorld"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
@@ -46,7 +46,7 @@ func (s *RunVSuite) TestExecHelloWorld(c *check.C) {
 func (s *RunVSuite) TestExecWithTty(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "TestExecWithTty"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
@@ -94,7 +94,7 @@ func (s *RunVSuite) TestExecWithTty(c *check.C) {
 
 func (s *RunVSuite) TestExecWithProcessJson(c *check.C) {
 	defer s.PrintLog(c)
-	process := specs.Process{
+	process := &specs.Process{
 		Terminal: false,
 		User:     specs.User{},
 		Args: []string{
@@ -115,7 +115,7 @@ func (s *RunVSuite) TestExecWithProcessJson(c *check.C) {
 	c.Assert(err, checker.IsNil)
 
 	ctrName := "TestExecWithProcessJson"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)

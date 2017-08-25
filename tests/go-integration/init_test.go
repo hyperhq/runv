@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -31,15 +30,11 @@ const (
 var (
 	defaultTestSpec = specs.Spec{
 		Version: specs.Version,
-		Platform: specs.Platform{
-			OS:   runtime.GOOS,
-			Arch: runtime.GOARCH,
-		},
-		Root: specs.Root{
+		Root: &specs.Root{
 			Path:     rootfsName,
 			Readonly: true,
 		},
-		Process: specs.Process{
+		Process: &specs.Process{
 			Terminal: false,
 			User:     specs.User{},
 			Args: []string{

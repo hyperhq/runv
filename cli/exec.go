@@ -156,7 +156,7 @@ func getProcess(context *cli.Context, spec *specs.Spec) (*specs.Process, error) 
 		}
 		p.User.UID = uint32(uid)
 	}
-	return &p, nil
+	return p, nil
 }
 
 func runProcess(context *cli.Context, container string, cState *State, config *specs.Process) (int, error) {

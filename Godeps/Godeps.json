@@ -120,6 +120,10 @@
 			"Rev": "ce7fa45920dc37a92de8377972e52bc55ffa8d57"
 		},
 		{
+			"ImportPath": "github.com/mohae/deepcopy",
+			"Rev": "491d3605edfb866af34a48075bd4355ac1bf46ca"
+		},
+		{
 			"ImportPath": "github.com/mschoch/smat",
 			"Rev": "90eadee771aeab36e8bf796039b8c261bebebe4f"
 		},

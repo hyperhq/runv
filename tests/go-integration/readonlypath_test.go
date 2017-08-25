@@ -7,7 +7,7 @@ import (
 
 func (s *RunVSuite) TestReadonlyNonExist(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.ReadonlyPaths = []string{"foobar"}
 	spec.Root.Readonly = false
 	spec.Process.Args = []string{"ls", "foobar"}
@@ -19,7 +19,7 @@ func (s *RunVSuite) TestReadonlyNonExist(c *check.C) {
 
 func (s *RunVSuite) TestReadonlyFile(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.ReadonlyPaths = []string{"/testdata/foobar"}
 	spec.Root.Readonly = false
 	spec.Process.Args = []string{"touch", "/testdata/foobar"}
@@ -31,7 +31,7 @@ func (s *RunVSuite) TestReadonlyFile(c *check.C) {
 
 func (s *RunVSuite) TestReadonlyDir(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.ReadonlyPaths = []string{"/testdata"}
 	spec.Root.Readonly = false
 	spec.Process.Args = []string{"touch", "/testdata/foobar"}
