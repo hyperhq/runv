@@ -122,3 +122,12 @@ function teardown() {
   [ "$status" -ne 0 ]
   [[ ${output} == *"No such file or directory"* ]]
 }
+
+@test "runv exec exitcode" {
+  # run busybox detached
+  runv run -d --console-socket $CONSOLE_SOCKET test_busybox
+  [ "$status" -eq 0 ]
+
+  runv exec test_busybox sh -c "exit 233"
+  [ "$status" -eq 233 ]
+}
