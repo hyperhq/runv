@@ -18,6 +18,8 @@ const defaultOwner = "root"
 // containerState represents the platform agnostic pieces relating to a
 // running container's status and state
 type containerState struct {
+	// Version is the OCI version for the container
+	Version string `json:"ociVersion"`
 	// ID is the container ID
 	ID string `json:"id"`
 	// InitProcessPid is the init process id in the parent namespace
@@ -26,8 +28,14 @@ type containerState struct {
 	Status string `json:"status"`
 	// Bundle is the path on the filesystem to the bundle
 	Bundle string `json:"bundle"`
+	// Rootfs is a path to a directory containing the container's root filesystem.
+	Rootfs string `json:"rootfs"`
 	// Created is the unix timestamp for the creation time of the container in UTC
 	Created time.Time `json:"created"`
+	// Annotations is the user defined annotations added to the config.
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// The owner of the state directory (the owner of the container).
+	Owner string `json:"owner"`
 }
 
 var listCommand = cli.Command{
@@ -76,7 +84,7 @@ in json format:
 					item.Status,
 					item.Bundle,
 					item.Created.Format(time.RFC3339Nano),
-					defaultOwner)
+					item.Owner)
 			}
 			if err := w.Flush(); err != nil {
 				fatal(err)
@@ -109,24 +117,20 @@ func getContainers(context *cli.Context) ([]containerState, error) {
 	var s []containerState
 	for _, item := range list {
 		if item.IsDir() {
-			stateFile := filepath.Join(absRoot, item.Name(), stateJSON)
-			fi, err := os.Stat(stateFile)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, fmt.Errorf("Stat file %s error: %s", stateFile, err.Error())
-			}
-			state, err := loadStateFile(absRoot, item.Name())
+			cs, err := getContainer(context, item.Name())
 			if err != nil {
-				return nil, fmt.Errorf("Load state file %s failed: %s", stateFile, err.Error())
+				fatal(err)
 			}
-
-			// TODO: get the Status by inspecting the shim process
 
 			s = append(s, containerState{
-				ID:             state.ID,
-				InitProcessPid: state.Pid,
-				Status:         "running",
-				Bundle:         state.Bundle,
-				Created:        fi.ModTime(),
+				Version:        cs.Version,
+				ID:             cs.ID,
+				InitProcessPid: cs.InitProcessPid,
+				Status:         cs.Status,
+				Bundle:         cs.Bundle,
+				Rootfs:         cs.Rootfs,
+				Created:        cs.Created,
+				Owner:          cs.Owner,
 			})
 		}
 	}
