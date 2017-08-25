@@ -112,3 +112,13 @@ function teardown() {
 
   [[ ${output} == "uid=1000 gid=1000" ]]
 }
+
+@test "runv exec command not found" {
+  # run busybox detached
+  runv run -d --console-socket $CONSOLE_SOCKET test_busybox
+  [ "$status" -eq 0 ]
+
+  runv exec test_busybox command-does-not-exist
+  [ "$status" -ne 0 ]
+  [[ ${output} == *"No such file or directory"* ]]
+}
