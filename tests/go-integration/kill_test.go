@@ -11,7 +11,7 @@ import (
 func (s *RunVSuite) TestKillKILL(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "testKillKILL"
-	spec := defaultTestSpec
+	spec := newSpec()
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
 

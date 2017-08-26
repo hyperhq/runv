@@ -7,7 +7,7 @@ import (
 
 func (s *RunVSuite) TestMaskNonExist(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.MaskedPaths = []string{"foobar"}
 	spec.Process.Args = []string{"ls", "/testdata"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
@@ -19,7 +19,7 @@ func (s *RunVSuite) TestMaskNonExist(c *check.C) {
 
 func (s *RunVSuite) TestMaskFile(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.MaskedPaths = []string{"/testdata/foobar"}
 	spec.Process.Args = []string{"ls", "-l", "/testdata/foobar"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
@@ -31,7 +31,7 @@ func (s *RunVSuite) TestMaskFile(c *check.C) {
 
 func (s *RunVSuite) TestMaskDir(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Linux.MaskedPaths = []string{"/testdata"}
 	spec.Process.Args = []string{"ls", "/testdata"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)

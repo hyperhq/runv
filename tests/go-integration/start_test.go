@@ -17,7 +17,7 @@ import (
 
 func (s *RunVSuite) TestStartHelloworld(c *check.C) {
 	defer s.PrintLog(c)
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"echo", "hello"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 
@@ -30,7 +30,7 @@ func (s *RunVSuite) TestStartPid(c *check.C) {
 	defer s.PrintLog(c)
 	c.Skip("enable this after fixing")
 	ctrName := "testStartPid"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
@@ -84,7 +84,7 @@ func (s *RunVSuite) TestStartPid(c *check.C) {
 func (s *RunVSuite) TestStartWithTty(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "TestStartWithTty"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Terminal = true
 	spec.Process.Args = []string{"sh"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)

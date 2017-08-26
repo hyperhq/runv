@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
+	"github.com/mohae/deepcopy"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -88,4 +89,8 @@ func killAllRunvComponent(signal int) {
 	exec.Command("pkill", sigFlag, "runv").Run()
 	exec.Command("pkill", sigFlag, "qemu").Run()
 	exec.Command("pkill", sigFlag, "containerd-nslistener").Run()
+}
+
+func newSpec() specs.Spec {
+	return deepcopy.Copy(defaultTestSpec).(specs.Spec)
 }

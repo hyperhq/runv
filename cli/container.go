@@ -110,7 +110,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	}
 
 	// create shim and save the state
-	shim, err = createShim(options, container, "init", &spec.Process)
+	shim, err = createShim(options, container, "init", spec.Process)
 	if err != nil {
 		return nil, err
 	}

@@ -120,6 +120,10 @@
 			"Rev": "ce7fa45920dc37a92de8377972e52bc55ffa8d57"
 		},
 		{
+			"ImportPath": "github.com/mohae/deepcopy",
+			"Rev": "491d3605edfb866af34a48075bd4355ac1bf46ca"
+		},
+		{
 			"ImportPath": "github.com/mschoch/smat",
 			"Rev": "90eadee771aeab36e8bf796039b8c261bebebe4f"
 		},
@@ -135,8 +139,8 @@
 		},
 		{
 			"ImportPath": "github.com/opencontainers/runtime-spec/specs-go",
-			"Comment": "v1.0.0-rc5",
-			"Rev": "035da1dca3dfbb00d752eb58b0b158d6129f3776"
+			"Comment": "v1.0.0",
+			"Rev": "02137cd4e50b37a01665e1731fcd4ac2d2178230"
 		},
 		{
 			"ImportPath": "github.com/philhofer/fwd",

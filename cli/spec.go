@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	"github.com/golang/glog"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -28,15 +27,11 @@ var specCommand = cli.Command{
 	Action: func(context *cli.Context) {
 		spec := specs.Spec{
 			Version: specs.Version,
-			Platform: specs.Platform{
-				OS:   runtime.GOOS,
-				Arch: runtime.GOARCH,
-			},
-			Root: specs.Root{
+			Root: &specs.Root{
 				Path:     "rootfs",
 				Readonly: true,
 			},
-			Process: specs.Process{
+			Process: &specs.Process{
 				Terminal: true,
 				User:     specs.User{},
 				Args: []string{

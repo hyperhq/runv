@@ -83,7 +83,7 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 	if err == nil {
 		return fmt.Errorf("container %q exists", container)
 	}
-	if err = checkConsole(context, &spec.Process, attach); err != nil {
+	if err = checkConsole(context, spec.Process, attach); err != nil {
 		return err
 	}
 

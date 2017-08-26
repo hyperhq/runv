@@ -23,7 +23,7 @@ type containerState struct {
 func (s *RunVSuite) TestListSleep(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "testListSleep"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
@@ -51,7 +51,7 @@ func (s *RunVSuite) TestListSleep(c *check.C) {
 func (s *RunVSuite) TestListSleepJson(c *check.C) {
 	defer s.PrintLog(c)
 	ctrName := "testListSleepJson"
-	spec := defaultTestSpec
+	spec := newSpec()
 	spec.Process.Args = []string{"sleep", "10"}
 	c.Assert(s.addSpec(&spec), checker.IsNil)
 	exitChan := make(chan struct{}, 0)
