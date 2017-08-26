@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/hyperhq/runv/hypervisor"
@@ -95,20 +97,11 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 	} else {
 		for _, ns := range spec.Linux.Namespaces {
 			if ns.Path != "" {
-				if strings.Contains(ns.Path, "/") {
-					return fmt.Errorf("Runv doesn't support path to namespace file, it supports containers name as shared namespaces only")
-				}
 				if ns.Type == "mount" {
 					return fmt.Errorf("Runv doesn't support containers with shared mount namespace, use `runv exec` instead")
 				}
-				sharedContainer = ns.Path
-				_, err = os.Stat(filepath.Join(root, sharedContainer, stateJSON))
-				if err != nil {
-					return fmt.Errorf("The container %q is not existing or not ready", sharedContainer)
-				}
-				_, err = os.Stat(filepath.Join(root, sharedContainer, "namespace"))
-				if err != nil {
-					return fmt.Errorf("The container %q is not ready", sharedContainer)
+				if sharedContainer, err = findSharedContainer(context.GlobalString("root"), ns.Path); err != nil {
+					return fmt.Errorf("failed to find shared container: %v", err)
 				}
 			}
 		}
@@ -158,4 +151,35 @@ func checkConsole(context *cli.Context, p *specs.Process, attach bool) error {
 		return fmt.Errorf("--console[-socket] should be used on tty mode")
 	}
 	return nil
+}
+
+func findSharedContainer(root, nsPath string) (container string, err error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	list, err := ioutil.ReadDir(absRoot)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.Contains(nsPath, "/") {
+		pidexp := regexp.MustCompile(`/proc/(\d+)/ns/*`)
+		matches := pidexp.FindStringSubmatch(nsPath)
+		if len(matches) != 2 {
+			return "", fmt.Errorf("malformed ns path: %s", nsPath)
+		}
+		pid := matches[1]
+
+		for _, item := range list {
+			if state, err := loadStateFile(absRoot, item.Name()); err == nil {
+				spid := fmt.Sprintf("%d", state.Pid)
+				if spid == pid {
+					return item.Name(), nil
+				}
+			}
+		}
+		return "", fmt.Errorf("can't find container with shim pid %s", pid)
+	}
+	return nsPath, nil
 }
