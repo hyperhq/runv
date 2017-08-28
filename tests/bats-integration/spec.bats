@@ -66,14 +66,13 @@ function teardown() {
 }
 
 @test "spec validator" {
-  skip "update the code of feteching SPEC_COMMIT below"
   TESTDIR=$(pwd)
   cd "$HELLO_BUNDLE"
 
   run git clone https://github.com/opencontainers/runtime-spec.git src/runtime-spec
   [ "$status" -eq 0 ]
 
-  SPEC_COMMIT=$(grep '^github.com/opencontainers/runtime-spec' ${TESTDIR}/../../vendor.conf | cut -d ' ' -f 2)
+  SPEC_COMMIT=$(grep -A1 'github.com/opencontainers/runtime-spec' ${TESTDIR}/../../Godeps/Godeps.json |grep Comment|cut -d ' ' -f 2|sed -E 's/"(.*)".*/\1/g')
   run git -C src/runtime-spec reset --hard "${SPEC_COMMIT}"
 
   [ "$status" -eq 0 ]
