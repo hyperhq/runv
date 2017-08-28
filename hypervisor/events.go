@@ -1,9 +1,5 @@
 package hypervisor
 
-import (
-	"os"
-)
-
 type VmEvent interface {
 	Event() int
 }
@@ -56,7 +52,6 @@ type InterfaceCreated struct {
 	Id         string //user specified in (ref api.InterfaceDescription: a user identifier of interface, user may use this to specify a nic, normally you can use IPAddr as an Id, however, in some driver (probably vbox?), user may not specify the IPAddr.)
 	Index      int
 	PCIAddr    int
-	Fd         *os.File
 	Bridge     string
 	HostDevice string
 	DeviceName string

@@ -429,7 +429,7 @@ func (kc *KvmtoolContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hyper
 func (kc *KvmtoolContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	ctx.Log(hypervisor.INFO, "Hotplug is unsupported on kvmtool...")
 	// Nic has already attached on lkvm vm, so only add this interface into bridge
-	network.UpAndAddToBridge(nicTapName(ctx.Id), host.Bridge)
+	network.UpAndAddToBridge(nicTapName(ctx.Id), host.Bridge, "")
 	result <- &hypervisor.NetDevInsertedEvent{
 		Id:         host.Id,
 		Index:      guest.Index,
