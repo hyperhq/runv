@@ -64,6 +64,10 @@ loop:
 	timeout.Stop()
 }
 
+func (ctx *VmContext) WaitSockConnected() {
+	<-ctx.sockConnected
+}
+
 func (ctx *VmContext) Launch() {
 	var err error
 
@@ -84,7 +88,7 @@ func (ctx *VmContext) Launch() {
 	if ctx.LogLevel(DEBUG) {
 		go watchVmConsole(ctx)
 	}
-
+	close(ctx.sockConnected)
 	go ctx.loop()
 }
 
