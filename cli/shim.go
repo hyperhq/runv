@@ -90,7 +90,7 @@ var shimCommand = cli.Command{
 		if context.Bool("proxy-exit-code") {
 			glog.V(3).Infof("using shim to proxy exit code: %d", exitcode)
 			if exitcode != 0 {
-				return cli.NewExitError("process returns non zero exit code", exitcode)
+				return cli.NewExitError("", exitcode)
 			}
 			return nil
 		}
