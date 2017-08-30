@@ -38,3 +38,4 @@ const HYPER_VSOCK_CTL_PORT = 2718
 const HYPER_VSOCK_MSG_PORT = 2719
 
 const HYPER_USE_SERIAL = "hyper_use_serial"
+const HYPER_P9_USE_XEN = "hyper_p9_xen"

@@ -92,6 +92,12 @@ type DriverContext interface {
 	Close()
 }
 
+type ConsoleDriverContext interface {
+	DriverContext
+
+	ConnectConsole(console chan<- string) error
+}
+
 type LazyDriverContext interface {
 	DriverContext
 

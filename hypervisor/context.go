@@ -58,6 +58,8 @@ type VmContext struct {
 
 	cancelWatchHyperstart chan struct{}
 
+	sockConnected chan bool
+
 	logPrefix string
 
 	lock      sync.RWMutex //protect update of context
@@ -115,28 +117,28 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 	}
 
 	ctx = &VmContext{
-		Id:              id,
-		Boot:            boot,
-		PauseState:      PauseStateUnpaused,
-		pciAddr:         PciAddrFrom,
-		scsiId:          0,
-		GuestCid:        cid,
-		Hub:             hub,
-		client:          client,
-		DCtx:            dc,
-		HomeDir:         homeDir,
-		HyperSockName:   hyperSockName,
-		TtySockName:     ttySockName,
-		ConsoleSockName: consoleSockName,
-		ShareDir:        shareDir,
-		timer:           nil,
-		handler:         stateRunning,
-		current:         StateRunning,
-		volumes:         make(map[string]*DiskContext),
-		containers:      make(map[string]*ContainerContext),
-		networks:        NewNetworkContext(),
-		logPrefix:       fmt.Sprintf("SB[%s] ", id),
-
+		Id:                    id,
+		Boot:                  boot,
+		PauseState:            PauseStateUnpaused,
+		pciAddr:               PciAddrFrom,
+		scsiId:                0,
+		GuestCid:              cid,
+		Hub:                   hub,
+		client:                client,
+		DCtx:                  dc,
+		HomeDir:               homeDir,
+		HyperSockName:         hyperSockName,
+		TtySockName:           ttySockName,
+		ConsoleSockName:       consoleSockName,
+		ShareDir:              shareDir,
+		timer:                 nil,
+		handler:               stateRunning,
+		current:               StateRunning,
+		volumes:               make(map[string]*DiskContext),
+		containers:            make(map[string]*ContainerContext),
+		networks:              NewNetworkContext(),
+		logPrefix:             fmt.Sprintf("SB[%s] ", id),
+		sockConnected:         make(chan bool),
 		cancelWatchHyperstart: make(chan struct{}),
 	}
 	ctx.networks.sandbox = ctx

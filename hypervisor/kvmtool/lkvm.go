@@ -37,6 +37,7 @@ type KvmtoolDriver struct {
 //implement the hypervisor.DriverContext interface
 type KvmtoolContext struct {
 	driver *KvmtoolDriver
+	conPty string
 }
 
 func InitDriver() *KvmtoolDriver {
@@ -221,11 +222,6 @@ func (kc *KvmtoolContext) Launch(ctx *hypervisor.VmContext) {
 			conPty, ctlPty, ttyPty := lookupPtys(output[:len])
 			ctx.Log(hypervisor.INFO, "find %v %v %v", conPty, ctlPty, ttyPty)
 			if conPty != "" && ctlPty != "" && ttyPty != "" {
-				conSock, err = net.Listen("unix", ctx.ConsoleSockName)
-				if err != nil {
-					return
-				}
-
 				ctlSock, err = net.Listen("unix", ctx.HyperSockName)
 				if err != nil {
 					return
@@ -235,9 +231,9 @@ func (kc *KvmtoolContext) Launch(ctx *hypervisor.VmContext) {
 					return
 				}
 
-				go sock2pty(conSock, conPty, false)
-				go sock2pty(ctlSock, ctlPty, true)
-				go sock2pty(ttySock, ttyPty, true)
+				kc.conPty = conPty
+				go sock2pty(ctlSock, ctlPty)
+				go sock2pty(ttySock, ttyPty)
 
 				go func() {
 					// without this, guest burst output will crash kvmtool, why?
@@ -264,7 +260,7 @@ func (kc *KvmtoolContext) Launch(ctx *hypervisor.VmContext) {
 	err = fmt.Errorf("cannot find pts devices used by lkvm")
 }
 
-func sock2pty(ls net.Listener, ptypath string, input bool) {
+func sock2pty(ls net.Listener, ptypath string) {
 	defer ls.Close()
 
 	conn, err := ls.Accept()
@@ -299,13 +295,11 @@ func sock2pty(ls net.Listener, ptypath string, input bool) {
 			var newbuf []byte = nil
 			nr, er := src.Read(buf)
 			if nr > 0 {
+				newbuf = buf
 				if input {
 					newbuf = bytes.Replace(buf[:nr], []byte{1}, []byte{1, 1}, -1)
 					nr = len(newbuf)
-				} else {
-					newbuf = buf
 				}
-
 				nw, ew := dst.Write(newbuf[:nr])
 				if ew != nil {
 					glog.Infof("write failed: %v", ew)
@@ -334,10 +328,8 @@ func sock2pty(ls net.Listener, ptypath string, input bool) {
 	wg.Add(1)
 	go copy(conn, pty, false)
 
-	if input {
-		wg.Add(1)
-		go copy(pty, conn, true)
-	}
+	wg.Add(1)
+	go copy(pty, conn, true)
 
 	wg.Wait()
 }
@@ -453,4 +445,34 @@ func (kc *KvmtoolContext) AddMem(ctx *hypervisor.VmContext, slot, size int) erro
 
 func (kc *KvmtoolContext) Save(ctx *hypervisor.VmContext, path string) error {
 	return fmt.Errorf("Save is unsupported on kvmtool driver")
+}
+
+func (kc *KvmtoolContext) ConnectConsole(console chan<- string) error {
+	pty, err := os.OpenFile(kc.conPty, os.O_RDWR|syscall.O_NOCTTY, 0600)
+	if err != nil {
+		glog.Errorf("fail to open %v, %v", kc.conPty, err)
+		return err
+	}
+
+	_, err = term.SetRawTerminal(pty.Fd())
+	if err != nil {
+		glog.Errorf("fail to setrowmode for %v: %v", kc.conPty, err)
+		return err
+	}
+
+	go func() {
+		data := make([]byte, 128)
+		for {
+			nr, err := pty.Read(data)
+			if err != nil {
+				glog.Errorf("fail to read console: %v", err)
+				break
+			}
+			console <- string(data[:nr])
+		}
+		pty.Close()
+	}()
+
+	return nil
+
 }
