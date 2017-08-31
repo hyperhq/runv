@@ -746,16 +746,16 @@ func (h *jsonBasedHyperstart) setupProcessIo(ps *pState, terminal bool) {
 	if ps.stdioSeq == 0 {
 		ps.stdioSeq = h.allocStreamSeq()
 	}
-	stdoutPipe, stdout := io.Pipe() // TODO: make StreamOut nonblockable
-	ps.stdoutPipe = stdoutPipe
-	h.streamOuts[ps.stdioSeq] = streamOut{WriteCloser: stdout, ps: ps}
+	outPipe := utils.NewBytesPipe()
+	ps.stdoutPipe = outPipe
+	h.streamOuts[ps.stdioSeq] = streamOut{WriteCloser: outPipe, ps: ps}
 	if !terminal {
 		if ps.stderrSeq == 0 {
 			ps.stderrSeq = h.allocStreamSeq()
 		}
-		stderrPipe, stderr := io.Pipe()
-		ps.stderrPipe = stderrPipe
-		h.streamOuts[ps.stderrSeq] = streamOut{WriteCloser: stderr, ps: ps}
+		errPipe := utils.NewBytesPipe()
+		ps.stderrPipe = errPipe
+		h.streamOuts[ps.stderrSeq] = streamOut{WriteCloser: errPipe, ps: ps}
 	}
 	ps.stdinPipe = streamIn{streamSeq: ps.stdioSeq, h: h}
 }
