@@ -31,13 +31,14 @@ func process4grpc2json(p *hyperstartgrpc.Process) *hyperstartjson.Process {
 		envs = append(envs, hyperstartjson.EnvironmentVar{Env: e, Value: v})
 	}
 	return &hyperstartjson.Process{
-		Id:       p.Id,
-		User:     p.User.Uid,
-		Group:    p.User.Gid,
-		Terminal: p.Terminal,
-		Envs:     envs,
-		Args:     p.Args,
-		Workdir:  p.Workdir,
+		Id:               p.Id,
+		User:             p.User.Uid,
+		Group:            p.User.Gid,
+		AdditionalGroups: p.User.AdditionalGids,
+		Terminal:         p.Terminal,
+		Envs:             envs,
+		Args:             p.Args,
+		Workdir:          p.Workdir,
 	}
 }
 

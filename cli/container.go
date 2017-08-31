@@ -232,6 +232,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		for _, g := range spec.User.AdditionalGids {
 			ag = append(ag, strconv.FormatUint(uint64(g), 10))
 		}
+		p.AdditionalGroup = ag
 	}
 	err = vm.AddProcess(p, nil)
 
