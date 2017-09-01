@@ -137,7 +137,7 @@ message Process {
 message User {
 	string uid = 1;
 	string gid = 2;
-	repeated uint32 additionalGids = 3;
+	repeated string additionalGids = 3;
 }
 
 message Rlimit {

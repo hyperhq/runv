@@ -175,7 +175,7 @@ func process4json2grpc(p *hyperstartjson.Process) *hyperstartgrpc.Process {
 	}
 	return &hyperstartgrpc.Process{
 		Id:       p.Id,
-		User:     &hyperstartgrpc.User{Uid: p.User, Gid: p.Group},
+		User:     &hyperstartgrpc.User{Uid: p.User, Gid: p.Group, AdditionalGids: p.AdditionalGroups},
 		Terminal: p.Terminal,
 		Envs:     envs,
 		Args:     p.Args,
