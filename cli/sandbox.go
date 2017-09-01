@@ -79,10 +79,6 @@ func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, erro
 }
 
 func createAndLockSandBox(f factory.Factory, spec *specs.Spec, cpu int, mem int) (*hypervisor.Vm, *os.File, error) {
-	if spec.Linux != nil && spec.Linux.Resources != nil && spec.Linux.Resources.Memory != nil && spec.Linux.Resources.Memory.Limit != nil {
-		mem = int(*spec.Linux.Resources.Memory.Limit >> 20)
-	}
-
 	vm, err := f.GetVm(cpu, mem)
 	if err != nil {
 		glog.Errorf("Create VM failed with err: %v", err)

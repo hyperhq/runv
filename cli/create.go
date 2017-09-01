@@ -124,7 +124,8 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 		if err != nil {
 			return nil
 		}
-		vm, lockFile, err = createAndLockSandBox(f, spec, context.GlobalInt("default_cpus"), context.GlobalInt("default_memory"))
+		cpu, mem := getContainerCPUMemory(context, spec)
+		vm, lockFile, err = createAndLockSandBox(f, spec, cpu, mem)
 		if err != nil {
 			return nil
 		}
@@ -138,6 +139,32 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 	}
 
 	return nil
+}
+
+// set number of CPUs to quota/period roundup to 1 if both period and quota are configured
+func getContainerCPUMemory(context *cli.Context, spec *specs.Spec) (cpu int, mem int) {
+	if spec.Linux != nil && spec.Linux.Resources != nil {
+		resource := spec.Linux.Resources
+		if resource.CPU != nil && resource.CPU.Period != nil && resource.CPU.Quota != nil {
+			period := *resource.CPU.Period
+			quota := *resource.CPU.Quota
+			if period > 0 && quota > 0 {
+				cpu = int((uint64(quota) + period - 1) / period)
+			}
+		}
+		if resource.Memory != nil && resource.Memory.Limit != nil {
+			mem = int(*resource.Memory.Limit >> 20)
+		}
+	}
+
+	if cpu <= 0 {
+		cpu = context.GlobalInt("default_cpus")
+	}
+	if mem <= 0 {
+		mem = context.GlobalInt("default_memory")
+	}
+
+	return cpu, mem
 }
 
 func checkConsole(context *cli.Context, p *specs.Process, attach bool) error {
