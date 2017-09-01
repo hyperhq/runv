@@ -112,8 +112,6 @@ following will output a list of processes running in the container:
 		code, err := runProcess(context, container, cState, config)
 		if code != 0 {
 			return cli.NewExitError(err, code)
-		} else if err != nil {
-			return cli.NewExitError(err, -1)
 		}
 		return nil
 	},
