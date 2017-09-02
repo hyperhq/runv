@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,9 +145,12 @@ func osProcessWait(process *os.Process) (int, error) {
 		return 0, nil
 	}
 
+	ret := -1
 	if status, ok := state.Sys().(syscall.WaitStatus); ok {
-		return status.ExitStatus(), err
+		ret = status.ExitStatus()
+		if ret != 0 {
+			err = errors.New("")
+		}
 	}
-
-	return -1, err
+	return ret, err
 }
