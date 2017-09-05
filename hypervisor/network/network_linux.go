@@ -898,6 +898,7 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 			Gateway:   inf.Gw,
 			Bridge:    inf.Bridge,
 			Device:    inf.TapName,
+			Mtu:       inf.Mtu,
 			File:      nil,
 			Automatic: false,
 		}, nil
@@ -914,6 +915,7 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 		Gateway:   inf.Gw,
 		Bridge:    inf.Bridge,
 		Device:    device,
+		Mtu:       inf.Mtu,
 		File:      tapFile,
 		Automatic: false,
 	}, nil

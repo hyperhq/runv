@@ -13,6 +13,7 @@ type Settings struct {
 	Gateway   string
 	Bridge    string
 	Device    string
+	Mtu       uint64
 	File      *os.File
 	Automatic bool
 }

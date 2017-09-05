@@ -81,6 +81,7 @@ type NetworkInf struct {
 	Device    string `json:"device"`
 	IpAddress string `json:"ipAddress"`
 	NetMask   string `json:"netMask"`
+	Mtu       uint64 `json:"mtu"`
 }
 
 type Route struct {

@@ -96,6 +96,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			Id:         inf.Id,
 			DeviceName: DEFAULT_LO_DEVICE_NAME,
 			IpAddr:     inf.Ip,
+			Mtu:        inf.Mtu,
 		}
 		nc.lo[inf.Ip[0]] = i
 		nc.idMap[inf.Id] = i
@@ -243,7 +244,7 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.Interf
 
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
-		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: name}
+		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: name, Mtu: inf.Mtu}
 		result <- &DeviceFailed{Session: session}
 		return
 	}
@@ -358,6 +359,7 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		Fd:         inf.File,
 		MacAddr:    inf.Mac,
 		IpAddr:     inf.IP,
+		Mtu:        inf.Mtu,
 		RouteTable: rt,
 	}
 	return infc, nil

@@ -114,7 +114,7 @@ func (ctx *VmContext) updateInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		return ctx.hyperstart.UpdateInterface(inf.DeviceName, inf.IpAddr)
+		return ctx.hyperstart.UpdateInterface(inf.DeviceName, inf.IpAddr, inf.Mtu)
 	}
 }
 

@@ -32,7 +32,7 @@ type Hyperstart interface {
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)
 	AddRoute(r []hyperstartapi.Route) error
-	UpdateInterface(dev string, ipnet []string) error
+	UpdateInterface(dev string, ipnet []string, mtu uint64) error
 	OnlineCpuMem() error
 }
 
