@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"syscall"
 	"time"
@@ -646,12 +647,23 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(dev, ip, mask string) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
-		Device:    dev,
-		IpAddress: ip,
-		NetMask:   mask,
-	})
+func (h *jsonBasedHyperstart) UpdateInterface(dev string, ipnet []string) error {
+	for _, ipstr := range ipnet {
+		ip, net, err := net.ParseCIDR(ipstr)
+		if err != nil {
+			return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
+		}
+		mask := fmt.Sprintf("%d.%d.%d.%d", int(net.Mask[0]), int(net.Mask[1]), int(net.Mask[2]), int(net.Mask[3]))
+		err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
+			Device:    dev,
+			IpAddress: ip.String(),
+			NetMask:   mask,
+		})
+		if err != nil {
+			return fmt.Errorf("json: pailed to send update command to hyperstart: %v", err)
+		}
+	}
+	return nil
 }
 
 func (h *jsonBasedHyperstart) WriteStdin(container, process string, data []byte) (int, error) {

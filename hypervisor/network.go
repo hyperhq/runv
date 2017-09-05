@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/hyperhq/runv/api"
@@ -84,19 +83,21 @@ func (nc *NetworkContext) freeSlot(slot int) {
 
 func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	if inf.Lo {
-		if inf.Ip == "" {
+		if inf.Ip == nil || len(inf.Ip) == 0 {
 			estr := fmt.Sprintf("creating an interface without an IP address: %#v", inf)
 			nc.sandbox.Log(ERROR, estr)
 			result <- NewSpecError(inf.Id, estr)
 			return
 		}
+		if inf.Id == "" {
+			inf.Id = "0"
+		}
 		i := &InterfaceCreated{
 			Id:         inf.Id,
 			DeviceName: DEFAULT_LO_DEVICE_NAME,
 			IpAddr:     inf.Ip,
-			NetMask:    "255.255.255.255",
 		}
-		nc.lo[inf.Ip] = i
+		nc.lo[inf.Ip[0]] = i
 		nc.idMap[inf.Id] = i
 
 		result <- &api.ResultBase{
@@ -121,7 +122,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			return
 		}
 
-		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), fmt.Sprintf("eth%d", idx), inf, devChan)
+		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), inf, devChan)
 	}()
 
 	go func() {
@@ -158,7 +159,7 @@ func (nc *NetworkContext) removeInterface(id string, result chan api.Result) {
 		return
 	} else if inf.HostDevice == "" { // a virtual interface
 		delete(nc.idMap, id)
-		delete(nc.lo, inf.IpAddr)
+		delete(nc.lo, inf.IpAddr[0])
 		result <- api.NewResultBase(id, true, "")
 		return
 	} else {
@@ -217,11 +218,21 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.freeSlot(idx)
 }
 
-func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
+func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.InterfaceDescription, result chan<- VmEvent) {
 	var (
 		err      error
 		settings *network.Settings
+		name     string = fmt.Sprintf("eth%d", index)
 	)
+
+	if len(inf.Name) > 0 {
+		name = inf.Name
+	}
+
+	// TODO: what should be a proper Id?
+	if inf.Id == "" {
+		inf.Id = fmt.Sprintf("%d", index)
+	}
 
 	if HDriver.BuildinNetwork() {
 		/* VBox doesn't support join to bridge */
@@ -245,11 +256,13 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 
 	h := &HostNicInfo{
 		Id:      created.Id,
-		Fd:      uint64(created.Fd.Fd()),
 		Device:  created.HostDevice,
 		Mac:     created.MacAddr,
 		Bridge:  created.Bridge,
 		Gateway: created.Bridge,
+	}
+	if created.Fd != nil {
+		h.Fd = uint64(created.Fd.Fd())
 	}
 	g := &GuestNicInfo{
 		Device:  created.DeviceName,
@@ -288,7 +301,7 @@ func (nc *NetworkContext) getIpAddrs() []string {
 
 	res := []string{}
 	for _, inf := range nc.eth {
-		res = append(res, inf.IpAddr)
+		res = append(res, inf.IpAddr...)
 	}
 
 	return res
@@ -325,13 +338,6 @@ func (nc *NetworkContext) close() {
 }
 
 func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
-	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
-	if err != nil {
-		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
-	}
-	var tmp []byte = nw.Mask
-	var mask net.IP = tmp
-
 	rt := []*RouteRule{}
 	/* Route rule is generated automaticly on first interface,
 	 * or generated on the gateway configured interface. */
@@ -342,7 +348,7 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		})
 	}
 
-	return &InterfaceCreated{
+	infc := &InterfaceCreated{
 		Id:         id,
 		Index:      index,
 		PCIAddr:    pciAddr,
@@ -351,8 +357,8 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		DeviceName: name,
 		Fd:         inf.File,
 		MacAddr:    inf.Mac,
-		IpAddr:     ip.String(),
-		NetMask:    mask.String(),
+		IpAddr:     inf.IP,
 		RouteTable: rt,
-	}, nil
+	}
+	return infc, nil
 }

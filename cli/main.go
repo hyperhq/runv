@@ -128,6 +128,7 @@ func main() {
 	app.Commands = []cli.Command{
 		createCommand,
 		execCommand,
+		interfaceCommand,
 		killCommand,
 		listCommand,
 		psCommand,

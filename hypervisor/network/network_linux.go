@@ -789,6 +789,15 @@ func GetTapFd(tapname, bridge, options string) (device string, tapFile *os.File,
 		errno syscall.Errno
 	)
 
+	// check if tapname exists, if true, use existing one instead of create new one
+	if tapname != "" {
+		_, err = netlink.LinkByName(tapname)
+		// link exist, use it
+		if err == nil {
+			return tapname, nil, nil
+		}
+	}
+
 	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {
 		return "", nil, err
@@ -816,20 +825,21 @@ func GetTapFd(tapname, bridge, options string) (device string, tapFile *os.File,
 		return "", nil, err
 	}
 
-	bIface, err := net.InterfaceByName(bridge)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", bridge)
-		tapFile.Close()
-		return "", nil, err
-	}
+	if len(bridge) != 0 {
+		bIface, err := net.InterfaceByName(bridge)
+		if err != nil {
+			glog.Errorf("get bridge by name %s failed: %v", bridge, err)
+			tapFile.Close()
+			return "", nil, err
+		}
 
-	err = AddToBridge(tapIface, bIface, options)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", bridge, device)
-		tapFile.Close()
-		return "", nil, err
+		err = AddToBridge(tapIface, bIface, options)
+		if err != nil {
+			glog.Errorf("Add to bridge failed %s %s", bridge, device)
+			tapFile.Close()
+			return "", nil, err
+		}
 	}
-
 	err = NetworkLinkUp(tapIface)
 	if err != nil {
 		glog.Errorf("Link up device %s failed", device)
@@ -848,46 +858,32 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 		return nil, err
 	}
 
-	maskSize, _ := BridgeIPv4Net.Mask.Size()
-
 	mac, err := GenRandomMac()
 	if err != nil {
 		glog.Errorf("Generate Random Mac address failed")
 		return nil, err
 	}
 
+	ipnet := net.IPNet{
+		IP:   ip,
+		Mask: BridgeIPv4Net.Mask,
+	}
+
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     BridgeIPv4Net.IP.String(),
-		Bridge:      BridgeIface,
-		IPPrefixLen: maskSize,
-		Device:      "",
-		File:        nil,
-		Automatic:   true,
+		Mac:       mac,
+		IP:        []string{ipnet.String()},
+		Gateway:   BridgeIPv4Net.IP.String(),
+		Bridge:    BridgeIface,
+		Device:    "",
+		File:      nil,
+		Automatic: true,
 	}, nil
 }
 
 func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
-
-	ip, mask, err := ipParser(inf.Ip)
-	if err != nil {
-		glog.Errorf("Parse config IP failed %s", err)
-		return nil, err
-	}
-
-	maskSize, _ := mask.Size()
-
-	/* TODO: Move port maps out of the plugging procedure
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
-	*/
-
 	mac := inf.Mac
 	if mac == "" {
+		var err error
 		mac, err = GenRandomMac()
 		if err != nil {
 			glog.Errorf("Generate Random Mac address failed")
@@ -897,14 +893,13 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 
 	if addrOnly {
 		return &Settings{
-			Mac:         mac,
-			IPAddress:   ip.String(),
-			Gateway:     inf.Gw,
-			Bridge:      inf.Bridge,
-			IPPrefixLen: maskSize,
-			Device:      inf.TapName,
-			File:        nil,
-			Automatic:   false,
+			Mac:       mac,
+			IP:        inf.Ip,
+			Gateway:   inf.Gw,
+			Bridge:    inf.Bridge,
+			Device:    inf.TapName,
+			File:      nil,
+			Automatic: false,
 		}, nil
 	}
 
@@ -914,14 +909,13 @@ func Configure(addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) 
 	}
 
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     inf.Gw,
-		Bridge:      inf.Bridge,
-		IPPrefixLen: maskSize,
-		Device:      device,
-		File:        tapFile,
-		Automatic:   false,
+		Mac:       mac,
+		IP:        inf.Ip,
+		Gateway:   inf.Gw,
+		Bridge:    inf.Bridge,
+		Device:    device,
+		File:      tapFile,
+		Automatic: false,
 	}, nil
 }
 

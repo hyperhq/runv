@@ -39,7 +39,7 @@ type PersistNetworkInfo struct {
 	Index      int
 	PciAddr    int
 	DeviceName string
-	IpAddr     string
+	IpAddr     []string
 }
 
 type PersistInfo struct {
@@ -215,7 +215,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 		}
 		// use device name distinguish from lo and eth
 		if ifc.DeviceName == DEFAULT_LO_DEVICE_NAME {
-			nc.lo[pi.IpAddr] = ifc
+			nc.lo[pi.IpAddr[0]] = ifc
 		} else {
 			nc.eth[pi.Index] = ifc
 		}

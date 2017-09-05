@@ -8,14 +8,13 @@ import (
 )
 
 type Settings struct {
-	Mac         string
-	IPAddress   string
-	IPPrefixLen int
-	Gateway     string
-	Bridge      string
-	Device      string
-	File        *os.File
-	Automatic   bool
+	Mac       string
+	IP        []string
+	Gateway   string
+	Bridge    string
+	Device    string
+	File      *os.File
+	Automatic bool
 }
 
 const (

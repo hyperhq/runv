@@ -86,11 +86,10 @@ func (h *grpcBasedHyperstart) AddRoute(routes []hyperstartjson.Route) error {
 	return err
 }
 
-func (h *grpcBasedHyperstart) UpdateInterface(dev, ip, mask string) error {
+func (h *grpcBasedHyperstart) UpdateInterface(dev string, ipnet []string) error {
 	_, err := h.grpc.UpdateInterface(h.ctx, &hyperstartgrpc.UpdateInterfaceRequest{
 		Device:  dev,
-		Address: ip,
-		Mask:    mask,
+		Address: ipnet,
 	})
 	return err
 }

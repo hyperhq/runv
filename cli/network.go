@@ -160,7 +160,7 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 			Id:      nicId, //ip as an id
 			Lo:      false,
 			Bridge:  bridge,
-			Ip:      info.Ip,
+			Ip:      []string{info.Ip},
 			Options: options,
 		}
 
@@ -253,7 +253,7 @@ func nsListenerStrap(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) {
 				Id:      strconv.Itoa(link.Attrs().Index),
 				Lo:      false,
 				Bridge:  bridge,
-				Ip:      update.Addr.LinkAddress.String(),
+				Ip:      []string{update.Addr.LinkAddress.String()},
 				Options: options,
 			}
 

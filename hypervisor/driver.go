@@ -41,7 +41,7 @@ type HostNicInfo struct {
 
 type GuestNicInfo struct {
 	Device  string
-	Ipaddr  string
+	Ipaddr  []string
 	Index   int
 	Busaddr int
 }

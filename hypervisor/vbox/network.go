@@ -61,22 +61,15 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) erro
 }
 
 func (vc *VBoxContext) ConfigureNetwork(config *api.InterfaceDescription) (*network.Settings, error) {
-	ip, ipnet, err := net.ParseCIDR(config.Ip)
-	if err != nil {
-		glog.Errorf("Parse interface IP failed %s", err)
-		return nil, err
-	}
-
 	maskSize, _ := ipnet.Mask.Size()
 
 	return &network.Settings{
-		Mac:         config.Mac,
-		IPAddress:   ip.String(),
-		Gateway:     config.Gw,
-		Bridge:      "",
-		IPPrefixLen: maskSize,
-		Device:      "",
-		File:        nil,
+		Mac:       config.Mac,
+		IPAddress: config.Ip,
+		Gateway:   config.Gw,
+		Bridge:    "",
+		Device:    "",
+		File:      nil,
 	}, nil
 }
 
