@@ -79,6 +79,7 @@ type Container struct {
 
 type NetworkInf struct {
 	Device    string `json:"device"`
+	NewName   string `json:"newDeviceName"`
 	IpAddress string `json:"ipAddress"`
 	NetMask   string `json:"netMask"`
 	Mtu       uint64 `json:"mtu"`

@@ -647,7 +647,7 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(dev string, ipnet []string, mtu uint64) error {
+func (h *jsonBasedHyperstart) UpdateInterface(dev, newName string, ipnet []string, mtu uint64) error {
 	for _, ipstr := range ipnet {
 		ip, net, err := net.ParseCIDR(ipstr)
 		if err != nil {
@@ -656,6 +656,7 @@ func (h *jsonBasedHyperstart) UpdateInterface(dev string, ipnet []string, mtu ui
 		mask := fmt.Sprintf("%d.%d.%d.%d", int(net.Mask[0]), int(net.Mask[1]), int(net.Mask[2]), int(net.Mask[3]))
 		err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
 			Device:    dev,
+			NewName:   newName,
 			IpAddress: ip.String(),
 			NetMask:   mask,
 			Mtu:       mtu,

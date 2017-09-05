@@ -61,6 +61,7 @@ type InterfaceCreated struct {
 	HostDevice string
 	DeviceName string
 	MacAddr    string
+	NewName    string
 	Mtu        uint64
 	IpAddr     []string
 	RouteTable []*RouteRule

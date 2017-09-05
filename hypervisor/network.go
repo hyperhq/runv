@@ -223,12 +223,8 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.Interf
 	var (
 		err      error
 		settings *network.Settings
-		name     string = fmt.Sprintf("eth%d", index)
+		devName  string = fmt.Sprintf("eth%d", index)
 	)
-
-	if len(inf.Name) > 0 {
-		name = inf.Name
-	}
 
 	// TODO: what should be a proper Id?
 	if inf.Id == "" {
@@ -244,12 +240,12 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.Interf
 
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
-		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: name, Mtu: inf.Mtu}
+		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: devName, NewName: inf.Name, Mtu: inf.Mtu}
 		result <- &DeviceFailed{Session: session}
 		return
 	}
 
-	created, err := interfaceGot(inf.Id, index, pciAddr, name, settings)
+	created, err := interfaceGot(inf.Id, index, pciAddr, inf.Name, settings)
 	if err != nil {
 		result <- &DeviceFailed{Session: created}
 		return
@@ -355,7 +351,8 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		PCIAddr:    pciAddr,
 		Bridge:     inf.Bridge,
 		HostDevice: inf.Device,
-		DeviceName: name,
+		DeviceName: fmt.Sprintf("eth%d", index),
+		NewName:    name,
 		Fd:         inf.File,
 		MacAddr:    inf.Mac,
 		IpAddr:     inf.IP,
