@@ -53,17 +53,22 @@ type nsListener struct {
 	cmd *exec.Cmd
 }
 
+type tcMirredPair struct {
+	NsIfIndex   int
+	HostIfIndex int
+}
+
 func createFakeBridge() {
 	// add an useless bridge to satisfy hypervisor, most of them need to join bridge.
 	la := netlink.NewLinkAttrs()
 	la.Name = fakeBridge
 	bridge := &netlink.Bridge{LinkAttrs: la}
 	if err := netlink.LinkAdd(bridge); err != nil && !os.IsExist(err) {
-		glog.Errorf("fail to create fake bridge: %v, %v", fakeBridge, err)
+		glog.Warningf("fail to create fake bridge: %v, %v", fakeBridge, err)
 	}
 }
 
-func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) error {
+func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, pid int) error {
 	/* send collect netns request to nsListener */
 	if err := enc.Encode("init"); err != nil {
 		glog.Errorf("listener.dec.Decode init error: %v", err)
@@ -95,6 +100,7 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 	createFakeBridge()
 
 	glog.V(3).Infof("interface configuration for sandbox ns is %#v", infos)
+	mirredPairs := []tcMirredPair{}
 	for _, info := range infos {
 		nicId := strconv.Itoa(info.Index)
 
@@ -117,10 +123,26 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 			glog.Error(err)
 			return err
 		}
+
+		// move device into container-shim netns
+		hostLink, err := netlink.LinkByName(conf.TapName)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+		if err = netlink.LinkSetNsPid(hostLink, pid); err != nil {
+			glog.Error(err)
+			return err
+		}
+		mirredPairs = append(mirredPairs, tcMirredPair{info.Index, hostLink.Attrs().Index})
 	}
 
-	err = vm.AddRoute()
-	if err != nil {
+	if err = enc.Encode(mirredPairs); err != nil {
+		glog.Error(err)
+		return err
+	}
+
+	if err = vm.AddRoute(); err != nil {
 		glog.Error(err)
 		return err
 	}
@@ -269,7 +291,7 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 		return err
 	}
 
-	initSandboxNetwork(vm, enc, dec)
+	initSandboxNetwork(vm, enc, dec, cmd.Process.Pid)
 	glog.V(1).Infof("nsListener pid is %d", cmd.Process.Pid)
 	return nil
 }
@@ -321,12 +343,17 @@ func doListen() {
 
 	/* send interface info to `runv create` */
 	infos := collectionInterfaceInfo()
-	if err := enc.Encode(infos); err != nil {
+	if err = enc.Encode(infos); err != nil {
 		glog.Error(err)
 		return
 	}
 
-	if err := enc.Encode(routes); err != nil {
+	if err = enc.Encode(routes); err != nil {
+		glog.Error(err)
+		return
+	}
+
+	if err = setupTcMirredRule(dec); err != nil {
 		glog.Error(err)
 		return
 	}
@@ -372,11 +399,59 @@ func collectionInterfaceInfo() []InterfaceInfo {
 			glog.Infof("get interface %v", info)
 			infos = append(infos, info)
 		}
-
-		// set link down, tap device take over it
-		netlink.LinkSetDown(link)
 	}
 	return infos
+}
+
+func setupTcMirredRule(dec *gob.Decoder) error {
+	mirredPairs := []tcMirredPair{}
+	dec.Decode(&mirredPairs)
+
+	glog.Infof("got mirredPairs: %v", mirredPairs)
+	for _, pair := range mirredPairs {
+		hostLink, err := netlink.LinkByIndex(pair.HostIfIndex)
+		if err != nil {
+			return err
+		}
+		if err = netlink.LinkSetUp(hostLink); err != nil {
+			return err
+		}
+
+		qdisc := &netlink.Ingress{
+			QdiscAttrs: netlink.QdiscAttrs{
+				LinkIndex: pair.NsIfIndex,
+				Parent:    netlink.HANDLE_INGRESS,
+				Handle:    netlink.MakeHandle(0xffff, 0),
+			},
+		}
+		if err = netlink.QdiscAdd(qdisc); err != nil {
+			return err
+		}
+		filter := &netlink.U32{
+			FilterAttrs: netlink.FilterAttrs{
+				LinkIndex: pair.NsIfIndex,
+				Parent:    qdisc.Handle,
+				Priority:  1,
+				Protocol:  syscall.ETH_P_ALL,
+			},
+			RedirIndex: pair.HostIfIndex,
+			ClassId:    netlink.MakeHandle(1, 1),
+		}
+		if err = netlink.FilterAdd(filter); err != nil {
+			return err
+		}
+
+		qdisc.QdiscAttrs.LinkIndex = pair.HostIfIndex
+		if err = netlink.QdiscAdd(qdisc); err != nil {
+			return err
+		}
+		filter.FilterAttrs.LinkIndex = pair.HostIfIndex
+		filter.RedirIndex = pair.NsIfIndex
+		if err = netlink.FilterAdd(filter); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // This function should be put into the main process or somewhere that can be
