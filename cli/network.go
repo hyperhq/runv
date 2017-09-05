@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -25,6 +24,7 @@ const (
 	UpdateTypeLink  NetlinkUpdateType = "link"
 	UpdateTypeAddr  NetlinkUpdateType = "addr"
 	UpdateTypeRoute NetlinkUpdateType = "route"
+	fakeBridge      string            = "runv0"
 )
 
 // NetlinkUpdate tracks the change of network namespace.
@@ -53,68 +53,14 @@ type nsListener struct {
 	cmd *exec.Cmd
 }
 
-func GetBridgeFromIndex(idx int) (string, string, error) {
-	var attr, bridge *netlink.LinkAttrs
-	var options string
-
-	links, err := netlink.LinkList()
-	if err != nil {
-		glog.Error(err)
-		return "", "", err
+func createFakeBridge() {
+	// add an useless bridge to satisfy hypervisor, most of them need to join bridge.
+	la := netlink.NewLinkAttrs()
+	la.Name = fakeBridge
+	bridge := &netlink.Bridge{LinkAttrs: la}
+	if err := netlink.LinkAdd(bridge); err != nil && !os.IsExist(err) {
+		glog.Errorf("fail to create fake bridge: %v, %v", fakeBridge, err)
 	}
-
-	for _, link := range links {
-		if link.Type() != "veth" {
-			continue
-		}
-
-		if link.Attrs().Index == idx {
-			attr = link.Attrs()
-			break
-		}
-	}
-
-	if attr == nil {
-		return "", "", fmt.Errorf("cann't find nic whose ifindex is %d", idx)
-	}
-
-	for _, link := range links {
-		if link.Type() != "bridge" && link.Type() != "openvswitch" {
-			continue
-		}
-
-		if link.Attrs().Index == attr.MasterIndex {
-			bridge = link.Attrs()
-			break
-		}
-	}
-
-	if bridge == nil {
-		return "", "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
-	}
-
-	if bridge.Name == "ovs-system" {
-		veth, err := netlink.LinkByIndex(idx)
-		if err != nil {
-			return "", "", err
-		}
-
-		out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
-		if err != nil {
-			return "", "", err
-		}
-		bridge.Name = strings.TrimSpace(string(out))
-
-		out, err = exec.Command("ovs-vsctl", "get", "port", veth.Attrs().Name, "tag").CombinedOutput()
-		if err != nil {
-			return "", "", err
-		}
-		options = "tag=" + strings.TrimSpace(string(out))
-	}
-
-	glog.V(3).Infof("find bridge %s", bridge.Name)
-
-	return bridge.Name, options, nil
 }
 
 func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) error {
@@ -146,22 +92,17 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 		}
 	}
 
+	createFakeBridge()
+
 	glog.V(3).Infof("interface configuration for sandbox ns is %#v", infos)
 	for _, info := range infos {
-		bridge, options, err := GetBridgeFromIndex(info.PeerIndex)
-		if err != nil {
-			glog.Error(err)
-			continue
-		}
-
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id:      nicId, //ip as an id
-			Lo:      false,
-			Bridge:  bridge,
-			Ip:      info.Ip,
-			Options: options,
+			Id:     nicId, //ip as an id
+			Lo:     false,
+			Bridge: fakeBridge,
+			Ip:     info.Ip,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -172,8 +113,7 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 		// which would not be the proper way to name device name, instead it
 		// should be the same as what we specified in the network namespace.
 		//err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
-		err = vm.AddNic(conf)
-		if err != nil {
+		if err = vm.AddNic(conf); err != nil {
 			glog.Error(err)
 			return err
 		}
@@ -243,18 +183,11 @@ func nsListenerStrap(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) {
 				continue
 			}
 
-			bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
 			inf := &api.InterfaceDescription{
-				Id:      strconv.Itoa(link.Attrs().Index),
-				Lo:      false,
-				Bridge:  bridge,
-				Ip:      update.Addr.LinkAddress.String(),
-				Options: options,
+				Id:     strconv.Itoa(link.Attrs().Index),
+				Lo:     false,
+				Bridge: fakeBridge,
+				Ip:     update.Addr.LinkAddress.String(),
 			}
 
 			err = vm.AddNic(inf)
