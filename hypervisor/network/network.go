@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/hyperhq/runv/hypervisor/network/ipallocator"
@@ -27,3 +28,7 @@ var (
 	BridgeIface   string
 	BridgeIP      string
 )
+
+func NicName(id string, index int) string {
+	return fmt.Sprintf("%s%d", id, index)
+}

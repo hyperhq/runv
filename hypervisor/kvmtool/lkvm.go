@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -93,7 +92,7 @@ func arguments(ctx *hypervisor.VmContext) []string {
 	args = append(args, "--tty", "0", "--tty", "1", "--tty", "2")
 
 	// attach nic at the start since kvmtool doesn't support hotplug
-	args = append(args, "--network", "mode=tap,tapif="+nicTapName(ctx.Id))
+	args = append(args, "--network", "mode=tap,tapif="+network.NicName(ctx.Id, 0))
 
 	// arch specified
 	if arch_args := arch_arguments(); arch_args != nil {
@@ -107,14 +106,6 @@ func arguments(ctx *hypervisor.VmContext) []string {
 	args = append(args, "--9p", ctx.ShareDir+","+hypervisor.ShareDirTag)
 
 	return args
-}
-
-func nicTapName(id string) string {
-	str := strings.Split(id, "-")
-	if len(str) != 2 {
-		return id
-	}
-	return str[1]
 }
 
 func (kc *KvmtoolContext) Launch(ctx *hypervisor.VmContext) {
@@ -421,7 +412,7 @@ func (kc *KvmtoolContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hyper
 func (kc *KvmtoolContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	ctx.Log(hypervisor.INFO, "Hotplug is unsupported on kvmtool...")
 	// Nic has already attached on lkvm vm, so only add this interface into bridge
-	network.UpAndAddToBridge(nicTapName(ctx.Id), host.Bridge, "")
+	network.UpAndAddToBridge(network.NicName(ctx.Id, 0), host.Bridge, "")
 	result <- &hypervisor.NetDevInsertedEvent{
 		Id:         host.Id,
 		Index:      guest.Index,

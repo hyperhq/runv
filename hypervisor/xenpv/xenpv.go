@@ -242,7 +242,7 @@ func (xc *XenPvContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostN
 		Address:    guest.Busaddr,
 	}
 
-	if err := xc.driver.ctx.DomainAddNic(xc.domId, guest.Index, host.Bridge, host.Mac); err != nil {
+	if err := xc.driver.ctx.DomainAddNic(xc.domId, guest.Index, host.Bridge, host.Device, host.Mac); err != nil {
 		result <- &hypervisor.DeviceFailed{
 			Session: callback,
 		}

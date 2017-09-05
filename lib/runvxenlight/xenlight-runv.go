@@ -124,7 +124,7 @@ void runvxl_childproc_setmode(libxl_ctx *ctx) {
     libxl_childproc_setmode(ctx, &childproc_hooks, 0);
 }
 
-int runvxl_add_nic(libxl_ctx *ctx, int32_t domid, int id, char *bridge, char *mac) {
+int runvxl_add_nic(libxl_ctx *ctx, int32_t domid, int id, char *bridge, char *device, char *mac) {
     libxl_device_nic nic;
     int ret;
 
@@ -132,6 +132,7 @@ int runvxl_add_nic(libxl_ctx *ctx, int32_t domid, int id, char *bridge, char *ma
     nic.bridge = strdup(bridge);
     nic.nictype = LIBXL_NIC_TYPE_VIF;
     nic.devid = id;
+    nic.ifname = strdup(device);
     // TODO: why self defined mac cause nic fail to up?
     //memcpy(nic.mac, mac, 6);
 
@@ -352,8 +353,8 @@ func (Ctx *Context) SigChildHandle() {
 	C.runvxl_childproc_setmode(Ctx.ctx)
 }
 
-func (Ctx *Context) DomainAddNic(domId Domid, id int, bridge, mac string) error {
-	if ret := C.runvxl_add_nic(Ctx.ctx, C.int32_t(domId), C.int(id), C.CString(bridge), C.CString(mac)); ret != 0 {
+func (Ctx *Context) DomainAddNic(domId Domid, id int, bridge, device, mac string) error {
+	if ret := C.runvxl_add_nic(Ctx.ctx, C.int32_t(domId), C.int(id), C.CString(bridge), C.CString(device), C.CString(mac)); ret != 0 {
 		return fmt.Errorf("fail to add nic %v for dom %v", id, domId)
 	}
 	return nil

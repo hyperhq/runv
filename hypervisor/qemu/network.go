@@ -12,7 +12,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
-	"github.com/hyperhq/runv/lib/utils"
 )
 
 const (
@@ -28,7 +27,7 @@ type ifReq struct {
 	pad   [0x28 - 0x10 - 2]byte
 }
 
-func GetTapFd(tapname, bridge, options string) (int, error) {
+func GetTapFd(device, bridge, options string) (int, error) {
 	var (
 		req   ifReq
 		errno syscall.Errno
@@ -40,9 +39,7 @@ func GetTapFd(tapname, bridge, options string) (int, error) {
 	}
 
 	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	if tapname != "" {
-		copy(req.Name[:len(req.Name)-1], []byte(tapname))
-	}
+	copy(req.Name[:len(req.Name)-1], []byte(device))
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
 		uintptr(syscall.TUNSETIFF),
 		uintptr(unsafe.Pointer(&req)))
@@ -50,8 +47,6 @@ func GetTapFd(tapname, bridge, options string) (int, error) {
 		tapFile.Close()
 		return -1, fmt.Errorf("create tap device failed\n")
 	}
-
-	device := strings.Trim(string(req.Name[:]), "\x00")
 
 	err = network.UpAndAddToBridge(device, bridge, options)
 	if err != nil {
@@ -64,11 +59,6 @@ func GetTapFd(tapname, bridge, options string) (int, error) {
 }
 
 func GetVhostUserPort(device, bridge, sockPath, option string) error {
-	if device == "" {
-		// allocate a port name
-		device = utils.RandStr(10, "alpha")
-	}
-
 	glog.V(3).Infof("Found ovs bridge %s, attaching tap %s to it\n", bridge, device)
 	// append vhost-server-path
 	options := fmt.Sprintf("vhost-server-path=%s/%s", sockPath, device)
