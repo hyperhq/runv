@@ -336,7 +336,10 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 		return err
 	}
 
-	initSandboxNetwork(vm, enc, dec)
+	err = initSandboxNetwork(vm, enc, dec)
+	if err != nil {
+		return err
+	}
 	glog.V(1).Infof("nsListener pid is %d", cmd.Process.Pid)
 	return nil
 }
