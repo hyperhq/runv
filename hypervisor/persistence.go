@@ -39,7 +39,10 @@ type PersistNetworkInfo struct {
 	Index      int
 	PciAddr    int
 	DeviceName string
+	NewName    string
 	IpAddr     []string
+	Mac        string
+	Mtu        uint64
 }
 
 type PersistInfo struct {
@@ -120,7 +123,10 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			Index:      nic.Index,
 			PciAddr:    nic.PCIAddr,
 			DeviceName: nic.DeviceName,
+			NewName:    nic.NewName,
 			IpAddr:     nic.IpAddr,
+			Mac:        nic.Mac,
+			Mtu:        nic.Mtu,
 		}
 		nid++
 	}
@@ -207,7 +213,10 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 			Index:      pi.Index,
 			PCIAddr:    pi.PciAddr,
 			DeviceName: pi.DeviceName,
+			NewName:    pi.NewName,
 			IpAddr:     pi.IpAddr,
+			Mtu:        pi.Mtu,
+			Mac:        pi.Mac,
 		}
 		// if empty, may be old data, generate one for compatibility.
 		if ifc.Id == "" {
@@ -225,6 +234,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 
 func vmDeserialize(s []byte) (*PersistInfo, error) {
 	info := &PersistInfo{}
+	// TODO: REMOVE THIS
 	err := json.Unmarshal(s, info)
 	return info, err
 }

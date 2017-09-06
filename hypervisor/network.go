@@ -81,6 +81,23 @@ func (nc *NetworkContext) freeSlot(slot int) {
 	delete(nc.eth, slot)
 }
 
+func (nc *NetworkContext) nextAvailableDevName() string {
+	for i := 0; i <= MAX_NIC; i++ {
+		find := false
+		for _, inf := range nc.eth {
+			if inf != nil && inf.NewName == fmt.Sprintf("eth%d", i) {
+				find = true
+				break
+			}
+		}
+		if !find {
+			return fmt.Sprintf("eth%d", i)
+		}
+	}
+
+	return ""
+}
+
 func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	if inf.Lo {
 		if inf.Ip == nil || len(inf.Ip) == 0 {
@@ -115,15 +132,16 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 		defer nc.slotLock.Unlock()
 
 		idx := nc.applySlot()
-		if idx < 0 {
-			estr := fmt.Sprintf("no available ethernet slot for interface %#v", inf)
+		devName := nc.nextAvailableDevName()
+		if idx < 0 || devName == "" {
+			estr := fmt.Sprintf("no available ethernet slot/name for interface %#v", inf)
 			nc.sandbox.Log(ERROR, estr)
 			result <- NewBusyError(inf.Id, estr)
 			close(devChan)
 			return
 		}
 
-		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), inf, devChan)
+		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), devName, inf, devChan)
 	}()
 
 	go func() {
@@ -219,11 +237,10 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.freeSlot(idx)
 }
 
-func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.InterfaceDescription, result chan<- VmEvent) {
+func (nc *NetworkContext) configureInterface(index, pciAddr int, deviceName string, inf *api.InterfaceDescription, result chan<- VmEvent) {
 	var (
 		err      error
 		settings *network.Settings
-		devName  string = fmt.Sprintf("eth%d", index)
 	)
 
 	// TODO: what should be a proper Id?
@@ -240,12 +257,12 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.Interf
 
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
-		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: devName, NewName: inf.Name, Mtu: inf.Mtu}
+		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: deviceName, NewName: inf.Name, Mtu: inf.Mtu}
 		result <- &DeviceFailed{Session: session}
 		return
 	}
 
-	created, err := interfaceGot(inf.Id, index, pciAddr, inf.Name, settings)
+	created, err := interfaceGot(inf.Id, index, pciAddr, deviceName, inf.Name, settings)
 	if err != nil {
 		result <- &DeviceFailed{Session: created}
 		return
@@ -254,15 +271,19 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, inf *api.Interf
 	h := &HostNicInfo{
 		Id:      created.Id,
 		Device:  created.HostDevice,
-		Mac:     created.MacAddr,
+		Mac:     created.Mac,
 		Bridge:  created.Bridge,
 		Gateway: created.Bridge,
 	}
 	if created.Fd != nil {
 		h.Fd = uint64(created.Fd.Fd())
 	}
+
+	// Note: Use created.NewName add tap name
+	// this is because created.DeviceName isn't always uniq,
+	// instead NewName is real nic name in VM which is certainly uniq
 	g := &GuestNicInfo{
-		Device:  created.DeviceName,
+		Device:  created.NewName,
 		Ipaddr:  created.IpAddr,
 		Index:   created.Index,
 		Busaddr: created.PCIAddr,
@@ -334,7 +355,7 @@ func (nc *NetworkContext) close() {
 	nc.idMap = map[string]*InterfaceCreated{}
 }
 
-func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
+func interfaceGot(id string, index int, pciAddr int, deviceName, newName string, inf *network.Settings) (*InterfaceCreated, error) {
 	rt := []*RouteRule{}
 	/* Route rule is generated automaticly on first interface,
 	 * or generated on the gateway configured interface. */
@@ -351,10 +372,10 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		PCIAddr:    pciAddr,
 		Bridge:     inf.Bridge,
 		HostDevice: inf.Device,
-		DeviceName: fmt.Sprintf("eth%d", index),
-		NewName:    name,
+		DeviceName: deviceName,
+		NewName:    newName,
 		Fd:         inf.File,
-		MacAddr:    inf.Mac,
+		Mac:        inf.Mac,
 		IpAddr:     inf.IP,
 		Mtu:        inf.Mtu,
 		RouteTable: rt,

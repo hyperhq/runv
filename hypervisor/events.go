@@ -60,7 +60,7 @@ type InterfaceCreated struct {
 	Bridge     string
 	HostDevice string
 	DeviceName string
-	MacAddr    string
+	Mac        string
 	NewName    string
 	Mtu        uint64
 	IpAddr     []string

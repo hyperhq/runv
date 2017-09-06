@@ -44,7 +44,10 @@ type NetlinkUpdate struct {
 type InterfaceInfo struct {
 	Index     int
 	PeerIndex int
-	Ip        string
+	IP        []string
+	Mac       string
+	Name      string
+	Mtu       uint64
 }
 
 type nsListener struct {
@@ -154,13 +157,13 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 			continue
 		}
 
-		nicId := strconv.Itoa(info.Index)
-
 		conf := &api.InterfaceDescription{
-			Id:      nicId, //ip as an id
 			Lo:      false,
 			Bridge:  bridge,
-			Ip:      []string{info.Ip},
+			Ip:      info.IP,
+			Name:    info.Name,
+			Mac:     info.Mac,
+			Mtu:     info.Mtu,
 			Options: options,
 		}
 
@@ -430,15 +433,20 @@ func collectionInterfaceInfo() []InterfaceInfo {
 			return infos
 		}
 
-		for _, addr := range addrs {
-			info := InterfaceInfo{
-				Ip:        addr.IPNet.String(),
-				Index:     link.Attrs().Index,
-				PeerIndex: link.Attrs().ParentIndex,
-			}
-			glog.Infof("get interface %v", info)
-			infos = append(infos, info)
+		info := InterfaceInfo{
+			Name:      link.Attrs().Name,
+			Mac:       link.Attrs().HardwareAddr.String(),
+			Mtu:       uint64(link.Attrs().MTU),
+			PeerIndex: link.Attrs().ParentIndex,
 		}
+
+		for _, addr := range addrs {
+			if addr.IPNet.String() == "" {
+				continue
+			}
+			info.IP = append(info.IP, addr.IPNet.String())
+		}
+		infos = append(infos, info)
 
 		// set link down, tap device take over it
 		netlink.LinkSetDown(link)

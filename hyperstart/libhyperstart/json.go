@@ -662,7 +662,7 @@ func (h *jsonBasedHyperstart) UpdateInterface(dev, newName string, ipnet []strin
 			Mtu:       mtu,
 		})
 		if err != nil {
-			return fmt.Errorf("json: pailed to send update command to hyperstart: %v", err)
+			return fmt.Errorf("json: failed to send update command to hyperstart: %v", err)
 		}
 	}
 	return nil
