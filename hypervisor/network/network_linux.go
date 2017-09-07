@@ -233,42 +233,37 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 	}
 
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     BridgeIPv4Net.IP.String(),
-		Bridge:      BridgeIface,
-		IPPrefixLen: maskSize,
-		Device:      "",
-		Automatic:   true,
+		Mac:       mac,
+		IPAddress: fmt.Sprintf("%s/%d", ip.String(), maskSize),
+		Gateway:   BridgeIPv4Net.IP.String(),
+		Bridge:    BridgeIface,
+		Device:    "",
+		Automatic: true,
 	}, nil
 }
 
 func Configure(inf *api.InterfaceDescription) (*Settings, error) {
-	ip, mask, err := ipParser(inf.Ip)
+	_, _, err := ipParser(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
 		return nil, err
 	}
 
-	maskSize, _ := mask.Size()
-
 	mac := inf.Mac
 	if mac == "" {
-		mac, err = genRandomMac()
-		if err != nil {
+		if mac, err = genRandomMac(); err != nil {
 			glog.Errorf("Generate Random Mac address failed")
 			return nil, err
 		}
 	}
 
 	return &Settings{
-		Mac:         mac,
-		IPAddress:   ip.String(),
-		Gateway:     inf.Gw,
-		Bridge:      inf.Bridge,
-		IPPrefixLen: maskSize,
-		Device:      inf.TapName,
-		Automatic:   false,
+		Mac:       mac,
+		IPAddress: inf.Ip,
+		Gateway:   inf.Gw,
+		Bridge:    inf.Bridge,
+		Device:    inf.TapName,
+		Automatic: false,
 	}, nil
 }
 

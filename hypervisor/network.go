@@ -313,7 +313,7 @@ func (nc *NetworkContext) close() {
 }
 
 func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
-	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
+	ip, nw, err := net.ParseCIDR(inf.IPAddress)
 	if err != nil {
 		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
 	}
