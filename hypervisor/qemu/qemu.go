@@ -258,7 +258,7 @@ func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervis
 }
 
 func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
-	newNetworkAddSession(ctx, qc, host.Id, host.Fd, guest.Device, host.Mac, guest.Index, guest.Busaddr, result)
+	newNetworkAddSession(ctx, qc, host.Id, host.Device, host.Fd, guest.Device, host.Mac, guest.Index, guest.Busaddr, result)
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {
