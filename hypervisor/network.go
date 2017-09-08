@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/hyperhq/runv/api"
@@ -94,7 +93,6 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			Id:         inf.Id,
 			DeviceName: DEFAULT_LO_DEVICE_NAME,
 			IpAddr:     inf.Ip,
-			NetMask:    "255.255.255.255",
 		}
 		nc.lo[inf.Ip] = i
 		nc.idMap[inf.Id] = i
@@ -217,6 +215,10 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 }
 
 func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
+	if inf.TapName == "" {
+		inf.TapName = network.NicName(nc.sandbox.Id, index)
+	}
+
 	settings, err := network.Configure(inf)
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
@@ -309,13 +311,6 @@ func (nc *NetworkContext) close() {
 }
 
 func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
-	ip, nw, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inf.IPAddress, inf.IPPrefixLen))
-	if err != nil {
-		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
-	}
-	var tmp []byte = nw.Mask
-	var mask net.IP = tmp
-
 	rt := []*RouteRule{}
 	/* Route rule is generated automaticly on first interface,
 	 * or generated on the gateway configured interface. */
@@ -334,8 +329,7 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		HostDevice: inf.Device,
 		DeviceName: name,
 		MacAddr:    inf.Mac,
-		IpAddr:     ip.String(),
-		NetMask:    mask.String(),
+		IpAddr:     inf.IPAddress,
 		RouteTable: rt,
 	}, nil
 }

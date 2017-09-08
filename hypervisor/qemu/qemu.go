@@ -273,7 +273,7 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 	}
 
 	if err != nil {
-		glog.Error("fail to create nic for sandbox: %v, %v", ctx.Id, err)
+		glog.Errorf("fail to create nic for sandbox: %v, %v", ctx.Id, err)
 		result <- &hypervisor.DeviceFailed{
 			Session: nil,
 		}

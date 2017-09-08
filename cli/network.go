@@ -25,6 +25,7 @@ const (
 	UpdateTypeLink  NetlinkUpdateType = "link"
 	UpdateTypeAddr  NetlinkUpdateType = "addr"
 	UpdateTypeRoute NetlinkUpdateType = "route"
+	fakeBridge      string            = "runv0"
 )
 
 // NetlinkUpdate tracks the change of network namespace.
@@ -53,71 +54,22 @@ type nsListener struct {
 	cmd *exec.Cmd
 }
 
-func GetBridgeFromIndex(idx int) (string, string, error) {
-	var attr, bridge *netlink.LinkAttrs
-	var options string
-
-	links, err := netlink.LinkList()
-	if err != nil {
-		glog.Error(err)
-		return "", "", err
-	}
-
-	for _, link := range links {
-		if link.Type() != "veth" {
-			continue
-		}
-
-		if link.Attrs().Index == idx {
-			attr = link.Attrs()
-			break
-		}
-	}
-
-	if attr == nil {
-		return "", "", fmt.Errorf("cann't find nic whose ifindex is %d", idx)
-	}
-
-	for _, link := range links {
-		if link.Type() != "bridge" && link.Type() != "openvswitch" {
-			continue
-		}
-
-		if link.Attrs().Index == attr.MasterIndex {
-			bridge = link.Attrs()
-			break
-		}
-	}
-
-	if bridge == nil {
-		return "", "", fmt.Errorf("cann't find bridge contains nic whose ifindex is %d", idx)
-	}
-
-	if bridge.Name == "ovs-system" {
-		veth, err := netlink.LinkByIndex(idx)
-		if err != nil {
-			return "", "", err
-		}
-
-		out, err := exec.Command("ovs-vsctl", "port-to-br", veth.Attrs().Name).CombinedOutput()
-		if err != nil {
-			return "", "", err
-		}
-		bridge.Name = strings.TrimSpace(string(out))
-
-		out, err = exec.Command("ovs-vsctl", "get", "port", veth.Attrs().Name, "tag").CombinedOutput()
-		if err != nil {
-			return "", "", err
-		}
-		options = "tag=" + strings.TrimSpace(string(out))
-	}
-
-	glog.V(3).Infof("find bridge %s", bridge.Name)
-
-	return bridge.Name, options, nil
+type tcMirredPair struct {
+	NsIfIndex   int
+	HostIfIndex int
 }
 
-func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) error {
+func createFakeBridge() {
+	// add an useless bridge to satisfy hypervisor, most of them need to join bridge.
+	la := netlink.NewLinkAttrs()
+	la.Name = fakeBridge
+	bridge := &netlink.Bridge{LinkAttrs: la}
+	if err := netlink.LinkAdd(bridge); err != nil && !os.IsExist(err) {
+		glog.Warningf("fail to create fake bridge: %v, %v", fakeBridge, err)
+	}
+}
+
+func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, pid int) error {
 	/* send collect netns request to nsListener */
 	if err := enc.Encode("init"); err != nil {
 		glog.Errorf("listener.dec.Decode init error: %v", err)
@@ -146,22 +98,18 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 		}
 	}
 
-	glog.V(3).Infof("interface configuration for sandbox ns is %#v", infos)
-	for _, info := range infos {
-		bridge, options, err := GetBridgeFromIndex(info.PeerIndex)
-		if err != nil {
-			glog.Error(err)
-			continue
-		}
+	createFakeBridge()
 
+	glog.V(3).Infof("interface configuration for sandbox ns is %#v", infos)
+	mirredPairs := []tcMirredPair{}
+	for _, info := range infos {
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id:      nicId, //ip as an id
-			Lo:      false,
-			Bridge:  bridge,
-			Ip:      info.Ip,
-			Options: options,
+			Id:     nicId, //ip as an id
+			Lo:     false,
+			Bridge: fakeBridge,
+			Ip:     info.Ip,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -172,15 +120,30 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) e
 		// which would not be the proper way to name device name, instead it
 		// should be the same as what we specified in the network namespace.
 		//err = hp.vm.AddNic(info.Index, fmt.Sprintf("eth%d", idx), conf)
-		err = vm.AddNic(conf)
+		if err = vm.AddNic(conf); err != nil {
+			glog.Error(err)
+			return err
+		}
+
+		// move device into container-shim netns
+		hostLink, err := netlink.LinkByName(conf.TapName)
 		if err != nil {
 			glog.Error(err)
 			return err
 		}
+		if err = netlink.LinkSetNsPid(hostLink, pid); err != nil {
+			glog.Error(err)
+			return err
+		}
+		mirredPairs = append(mirredPairs, tcMirredPair{info.Index, hostLink.Attrs().Index})
 	}
 
-	err = vm.AddRoute()
-	if err != nil {
+	if err = enc.Encode(mirredPairs); err != nil {
+		glog.Error(err)
+		return err
+	}
+
+	if err = vm.AddRoute(); err != nil {
 		glog.Error(err)
 		return err
 	}
@@ -243,18 +206,11 @@ func nsListenerStrap(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder) {
 				continue
 			}
 
-			bridge, options, err := GetBridgeFromIndex(link.Attrs().ParentIndex)
-			if err != nil {
-				glog.Error(err)
-				continue
-			}
-
 			inf := &api.InterfaceDescription{
-				Id:      strconv.Itoa(link.Attrs().Index),
-				Lo:      false,
-				Bridge:  bridge,
-				Ip:      update.Addr.LinkAddress.String(),
-				Options: options,
+				Id:     strconv.Itoa(link.Attrs().Index),
+				Lo:     false,
+				Bridge: fakeBridge,
+				Ip:     update.Addr.LinkAddress.String(),
 			}
 
 			err = vm.AddNic(inf)
@@ -336,7 +292,7 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 		return err
 	}
 
-	initSandboxNetwork(vm, enc, dec)
+	initSandboxNetwork(vm, enc, dec, cmd.Process.Pid)
 	glog.V(1).Infof("nsListener pid is %d", cmd.Process.Pid)
 	return nil
 }
@@ -388,12 +344,17 @@ func doListen() {
 
 	/* send interface info to `runv create` */
 	infos := collectionInterfaceInfo()
-	if err := enc.Encode(infos); err != nil {
+	if err = enc.Encode(infos); err != nil {
 		glog.Error(err)
 		return
 	}
 
-	if err := enc.Encode(routes); err != nil {
+	if err = enc.Encode(routes); err != nil {
+		glog.Error(err)
+		return
+	}
+
+	if err = setupTcMirredRule(dec); err != nil {
 		glog.Error(err)
 		return
 	}
@@ -423,7 +384,11 @@ func collectionInterfaceInfo() []InterfaceInfo {
 			// lo is here too
 			continue
 		}
-
+		info := InterfaceInfo{
+			Index:     link.Attrs().Index,
+			PeerIndex: link.Attrs().ParentIndex,
+		}
+		ipAddrs := []string{}
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
 			glog.Error(err)
@@ -431,19 +396,65 @@ func collectionInterfaceInfo() []InterfaceInfo {
 		}
 
 		for _, addr := range addrs {
-			info := InterfaceInfo{
-				Ip:        addr.IPNet.String(),
-				Index:     link.Attrs().Index,
-				PeerIndex: link.Attrs().ParentIndex,
-			}
-			glog.Infof("get interface %v", info)
-			infos = append(infos, info)
+			ipAddrs = append(ipAddrs, addr.IPNet.String())
 		}
+		info.Ip = strings.Join(ipAddrs, ",")
+		glog.Infof("get interface %v", info)
+		infos = append(infos, info)
 
-		// set link down, tap device take over it
-		netlink.LinkSetDown(link)
 	}
 	return infos
+}
+
+func setupTcMirredRule(dec *gob.Decoder) error {
+	mirredPairs := []tcMirredPair{}
+	dec.Decode(&mirredPairs)
+
+	glog.Infof("got mirredPairs: %v", mirredPairs)
+	for _, pair := range mirredPairs {
+		hostLink, err := netlink.LinkByIndex(pair.HostIfIndex)
+		if err != nil {
+			return err
+		}
+		if err = netlink.LinkSetUp(hostLink); err != nil {
+			return err
+		}
+
+		qdisc := &netlink.Ingress{
+			QdiscAttrs: netlink.QdiscAttrs{
+				LinkIndex: pair.NsIfIndex,
+				Parent:    netlink.HANDLE_INGRESS,
+				Handle:    netlink.MakeHandle(0xffff, 0),
+			},
+		}
+		if err = netlink.QdiscAdd(qdisc); err != nil {
+			return err
+		}
+		filter := &netlink.U32{
+			FilterAttrs: netlink.FilterAttrs{
+				LinkIndex: pair.NsIfIndex,
+				Parent:    qdisc.Handle,
+				Priority:  1,
+				Protocol:  syscall.ETH_P_ALL,
+			},
+			RedirIndex: pair.HostIfIndex,
+			ClassId:    netlink.MakeHandle(1, 1),
+		}
+		if err = netlink.FilterAdd(filter); err != nil {
+			return err
+		}
+
+		qdisc.QdiscAttrs.LinkIndex = pair.HostIfIndex
+		if err = netlink.QdiscAdd(qdisc); err != nil {
+			return err
+		}
+		filter.FilterAttrs.LinkIndex = pair.HostIfIndex
+		filter.RedirIndex = pair.NsIfIndex
+		if err = netlink.FilterAdd(filter); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // This function should be put into the main process or somewhere that can be

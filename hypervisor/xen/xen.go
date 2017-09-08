@@ -245,7 +245,6 @@ func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNic
 		glog.V(1).Infof("allocate nic %s for dom %d", host.Mac, xc.domId)
 		hw, err := net.ParseMAC(host.Mac)
 		if err == nil {
-			//dev := fmt.Sprintf("vif%d.%d", xc.domId, guest.Index)
 			dev := host.Device
 			glog.V(1).Infof("add network for %d - ip: %s, br: %s, gw: %s, dev: %s, hw: %s", xc.domId, guest.Ipaddr,
 				host.Bridge, host.Bridge, dev, hw.String())
@@ -255,7 +254,7 @@ func (xc *XenContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNic
 
 				glog.V(1).Infof("nic %s insert succeeded", guest.Device)
 
-				err = network.UpAndAddToBridge(fmt.Sprintf("vif%d.%d", xc.domId, guest.Index), "", "")
+				err = network.UpAndAddToBridge(dev, "", "")
 				if err != nil {
 					glog.Error("fail to add vif to bridge: ", err.Error())
 					ctx.Hub <- &hypervisor.DeviceFailed{

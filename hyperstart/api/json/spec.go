@@ -77,10 +77,16 @@ type Container struct {
 	Ports         []Port              `json:"ports,omitempty"` //deprecated
 }
 
-type NetworkInf struct {
-	Device    string `json:"device"`
+type IpAddress struct {
 	IpAddress string `json:"ipAddress"`
 	NetMask   string `json:"netMask"`
+}
+
+type NetworkInf struct {
+	Device      string      `json:"device"`
+	IpAddress   string      `json:"ipAddress,omitempty"`
+	NetMask     string      `json:"netMask,omitempty"`
+	IpAddresses []IpAddress `json:"ipAddresses"`
 }
 
 type Route struct {
