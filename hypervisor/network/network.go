@@ -31,3 +31,17 @@ var (
 func NicName(id string, index int) string {
 	return fmt.Sprintf("%s%d", id, index)
 }
+
+func IpParser(ipstr string) (net.IP, net.IPMask, error) {
+	ip, ipnet, err := net.ParseCIDR(ipstr)
+	if err == nil {
+		return ip, ipnet.Mask, nil
+	}
+
+	ip = net.ParseIP(ipstr)
+	if ip != nil {
+		return ip, ip.DefaultMask(), nil
+	}
+
+	return nil, nil, err
+}

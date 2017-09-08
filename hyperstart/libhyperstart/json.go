@@ -646,11 +646,10 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(dev, ip, mask string) error {
+func (h *jsonBasedHyperstart) UpdateInterface(dev string, ipAddresses []hyperstartapi.IpAddress) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
-		Device:    dev,
-		IpAddress: ip,
-		NetMask:   mask,
+		Device:      dev,
+		IpAddresses: ipAddresses,
 	})
 }
 

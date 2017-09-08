@@ -86,12 +86,14 @@ func (h *grpcBasedHyperstart) AddRoute(routes []hyperstartjson.Route) error {
 	return err
 }
 
-func (h *grpcBasedHyperstart) UpdateInterface(dev, ip, mask string) error {
-	_, err := h.grpc.UpdateInterface(h.ctx, &hyperstartgrpc.UpdateInterfaceRequest{
-		Device:  dev,
-		Address: ip,
-		Mask:    mask,
-	})
+func (h *grpcBasedHyperstart) UpdateInterface(dev string, ipAddresses []hyperstartjson.IpAddress) error {
+	req := &hyperstartgrpc.UpdateInterfaceRequest{
+		Device: dev,
+	}
+	for _, addr := range ipAddresses {
+		req.IpAddresses = append(req.IpAddresses, &hyperstartgrpc.IpAddress{addr.IpAddress, addr.NetMask})
+	}
+	_, err := h.grpc.UpdateInterface(h.ctx, req)
 	return err
 }
 

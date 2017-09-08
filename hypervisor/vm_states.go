@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
+	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
@@ -114,8 +116,22 @@ func (ctx *VmContext) updateInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		return ctx.hyperstart.UpdateInterface(inf.DeviceName, inf.IpAddr, inf.NetMask)
+		addrs := []hyperstartapi.IpAddress{}
+		ipAddrs := strings.Split(inf.IpAddr, ",")
+		for _, addr := range ipAddrs {
+			ip, mask, err := network.IpParser(addr)
+			if err != nil {
+				return err
+			}
+			size, _ := mask.Size()
+			addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+		}
+		if err := ctx.hyperstart.UpdateInterface(inf.DeviceName, addrs); err != nil {
+			return err
+		}
+
 	}
+	return nil
 }
 
 // TODO remove attachCmd and move streamCopy to hyperd

@@ -92,10 +92,14 @@ message StartSandboxRequest {
 message DestroySandboxRequest {
 }
 
+message IpAddress {
+	string address = 1;
+	string mask = 2;
+}
+
 message UpdateInterfaceRequest {
 	string device = 1;
-	string address = 2;
-	string mask = 3;
+	repeated IpAddress ipAddresses = 2;
 }
 
 message AddRouteRequest {

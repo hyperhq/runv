@@ -243,12 +243,7 @@ func AllocateAddr(requestedIP string) (*Settings, error) {
 }
 
 func Configure(inf *api.InterfaceDescription) (*Settings, error) {
-	_, _, err := ipParser(inf.Ip)
-	if err != nil {
-		glog.Errorf("Parse config IP failed %s", err)
-		return nil, err
-	}
-
+	var err error
 	mac := inf.Mac
 	if mac == "" {
 		if mac, err = genRandomMac(); err != nil {
@@ -272,19 +267,4 @@ func ReleaseAddr(releasedIP string) error {
 		return err
 	}
 	return nil
-}
-
-func ipParser(ipstr string) (net.IP, net.IPMask, error) {
-	glog.V(1).Info("parse IP addr ", ipstr)
-	ip, ipnet, err := net.ParseCIDR(ipstr)
-	if err == nil {
-		return ip, ipnet.Mask, nil
-	}
-
-	ip = net.ParseIP(ipstr)
-	if ip != nil {
-		return ip, ip.DefaultMask(), nil
-	}
-
-	return nil, nil, err
 }

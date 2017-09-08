@@ -123,7 +123,12 @@ func (proxy *jsonProxy) DestroySandbox(ctx context.Context, req *hyperstartgrpc.
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) UpdateInterface(ctx context.Context, req *hyperstartgrpc.UpdateInterfaceRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.UpdateInterface(req.Device, req.Address, req.Mask)
+	addresses := []hyperstartjson.IpAddress{}
+	for _, addr := range req.IpAddresses {
+		addresses = append(addresses, hyperstartjson.IpAddress{addr.Address, addr.Mask})
+	}
+
+	err := proxy.json.UpdateInterface(req.Device, addresses)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) AddRoute(ctx context.Context, req *hyperstartgrpc.AddRouteRequest) (*google_protobuf.Empty, error) {

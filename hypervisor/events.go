@@ -57,7 +57,6 @@ type InterfaceCreated struct {
 	DeviceName string
 	MacAddr    string
 	IpAddr     string
-	NetMask    string
 	RouteTable []*RouteRule
 }
 

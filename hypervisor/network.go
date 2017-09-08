@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/hyperhq/runv/api"
@@ -94,7 +93,6 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			Id:         inf.Id,
 			DeviceName: DEFAULT_LO_DEVICE_NAME,
 			IpAddr:     inf.Ip,
-			NetMask:    "255.255.255.255",
 		}
 		nc.lo[inf.Ip] = i
 		nc.idMap[inf.Id] = i
@@ -313,13 +311,6 @@ func (nc *NetworkContext) close() {
 }
 
 func interfaceGot(id string, index int, pciAddr int, name string, inf *network.Settings) (*InterfaceCreated, error) {
-	ip, nw, err := net.ParseCIDR(inf.IPAddress)
-	if err != nil {
-		return &InterfaceCreated{Index: index, PCIAddr: pciAddr, DeviceName: name}, err
-	}
-	var tmp []byte = nw.Mask
-	var mask net.IP = tmp
-
 	rt := []*RouteRule{}
 	/* Route rule is generated automaticly on first interface,
 	 * or generated on the gateway configured interface. */
@@ -338,8 +329,7 @@ func interfaceGot(id string, index int, pciAddr int, name string, inf *network.S
 		HostDevice: inf.Device,
 		DeviceName: name,
 		MacAddr:    inf.Mac,
-		IpAddr:     ip.String(),
-		NetMask:    mask.String(),
+		IpAddr:     inf.IPAddress,
 		RouteTable: rt,
 	}, nil
 }

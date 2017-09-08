@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -383,7 +384,11 @@ func collectionInterfaceInfo() []InterfaceInfo {
 			// lo is here too
 			continue
 		}
-
+		info := InterfaceInfo{
+			Index:     link.Attrs().Index,
+			PeerIndex: link.Attrs().ParentIndex,
+		}
+		ipAddrs := []string{}
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
 			glog.Error(err)
@@ -391,14 +396,12 @@ func collectionInterfaceInfo() []InterfaceInfo {
 		}
 
 		for _, addr := range addrs {
-			info := InterfaceInfo{
-				Ip:        addr.IPNet.String(),
-				Index:     link.Attrs().Index,
-				PeerIndex: link.Attrs().ParentIndex,
-			}
-			glog.Infof("get interface %v", info)
-			infos = append(infos, info)
+			ipAddrs = append(ipAddrs, addr.IPNet.String())
 		}
+		info.Ip = strings.Join(ipAddrs, ",")
+		glog.Infof("get interface %v", info)
+		infos = append(infos, info)
+
 	}
 	return infos
 }
