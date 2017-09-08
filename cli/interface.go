@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/hyperhq/runv/api"
 	"github.com/urfave/cli"
@@ -83,6 +86,25 @@ var infListCommand = cli.Command{
 	ArgsUsage: `ls <container-id>`,
 	Flags:     []cli.Flag{},
 	Action: func(context *cli.Context) error {
+		container := context.Args().First()
+
+		if container == "" {
+			return cli.NewExitError("Please specify container ID", -1)
+		}
+
+		vm, lockfile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
+		if err != nil {
+			return fmt.Errorf("failed to get sandbox for container %q: %v", container, err)
+		}
+		defer putSandbox(vm, lockfile)
+
+		tw := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
+		fmt.Fprintln(tw, "Name\tMac\tIP\tMtu")
+		nics := vm.AllNics()
+		for _, i := range nics {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", i.NewName, i.Mac, strings.Join(i.IpAddr, ","), i.Mtu)
+		}
+		tw.Flush()
 		return nil
 	},
 }

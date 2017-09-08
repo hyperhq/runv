@@ -319,6 +319,10 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	return vm.ctx.updateInterface(info.Id)
 }
 
+func (vm *Vm) AllNics() []*InterfaceCreated {
+	return vm.ctx.AllInterfaces()
+}
+
 func (vm *Vm) DeleteNic(id string) error {
 	client := make(chan api.Result, 1)
 	vm.ctx.RemoveInterface(id, client)

@@ -176,9 +176,9 @@ func createProxy(context *cli.Context, VMID, ctlSock, streamSock, grpcSock strin
 	args := []string{
 		"runv", "--root", context.GlobalString("root"),
 	}
-	//if context.GlobalBool("debug") {
-	args = append(args, "--debug")
-	//}
+	if context.GlobalBool("debug") {
+		args = append(args, "--debug")
+	}
 	if context.GlobalString("log_dir") != "" {
 		args = append(args, "--log_dir", context.GlobalString("log_dir"))
 	}

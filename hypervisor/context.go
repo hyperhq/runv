@@ -270,6 +270,10 @@ func (ctx *VmContext) RemoveInterface(id string, result chan api.Result) {
 	ctx.networks.removeInterface(id, result)
 }
 
+func (ctx *VmContext) AllInterfaces() []*InterfaceCreated {
+	return ctx.networks.allInterfaces()
+}
+
 func (ctx *VmContext) validateContainer(c *api.ContainerDescription) error {
 	for vn, vr := range c.Volumes {
 		if _, ok := ctx.volumes[vn]; !ok {

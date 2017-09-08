@@ -224,6 +224,19 @@ func (nc *NetworkContext) removeInterface(id string, result chan api.Result) {
 	}
 }
 
+// allInterfaces return all the network interfaces except loop
+func (nc *NetworkContext) allInterfaces() (nics []*InterfaceCreated) {
+	nc.slotLock.Lock()
+	defer nc.slotLock.Unlock()
+
+	for _, v := range nc.eth {
+		if v != nil {
+			nics = append(nics, v)
+		}
+	}
+	return
+}
+
 func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.slotLock.Lock()
 	defer nc.slotLock.Unlock()

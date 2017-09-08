@@ -69,6 +69,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "log",
+			Value: "/dev/null",
 			Usage: "[ignored on runv] set the log file path where internal debug information is written",
 		},
 		cli.StringFlag{
