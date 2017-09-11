@@ -262,7 +262,7 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {
-	newNetworkDelSession(ctx, qc, n.DeviceName, callback, result)
+	newNetworkDelSession(ctx, qc, n.NewName, callback, result)
 }
 
 func (qc *QemuContext) SetCpus(ctx *hypervisor.VmContext, cpus int) error {

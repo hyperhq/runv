@@ -647,21 +647,28 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(dev, newName string, ipnet []string, mtu uint64) error {
-	for _, ipstr := range ipnet {
-		ip, net, err := net.ParseCIDR(ipstr)
-		if err != nil {
-			return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
+func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipnet []string, mtu uint64) error {
+	inf := hyperstartapi.NetworkInf{
+		Device: dev,
+	}
+	switch t {
+	case AddInf:
+		inf.NewName = newName
+		inf.Mtu = mtu
+		for _, ipstr := range ipnet {
+			ip, net, err := net.ParseCIDR(ipstr)
+			if err != nil {
+				return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
+			}
+			mask := fmt.Sprintf("%d.%d.%d.%d", int(net.Mask[0]), int(net.Mask[1]), int(net.Mask[2]), int(net.Mask[3]))
+			inf.IpAddress = ip.String()
+			inf.NetMask = mask
+			if err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
+				return fmt.Errorf("json: failed to send <add interface> command to hyperstart: %v", err)
+			}
 		}
-		mask := fmt.Sprintf("%d.%d.%d.%d", int(net.Mask[0]), int(net.Mask[1]), int(net.Mask[2]), int(net.Mask[3]))
-		err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, hyperstartapi.NetworkInf{
-			Device:    dev,
-			NewName:   newName,
-			IpAddress: ip.String(),
-			NetMask:   mask,
-			Mtu:       mtu,
-		})
-		if err != nil {
+	case DelInf:
+		if err := h.hyperstartCommand(hyperstartapi.INIT_DELETEINTERFACE, inf); err != nil {
 			return fmt.Errorf("json: failed to send update command to hyperstart: %v", err)
 		}
 	}

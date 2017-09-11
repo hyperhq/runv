@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/hyperhq/runv/api"
+	"github.com/hyperhq/runv/hypervisor"
 	"github.com/urfave/cli"
 )
 
@@ -56,16 +57,11 @@ var infAddCommand = cli.Command{
 	},
 	Action: func(context *cli.Context) error {
 		container := context.Args().First()
-
-		if container == "" {
-			return cli.NewExitError("Please specify container ID", -1)
-		}
-
-		vm, lockfile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
+		vm, releaseFunc, err := vmByContainerID(context, container)
 		if err != nil {
-			return fmt.Errorf("failed to get sandbox for container %q: %v", container, err)
+			return err
 		}
-		defer putSandbox(vm, lockfile)
+		defer releaseFunc()
 
 		ip := context.String("ip")
 		conf := &api.InterfaceDescription{
@@ -76,27 +72,27 @@ var infAddCommand = cli.Command{
 			Mtu:     context.Uint64("mtu"),
 		}
 
-		return vm.AddNic(conf)
+		if err = vm.AddNic(conf); err != nil {
+			return err
+		}
+		fmt.Println("Add interface successfully.")
+		return nil
 	},
 }
 
 var infListCommand = cli.Command{
 	Name:      "ls",
+	Aliases:   []string{"list"},
 	Usage:     "list network interfaces in a container",
 	ArgsUsage: `ls <container-id>`,
 	Flags:     []cli.Flag{},
 	Action: func(context *cli.Context) error {
 		container := context.Args().First()
-
-		if container == "" {
-			return cli.NewExitError("Please specify container ID", -1)
-		}
-
-		vm, lockfile, err := getSandbox(filepath.Join(context.GlobalString("root"), container, "sandbox"))
+		vm, releaseFunc, err := vmByContainerID(context, container)
 		if err != nil {
-			return fmt.Errorf("failed to get sandbox for container %q: %v", container, err)
+			return err
 		}
-		defer putSandbox(vm, lockfile)
+		defer releaseFunc()
 
 		tw := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
 		fmt.Fprintln(tw, "Name\tMac\tIP\tMtu")
@@ -111,10 +107,32 @@ var infListCommand = cli.Command{
 
 var infRmCommand = cli.Command{
 	Name:      "rm",
+	Aliases:   []string{"delete"},
 	Usage:     "remove an interface from container",
 	ArgsUsage: `rm <container-id> <interface-name>`,
 	Flags:     []cli.Flag{},
 	Action: func(context *cli.Context) error {
+		container := context.Args().First()
+		inf := context.Args().Get(1)
+		if inf == "" {
+			return cli.NewExitError("please specify an interface to delete", -1)
+		}
+		vm, releaseFunc, err := vmByContainerID(context, container)
+		if err != nil {
+			return err
+		}
+		defer releaseFunc()
+
+		nics := vm.AllNics()
+		for _, i := range nics {
+			if i.NewName == inf {
+				if err = vm.DeleteNic(i.Id); err != nil {
+					return cli.NewExitError(fmt.Sprintf("failed to delete interface %q: %v", inf, err), -1)
+				}
+				fmt.Println("Interface %q is deleted", inf)
+				break
+			}
+		}
 		return nil
 	},
 }
@@ -127,4 +145,18 @@ var infUpdateCommand = cli.Command{
 	Action: func(context *cli.Context) error {
 		return nil
 	},
+}
+
+type releaseFunc func()
+
+func vmByContainerID(context *cli.Context, cid string) (*hypervisor.Vm, releaseFunc, error) {
+	if cid == "" {
+		return nil, nil, cli.NewExitError("Please specify container ID", -1)
+	}
+
+	vm, lockfile, err := getSandbox(filepath.Join(context.GlobalString("root"), cid, "sandbox"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get sandbox for container %q: %v", cid, err)
+	}
+	return vm, func() { putSandbox(vm, lockfile) }, nil
 }

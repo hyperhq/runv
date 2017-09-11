@@ -38,6 +38,7 @@ type PersistNetworkInfo struct {
 	Id         string
 	Index      int
 	PciAddr    int
+	HostDevice string
 	DeviceName string
 	NewName    string
 	IpAddr     []string
@@ -111,6 +112,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			Id:         nic.Id,
 			Index:      nic.Index,
 			PciAddr:    nic.PCIAddr,
+			HostDevice: nic.HostDevice,
 			DeviceName: nic.DeviceName,
 			IpAddr:     nic.IpAddr,
 		}
@@ -122,6 +124,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			Id:         nic.Id,
 			Index:      nic.Index,
 			PciAddr:    nic.PCIAddr,
+			HostDevice: nic.HostDevice,
 			DeviceName: nic.DeviceName,
 			NewName:    nic.NewName,
 			IpAddr:     nic.IpAddr,
@@ -212,6 +215,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 			Id:         pi.Id,
 			Index:      pi.Index,
 			PCIAddr:    pi.PciAddr,
+			HostDevice: pi.HostDevice,
 			DeviceName: pi.DeviceName,
 			NewName:    pi.NewName,
 			IpAddr:     pi.IpAddr,

@@ -110,11 +110,20 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 	return true, nil
 }
 
-func (ctx *VmContext) updateInterface(id string) error {
+func (ctx *VmContext) hyperstartUpdateInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		return ctx.hyperstart.UpdateInterface(inf.DeviceName, inf.NewName, inf.IpAddr, inf.Mtu)
+		return ctx.hyperstart.UpdateInterface(libhyperstart.AddInf, inf.DeviceName, inf.NewName, inf.IpAddr, inf.Mtu)
+	}
+}
+
+func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		// using new name as device name
+		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.NewName, "", nil, 0)
 	}
 }
 

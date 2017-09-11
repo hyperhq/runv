@@ -96,10 +96,11 @@ message DestroySandboxRequest {
 }
 
 message UpdateInterfaceRequest {
-	string device = 1;
-	string newName = 2;
-	repeated string address = 3;
-	uint64 mtu = 4;
+	uint64 type	=1;
+	string device = 2;
+	string newName = 3;
+	repeated string address = 4;
+	uint64 mtu = 5;
 }
 
 message AddRouteRequest {

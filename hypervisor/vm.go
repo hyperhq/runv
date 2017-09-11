@@ -316,7 +316,7 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	if vm.ctx.LogLevel(TRACE) {
 		vm.Log(TRACE, "finial vmSpec.Interface is %#v", vm.ctx.networks.getInterface(info.Id))
 	}
-	return vm.ctx.updateInterface(info.Id)
+	return vm.ctx.hyperstartUpdateInterface(info.Id)
 }
 
 func (vm *Vm) AllNics() []*InterfaceCreated {
@@ -324,6 +324,9 @@ func (vm *Vm) AllNics() []*InterfaceCreated {
 }
 
 func (vm *Vm) DeleteNic(id string) error {
+	if err := vm.ctx.hyperstartDeleteInterface(id); err != nil {
+		return err
+	}
 	client := make(chan api.Result, 1)
 	vm.ctx.RemoveInterface(id, client)
 

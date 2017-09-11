@@ -107,7 +107,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			return
 		}
 		if inf.Id == "" {
-			inf.Id = "0"
+			inf.Id = "lo"
 		}
 		i := &InterfaceCreated{
 			Id:         inf.Id,
