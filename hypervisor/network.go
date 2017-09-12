@@ -237,6 +237,48 @@ func (nc *NetworkContext) allInterfaces() (nics []*InterfaceCreated) {
 	return
 }
 
+func (nc *NetworkContext) updateInterface(inf *api.InterfaceDescription) error {
+	oldInf, ok := nc.idMap[inf.Id]
+	if !ok {
+		nc.sandbox.Log(WARNING, "trying update a non-exist interface %s", inf.Id)
+		return fmt.Errorf("interface %q not exists", inf.Id)
+	}
+
+	// only support update some fields: Name, ip addresses, mtu
+	nc.slotLock.Lock()
+	defer nc.slotLock.Unlock()
+
+	if inf.Name != "" {
+		oldInf.NewName = inf.Name
+	}
+
+	if inf.Mtu > 0 {
+		oldInf.Mtu = inf.Mtu
+	}
+
+	if inf.Ip != nil && len(inf.Ip) > 0 {
+		for _, ip := range inf.Ip {
+			var found bool
+			if ip[0] == '-' { // to delete
+				ip = ip[1:]
+				for k, i := range oldInf.IpAddr {
+					if i == ip {
+						oldInf.IpAddr = append(oldInf.IpAddr[:k], oldInf.IpAddr[k+1:]...)
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("failed to delete %q: not found", ip)
+				}
+			} else { // to add
+				oldInf.IpAddr = append(oldInf.IpAddr, ip)
+			}
+		}
+	}
+	return nil
+}
+
 func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 	nc.slotLock.Lock()
 	defer nc.slotLock.Unlock()

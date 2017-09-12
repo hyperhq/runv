@@ -656,11 +656,11 @@ func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName stri
 		inf.NewName = newName
 		inf.Mtu = mtu
 		for _, ipstr := range ipnet {
-			ip, net, err := net.ParseCIDR(ipstr)
+			ip, ipnet, err := net.ParseCIDR(ipstr)
 			if err != nil {
 				return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
 			}
-			mask := fmt.Sprintf("%d.%d.%d.%d", int(net.Mask[0]), int(net.Mask[1]), int(net.Mask[2]), int(net.Mask[3]))
+			mask := fmt.Sprintf("%d.%d.%d.%d", int(ipnet.Mask[0]), int(ipnet.Mask[1]), int(ipnet.Mask[2]), int(ipnet.Mask[3]))
 			inf.IpAddress = ip.String()
 			inf.NetMask = mask
 			if err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
@@ -669,7 +669,41 @@ func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName stri
 		}
 	case DelInf:
 		if err := h.hyperstartCommand(hyperstartapi.INIT_DELETEINTERFACE, inf); err != nil {
-			return fmt.Errorf("json: failed to send update command to hyperstart: %v", err)
+			return fmt.Errorf("json: failed to send <delete interface> command to hyperstart: %v", err)
+		}
+	case AddIP:
+		for _, ipstr := range ipnet {
+			// an ip string with prefix "-" indicates deleting an ip address from interface
+			var (
+				ip    net.IP
+				ipnet *net.IPNet
+				err   error
+			)
+			if ipstr[0] == '-' {
+				ip, ipnet, err = net.ParseCIDR(ipstr[1:])
+				if err != nil {
+					return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
+				}
+				inf.IpAddress = "-" + ip.String()
+			} else {
+				ip, ipnet, err = net.ParseCIDR(ipstr)
+				if err != nil {
+					return fmt.Errorf("jsonhyperstart: failed to parse ipnet %q: %v", ipstr, err)
+				}
+				inf.IpAddress = ip.String()
+			}
+			mask := fmt.Sprintf("%d.%d.%d.%d", int(ipnet.Mask[0]), int(ipnet.Mask[1]), int(ipnet.Mask[2]), int(ipnet.Mask[3]))
+			inf.NetMask = mask
+			if err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
+				return fmt.Errorf("json: failed to send <add ip> command to hyperstart: %v", err)
+			}
+		}
+	case SetMtu:
+		if mtu > 0 {
+			inf.Mtu = mtu
+			if err := h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
+				return fmt.Errorf("json: failed to send <SetMtu> command to hyperstart: %v", err)
+			}
 		}
 	}
 	return nil

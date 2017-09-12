@@ -12,8 +12,6 @@ const (
 	AddInf InfUpdateType = 1 << iota
 	DelInf
 	AddIP
-	DelIP
-	SetName
 	SetMtu
 )
 

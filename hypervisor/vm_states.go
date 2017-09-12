@@ -110,7 +110,7 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 	return true, nil
 }
 
-func (ctx *VmContext) hyperstartUpdateInterface(id string) error {
+func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
@@ -125,6 +125,26 @@ func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
 		// using new name as device name
 		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.NewName, "", nil, 0)
 	}
+}
+
+func (ctx *VmContext) hyperstartUpdateInterface(id string, addIP []string, mtu uint64) error {
+	inf := ctx.networks.getInterface(id)
+	if inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	}
+
+	if addIP != nil && len(addIP) != 0 {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddIP, inf.NewName, "", addIP, 0); err != nil {
+			return err
+		}
+	}
+
+	if mtu > 0 {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.SetMtu, inf.NewName, "", nil, mtu); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // TODO remove attachCmd and move streamCopy to hyperd

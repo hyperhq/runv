@@ -129,7 +129,7 @@ var infRmCommand = cli.Command{
 				if err = vm.DeleteNic(i.Id); err != nil {
 					return cli.NewExitError(fmt.Sprintf("failed to delete interface %q: %v", inf, err), -1)
 				}
-				fmt.Println("Interface %q is deleted", inf)
+				fmt.Printf("Interface %q is deleted\n", inf)
 				break
 			}
 		}
@@ -141,8 +141,62 @@ var infUpdateCommand = cli.Command{
 	Name:      "update",
 	Usage:     "update configuration of interface",
 	ArgsUsage: `update <container-id> <interface-name>`,
-	Flags:     []cli.Flag{},
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "add-ip",
+			Usage: "add a new ip address with mask (format: 192.168.0.2/24)",
+		},
+		cli.StringFlag{
+			Name:  "delete-ip",
+			Usage: "add a new ip address with mask (format: 192.168.0.2/24)",
+		},
+		cli.IntFlag{
+			Name:  "mtu",
+			Usage: "update mtu",
+		},
+	},
 	Action: func(context *cli.Context) error {
+		container := context.Args().First()
+		vm, releaseFunc, err := vmByContainerID(context, container)
+		if err != nil {
+			return err
+		}
+		defer releaseFunc()
+
+		targetInf := context.Args().Get(1)
+		if targetInf == "" {
+			return cli.NewExitError("please specify an interface name to update", -1)
+		}
+
+		conf := &api.InterfaceDescription{
+			Id:   "-1",
+			Name: context.String("name"),
+			Mtu:  context.Uint64("mtu"),
+		}
+		if ip := context.String("add-ip"); ip != "" {
+			conf.Ip = append(conf.Ip, ip)
+		}
+		if ip := context.String("delete-ip"); ip != "" {
+			// an IP address prefixed with "-" indicates deleting an ip
+			conf.Ip = append(conf.Ip, "-"+ip)
+		}
+
+		nics := vm.AllNics()
+		for _, i := range nics {
+			if i.NewName == targetInf {
+				conf.Id = i.Id
+				break
+			}
+		}
+
+		if conf.Id == "-1" {
+			return cli.NewExitError(fmt.Sprintf("Can't find target interface name %q", targetInf), -1)
+		}
+
+		if err = vm.UpdateNic(conf); err != nil {
+			return err
+		}
+		fmt.Printf("Interface %q is updated\n", targetInf)
 		return nil
 	},
 }

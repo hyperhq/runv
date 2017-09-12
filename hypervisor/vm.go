@@ -316,7 +316,7 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	if vm.ctx.LogLevel(TRACE) {
 		vm.Log(TRACE, "finial vmSpec.Interface is %#v", vm.ctx.networks.getInterface(info.Id))
 	}
-	return vm.ctx.hyperstartUpdateInterface(info.Id)
+	return vm.ctx.hyperstartAddInterface(info.Id)
 }
 
 func (vm *Vm) AllNics() []*InterfaceCreated {
@@ -338,7 +338,15 @@ func (vm *Vm) DeleteNic(id string) error {
 	if !ev.IsSuccess() {
 		return fmt.Errorf("remove device failed")
 	}
+
 	return nil
+}
+
+func (vm *Vm) UpdateNic(inf *api.InterfaceDescription) error {
+	if err := vm.ctx.hyperstartUpdateInterface(inf.Id, inf.Ip, inf.Mtu); err != nil {
+		return err
+	}
+	return vm.ctx.UpdateInterface(inf)
 }
 
 func (vm *Vm) SetCpus(cpus int) error {
