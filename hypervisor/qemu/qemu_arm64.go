@@ -77,7 +77,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	}
 
 	return append(params,
-		"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "console=ttyAMA0 panic=1",
+		"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", "console=ttyAMA0 panic=1 iommu=no",
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults",
 		"-rtc", "base=utc,clock=vm,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
 		"-m", memParams, "-smp", cpuParams,

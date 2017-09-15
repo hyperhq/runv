@@ -31,7 +31,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
 	cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, hypervisor.DefaultMaxCpus)           // TODO set it to the cpus of the system
 
-	cmdline := "console=ttyS0 panic=1 no_timer_check"
+	cmdline := "console=ttyS0 panic=1 no_timer_check iommu=off"
 	params := []string{
 		"-machine", machineClass + ",accel=kvm,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
