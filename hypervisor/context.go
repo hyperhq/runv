@@ -272,6 +272,24 @@ func (ctx *VmContext) RemoveInterface(id string, result chan api.Result) {
 	ctx.networks.removeInterface(id, result)
 }
 
+func (ctx *VmContext) UpdateInterface(inf *api.InterfaceDescription) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	if ctx.current != StateRunning {
+		ctx.Log(DEBUG, "update interface %s during %v", inf.Name, ctx.current)
+		return fmt.Errorf("pod not running")
+	}
+
+	return ctx.networks.updateInterface(inf)
+}
+
+func (ctx *VmContext) AllInterfaces() []*InterfaceCreated {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+	return ctx.networks.allInterfaces()
+}
+
 func (ctx *VmContext) validateContainer(c *api.ContainerDescription) error {
 	for vn, vr := range c.Volumes {
 		if _, ok := ctx.volumes[vn]; !ok {

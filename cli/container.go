@@ -148,7 +148,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	}
 
 	// If runv is launched via docker/containerd, we start netlistener to watch/collect network changes.
-	// TODO: if runv is launched by cni compatible tools, the cni script can use `runv cni` cmdline to update the network.
+	// TODO: if runv is launched by cni compatible tools, the cni script can use `runv interface` cmdline to update the network.
 	// Create the listener process which will enters into the netns of the shim
 	options.withContainer = state
 	if err = startNsListener(options, vm); err != nil {
