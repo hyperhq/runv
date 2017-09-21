@@ -202,6 +202,10 @@ func sandboxPath(vm *hypervisor.Vm) string {
 	return filepath.Join(hypervisor.BaseDir, vm.Id)
 }
 
+func shareDirPath(vm *hypervisor.Vm) string {
+	return filepath.Join(hypervisor.BaseDir, vm.Id, hypervisor.ShareDirTag)
+}
+
 func setupHyperstartFunc(context *cli.Context) {
 	libhyperstart.NewHyperstart = func(vmid, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (libhyperstart.Hyperstart, error) {
 		return newHyperstart(context, vmid, ctlSock, streamSock)
