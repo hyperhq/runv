@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -32,6 +33,15 @@ func GetTapFd(device, bridge, options string) (int, error) {
 		req   ifReq
 		errno syscall.Errno
 	)
+
+	// check if tapname exists, if true, use existing one instead of create new one
+	if device != "" {
+		_, err := netlink.LinkByName(device)
+		// link exist, use it
+		if err == nil {
+			return -1, nil
+		}
+	}
 
 	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
 	if err != nil {

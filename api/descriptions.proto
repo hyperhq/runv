@@ -58,7 +58,7 @@ message InterfaceDescription {
     string name = 2;
     bool lo = 3;
     string bridge = 4;
-    repeated string ip = 5;
+    string ip = 5;
     string mac = 6;
     uint64 mtu = 7;
     string gw = 8;

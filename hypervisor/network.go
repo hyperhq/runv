@@ -2,6 +2,7 @@ package hypervisor
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/hyperhq/runv/api"
@@ -81,6 +82,13 @@ func (nc *NetworkContext) freeSlot(slot int) {
 	delete(nc.eth, slot)
 }
 
+// nextAvailableDevName find the initial device name in guest when add a new tap device
+// then rename it to some new name.
+// For example: user want to insert a new nic named "eth5" into container, which already owns
+// "eth0", "eth3" and "eth4". After tap device is added to VM, guest will detect a new device
+// named "eth1" which is first available "ethX" device, then guest will try to rename "eth1" to
+// "eth5". Then container will have "eth0", "eth3", "eth4" and "eth5" in the last.
+// This function try to find the first available "ethX" as said above. @WeiZhang555
 func (nc *NetworkContext) nextAvailableDevName() string {
 	for i := 0; i <= MAX_NIC; i++ {
 		find := false
@@ -100,7 +108,7 @@ func (nc *NetworkContext) nextAvailableDevName() string {
 
 func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result chan api.Result) {
 	if inf.Lo {
-		if inf.Ip == nil || len(inf.Ip) == 0 {
+		if len(inf.Ip) == 0 {
 			estr := fmt.Sprintf("creating an interface without an IP address: %#v", inf)
 			nc.sandbox.Log(ERROR, estr)
 			result <- NewSpecError(inf.Id, estr)
@@ -115,7 +123,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			IpAddr:     inf.Ip,
 			Mtu:        inf.Mtu,
 		}
-		nc.lo[inf.Ip[0]] = i
+		nc.lo[inf.Ip] = i
 		nc.idMap[inf.Id] = i
 
 		result <- &api.ResultBase{
@@ -132,8 +140,11 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 		defer nc.slotLock.Unlock()
 
 		idx := nc.applySlot()
-		devName := nc.nextAvailableDevName()
-		if idx < 0 || devName == "" {
+		initialDevName := nc.nextAvailableDevName()
+		if inf.Id == "" {
+			inf.Id = fmt.Sprintf("%d", idx)
+		}
+		if idx < 0 || initialDevName == "" {
 			estr := fmt.Sprintf("no available ethernet slot/name for interface %#v", inf)
 			nc.sandbox.Log(ERROR, estr)
 			result <- NewBusyError(inf.Id, estr)
@@ -141,7 +152,7 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			return
 		}
 
-		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), devName, inf, devChan)
+		nc.configureInterface(idx, nc.sandbox.NextPciAddr(), initialDevName, inf, devChan)
 	}()
 
 	go func() {
@@ -178,7 +189,7 @@ func (nc *NetworkContext) removeInterface(id string, result chan api.Result) {
 		return
 	} else if inf.HostDevice == "" { // a virtual interface
 		delete(nc.idMap, id)
-		delete(nc.lo, inf.IpAddr[0])
+		delete(nc.lo, inf.IpAddr)
 		result <- api.NewResultBase(id, true, "")
 		return
 	} else {
@@ -256,14 +267,16 @@ func (nc *NetworkContext) updateInterface(inf *api.InterfaceDescription) error {
 		oldInf.Mtu = inf.Mtu
 	}
 
-	if inf.Ip != nil && len(inf.Ip) > 0 {
-		for _, ip := range inf.Ip {
+	if len(inf.Ip) > 0 {
+		addrs := strings.Split(inf.Ip, ",")
+		oldAddrs := strings.Split(oldInf.IpAddr, ",")
+		for _, ip := range addrs {
 			var found bool
 			if ip[0] == '-' { // to delete
 				ip = ip[1:]
-				for k, i := range oldInf.IpAddr {
+				for k, i := range oldAddrs {
 					if i == ip {
-						oldInf.IpAddr = append(oldInf.IpAddr[:k], oldInf.IpAddr[k+1:]...)
+						oldAddrs = append(oldAddrs[:k], oldAddrs[k+1:]...)
 						found = true
 						break
 					}
@@ -272,9 +285,10 @@ func (nc *NetworkContext) updateInterface(inf *api.InterfaceDescription) error {
 					return fmt.Errorf("failed to delete %q: not found", ip)
 				}
 			} else { // to add
-				oldInf.IpAddr = append(oldInf.IpAddr, ip)
+				oldAddrs = append(oldAddrs, ip)
 			}
 		}
+		oldInf.IpAddr = strings.Join(oldAddrs, ",")
 	}
 	return nil
 }
@@ -294,18 +308,18 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 
 func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
 	if inf.TapName == "" {
-		inf.TapName = network.NicName(nc.sandbox.Id, index)
+		inf.TapName = inf.Name + nc.sandbox.Id[3:]
 	}
 
 	settings, err := network.Configure(inf)
 	if err != nil {
 		nc.sandbox.Log(ERROR, "interface creating failed: %v", err.Error())
-		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: deviceName, NewName: inf.Name, Mtu: inf.Mtu}
+		session := &InterfaceCreated{Id: inf.Id, Index: index, PCIAddr: pciAddr, DeviceName: name, NewName: inf.Name, Mtu: inf.Mtu}
 		result <- &DeviceFailed{Session: session}
 		return
 	}
 
-	created, err := interfaceGot(inf.Id, index, pciAddr, deviceName, inf.Name, settings)
+	created, err := interfaceGot(inf.Id, index, pciAddr, name, inf.Name, settings)
 	if err != nil {
 		result <- &DeviceFailed{Session: created}
 		return
@@ -314,13 +328,10 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 	h := &HostNicInfo{
 		Id:      created.Id,
 		Device:  created.HostDevice,
-		Mac:     created.Mac,
+		Mac:     created.MacAddr,
 		Bridge:  created.Bridge,
 		Gateway: created.Bridge,
 		Options: inf.Options,
-	}
-	if created.Fd != nil {
-		h.Fd = uint64(created.Fd.Fd())
 	}
 
 	// Note: Use created.NewName add tap name
@@ -353,13 +364,16 @@ func (nc *NetworkContext) getInterface(id string) *InterfaceCreated {
 	return nil
 }
 
-func (nc *NetworkContext) getIpAddrs() []string {
+func (nc *NetworkContext) getIPAddrs() []string {
 	nc.slotLock.RLock()
 	defer nc.slotLock.RUnlock()
 
 	res := []string{}
 	for _, inf := range nc.eth {
-		res = append(res, inf.IpAddr...)
+		if inf.IpAddr != "" {
+			addrs := strings.Split(inf.IpAddr, ",")
+			res = append(res, addrs...)
+		}
 	}
 
 	return res
@@ -414,7 +428,6 @@ func interfaceGot(id string, index int, pciAddr int, deviceName, newName string,
 		HostDevice: inf.Device,
 		DeviceName: deviceName,
 		NewName:    newName,
-		Fd:         inf.File,
 		MacAddr:    inf.Mac,
 		IpAddr:     inf.IPAddress,
 		Mtu:        inf.Mtu,

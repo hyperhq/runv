@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/hyperhq/runv/api"
@@ -66,7 +65,7 @@ var infAddCommand = cli.Command{
 		ip := context.String("ip")
 		conf := &api.InterfaceDescription{
 			Name:    context.String("name"),
-			Ip:      []string{ip},
+			Ip:      ip,
 			Mac:     context.String("mac"),
 			TapName: context.String("tapname"),
 			Mtu:     context.Uint64("mtu"),
@@ -98,7 +97,7 @@ var infListCommand = cli.Command{
 		fmt.Fprintln(tw, "Name\tMac\tIP\tMtu")
 		nics := vm.AllNics()
 		for _, i := range nics {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", i.NewName, i.Mac, strings.Join(i.IpAddr, ","), i.Mtu)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", i.NewName, i.MacAddr, i.IpAddr, i.Mtu)
 		}
 		tw.Flush()
 		return nil
@@ -174,11 +173,11 @@ var infUpdateCommand = cli.Command{
 			Mtu:  context.Uint64("mtu"),
 		}
 		if ip := context.String("add-ip"); ip != "" {
-			conf.Ip = append(conf.Ip, ip)
+			conf.Ip = ip
 		}
 		if ip := context.String("delete-ip"); ip != "" {
 			// an IP address prefixed with "-" indicates deleting an ip
-			conf.Ip = append(conf.Ip, "-"+ip)
+			conf.Ip += ",-" + ip
 		}
 
 		nics := vm.AllNics()

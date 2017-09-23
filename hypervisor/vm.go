@@ -728,7 +728,7 @@ func (vm *Vm) GetIPAddrs() []string {
 		return ips
 	}
 
-	res := vm.ctx.networks.getIpAddrs()
+	res := vm.ctx.networks.getIPAddrs()
 	ips = append(ips, res...)
 
 	return ips

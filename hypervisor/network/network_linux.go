@@ -201,14 +201,16 @@ func UpAndAddToBridge(name, bridge, options string) error {
 	if bridge == "" {
 		bridge = BridgeIface
 	}
-	master, err := netlink.LinkByName(bridge)
-	if err != nil {
-		glog.Error("cannot find bridge interface ", bridge)
-		return err
-	}
-	if err = addToBridge(iface, master, options); err != nil {
-		glog.Errorf("cannot add %s to %s ", name, bridge)
-		return err
+	if bridge != "" {
+		master, err := netlink.LinkByName(bridge)
+		if err != nil {
+			glog.Error("cannot find bridge interface ", bridge)
+			return err
+		}
+		if err = addToBridge(iface, master, options); err != nil {
+			glog.Errorf("cannot add %s to %s ", name, bridge)
+			return err
+		}
 	}
 	if err = netlink.LinkSetUp(iface); err != nil {
 		glog.Error("cannot up interface ", name)
@@ -258,6 +260,7 @@ func Configure(inf *api.InterfaceDescription) (*Settings, error) {
 		Gateway:   inf.Gw,
 		Bridge:    inf.Bridge,
 		Device:    inf.TapName,
+		Mtu:       inf.Mtu,
 		Automatic: false,
 	}, nil
 }

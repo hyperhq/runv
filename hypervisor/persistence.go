@@ -41,7 +41,7 @@ type PersistNetworkInfo struct {
 	HostDevice string
 	DeviceName string
 	NewName    string
-	IpAddr     []string
+	IpAddr     string
 	Mac        string
 	Mtu        uint64
 }
@@ -128,7 +128,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 			DeviceName: nic.DeviceName,
 			NewName:    nic.NewName,
 			IpAddr:     nic.IpAddr,
-			Mac:        nic.Mac,
+			Mac:        nic.MacAddr,
 			Mtu:        nic.Mtu,
 		}
 		nid++
@@ -220,7 +220,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 			NewName:    pi.NewName,
 			IpAddr:     pi.IpAddr,
 			Mtu:        pi.Mtu,
-			Mac:        pi.Mac,
+			MacAddr:    pi.Mac,
 		}
 		// if empty, may be old data, generate one for compatibility.
 		if ifc.Id == "" {
@@ -228,7 +228,7 @@ func (nc *NetworkContext) load(pinfo *PersistInfo) {
 		}
 		// use device name distinguish from lo and eth
 		if ifc.DeviceName == DEFAULT_LO_DEVICE_NAME {
-			nc.lo[pi.IpAddr[0]] = ifc
+			nc.lo[pi.IpAddr] = ifc
 		} else {
 			nc.eth[pi.Index] = ifc
 		}

@@ -45,7 +45,7 @@ type NetlinkUpdate struct {
 type InterfaceInfo struct {
 	Index     int
 	PeerIndex int
-	IP        []string
+	Ip        string
 	Mac       string
 	Name      string
 	Mtu       uint64
@@ -393,19 +393,15 @@ func collectionInterfaceInfo() []InterfaceInfo {
 		info := InterfaceInfo{
 			Index:     link.Attrs().Index,
 			PeerIndex: link.Attrs().ParentIndex,
+			Name:      link.Attrs().Name,
+			Mac:       link.Attrs().HardwareAddr.String(),
+			Mtu:       uint64(link.Attrs().MTU),
 		}
 		ipAddrs := []string{}
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
 			glog.Error(err)
 			return infos
-		}
-
-		info := InterfaceInfo{
-			Name:      link.Attrs().Name,
-			Mac:       link.Attrs().HardwareAddr.String(),
-			Mtu:       uint64(link.Attrs().MTU),
-			PeerIndex: link.Attrs().ParentIndex,
 		}
 
 		for _, addr := range addrs {

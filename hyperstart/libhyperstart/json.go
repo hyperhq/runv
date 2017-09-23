@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 	"syscall"
 	"time"
@@ -649,28 +648,28 @@ func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
 
 func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []hyperstartapi.IpAddress, mtu uint64) error {
 	inf := hyperstartapi.NetworkInf{
-		Device: dev,
+		Device:      dev,
+		IpAddresses: []hyperstartapi.IpAddress{},
 	}
 	switch t {
 	case AddInf:
 		inf.NewName = newName
 		inf.Mtu = mtu
-		for _, ipstr := range ipnet {
-			inf.IpAddress = ipAddresses
-			inf.NetMask = mask
-			if err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
-				return fmt.Errorf("json: failed to send <add interface> command to hyperstart: %v", err)
-			}
+		inf.IpAddresses = ipAddresses
+		if err := h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
+			return fmt.Errorf("json: failed to send <add interface> command to hyperstart: %v", err)
 		}
 	case DelInf:
 		if err := h.hyperstartCommand(hyperstartapi.INIT_DELETEINTERFACE, inf); err != nil {
-			return fmt.Errorf("json: failed to send <delete interface> command to hyperstart: %v", err)
+			return fmt.Errorf("json: failed to send <delete interface> command to hyperstart. inf: %#v, error: %v", inf, err)
 		}
 	case AddIP:
-		inf.IpAddress = ipAddresses
-		if err = h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
+		inf.IpAddresses = ipAddresses
+		if err := h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
 			return fmt.Errorf("json: failed to send <add ip> command to hyperstart: %v", err)
 		}
+	case DelIP:
+		// TODO: add new interface to handle hyperstart delete interface @weizhang555
 	case SetMtu:
 		if mtu > 0 {
 			inf.Mtu = mtu
