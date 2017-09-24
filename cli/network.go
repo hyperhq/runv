@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -257,11 +258,14 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 		}
 	}()
 
+	env := append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
+	env = append(env, fmt.Sprintf("_RUNVCONTAINERID=%s", options.withContainer.ID))
 	cmd := exec.Cmd{
 		Path:       path,
 		Args:       []string{"runv", "network-nslisten"},
-		Env:        append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid)),
+		Env:        env,
 		ExtraFiles: []*os.File{childPipe},
+		Dir:        shareDirPath(vm),
 	}
 	if err = cmd.Start(); err != nil {
 		glog.Errorf("start network-nslisten failed: %v", err)
@@ -356,6 +360,24 @@ func doListen() {
 
 	if err = setupTcMirredRule(dec); err != nil {
 		glog.Error(err)
+		return
+	}
+
+	containerId := os.Getenv("_RUNVCONTAINERID")
+	if containerId == "" {
+		glog.Error("cannot find container id env")
+		return
+	}
+
+	out, err := exec.Command("iptables-save").Output()
+	if err != nil {
+		glog.Errorf("fail to execute iptables-save: %v", err)
+		return
+	}
+
+	err = ioutil.WriteFile(fmt.Sprintf("./%s-iptables", containerId), out, 0644)
+	if err != nil {
+		glog.Errorf("fail to save iptables rule for %s: %v", containerId, err)
 		return
 	}
 
