@@ -85,10 +85,10 @@ var proxyCommand = cli.Command{
 		}
 
 		grpcSock := context.String("proxy-hyperstart")
-		glog.Infof("proxy.StartServer")
-		s, err = proxy.StartServer(grpcSock, h)
+		glog.Infof("proxy.NewServer")
+		s, err = proxy.NewServer(grpcSock, h)
 		if err != nil {
-			glog.Errorf("proxy.StartServer() failed with err: %#v", err)
+			glog.Errorf("proxy.NewServer() failed with err: %#v", err)
 			return err
 		}
 		if _, err := os.Stat(grpcSock); !os.IsNotExist(err) {

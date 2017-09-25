@@ -148,8 +148,8 @@ func (proxy *jsonProxy) OnlineCPUMem(ctx context.Context, req *hyperstartgrpc.On
 	return pbEmpty(err), err
 }
 
-func StartServer(address string, json libhyperstart.Hyperstart) (*grpc.Server, error) {
-
+// NewServer initializes a brand new grpc server with registered grpc services
+func NewServer(address string, json libhyperstart.Hyperstart) (*grpc.Server, error) {
 	s := grpc.NewServer()
 	jp := &jsonProxy{
 		json: json,
