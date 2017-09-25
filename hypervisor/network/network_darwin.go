@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/hyperhq/runv/api"
 )
