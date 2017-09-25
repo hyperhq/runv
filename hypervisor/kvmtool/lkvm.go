@@ -85,7 +85,7 @@ func arguments(ctx *hypervisor.VmContext) []string {
 		"run", "-k", boot.Kernel, "-i", boot.Initrd, "-m", memParams,
 		"-c", cpuParams, "--name", ctx.Id}
 	//use ttyS0 as kernel console
-	args = append(args, "-p", "console=ttyS0 "+json.HYPER_USE_SERIAL)
+	args = append(args, "-p", "iommu=off console=ttyS0 "+json.HYPER_USE_SERIAL)
 
 	// kvmtool enforce uses ttyS0 as console,
 	// hyperstart can only use ttyS1 and ttyS2 as ctl and tty channel.
