@@ -1,3 +1,5 @@
+// +build linux
+
 package network
 
 import (
@@ -5,7 +7,7 @@ import (
 )
 
 func TestInitNetwork(t *testing.T) {
-	if err := InitNetwork("hyper-test", "192.168.138.1/24"); err != nil {
+	if err := InitNetwork("hyper-test", "192.168.138.1/24", false); err != nil {
 		t.Error("create hyper-test bridge failed")
 	}
 
@@ -17,17 +19,16 @@ func TestInitNetwork(t *testing.T) {
 }
 
 func TestAllocate(t *testing.T) {
-	if err := InitNetwork("hyper-test", "192.168.138.1/24"); err != nil {
+	if err := InitNetwork("hyper-test", "192.168.138.1/24", false); err != nil {
 		t.Error("create hyper-test bridge failed")
 	}
 
-	if setting, err := Allocate("192.168.138.2"); err != nil {
+	if setting, err := AllocateAddr("192.168.138.2"); err != nil {
 		t.Error("allocate tap device and ip failed")
 	} else {
 		t.Logf("alocate tap device finished. bridge %s, device %s, ip %s, gateway %s",
 			setting.Bridge, setting.Device, setting.IPAddress, setting.Gateway)
-
-		if err := Release("192.168.138.2", setting.File); err != nil {
+		if err := ReleaseAddr("192.168.138.2"); err != nil {
 			t.Error("release ip failed")
 		}
 	}

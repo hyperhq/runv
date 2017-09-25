@@ -137,11 +137,13 @@ func createBridgeIface(name string, addr *net.IPNet) error {
 }
 
 func DeleteBridge(name string) error {
-	if bridge, err := netlink.LinkByName(BridgeIface); err != nil {
-		glog.Errorf("cannot find bridge %v", name)
-	} else {
-		netlink.LinkDel(bridge)
+	bridge, err := netlink.LinkByName(BridgeIface)
+	if err != nil {
+		glog.Errorf("cannot find bridge %v: %v", name, err)
+		return err
 	}
+
+	netlink.LinkDel(bridge)
 	return nil
 }
 
