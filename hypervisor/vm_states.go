@@ -112,7 +112,7 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 	return true, nil
 }
 
-func (ctx *VmContext) updateInterface(id string) error {
+func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
@@ -123,13 +123,80 @@ func (ctx *VmContext) updateInterface(id string) error {
 			if err != nil {
 				return err
 			}
-			size, _ := mask.Size()
-			addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+			// size, _ := mask.Size()
+			// addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+			maskStr := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
+			addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), maskStr})
 		}
-		if err := ctx.hyperstart.UpdateInterface(inf.DeviceName, addrs); err != nil {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddInf, inf.DeviceName, inf.NewName, addrs, inf.Mtu); err != nil {
 			return err
 		}
 
+	}
+	return nil
+}
+
+func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
+	if inf := ctx.networks.getInterface(id); inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	} else {
+		// using new name as device name
+		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.NewName, "", nil, 0)
+	}
+}
+
+func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu uint64) error {
+	var (
+		addIP, delIP []hyperstartapi.IpAddress
+	)
+	inf := ctx.networks.getInterface(id)
+	if inf == nil {
+		return fmt.Errorf("can't find interface whose ID is %s", id)
+	}
+
+	if addresses != "" {
+		addrs := strings.Split(addresses, ",")
+		// TODO: currently if an IP address start with a '-',
+		// we treat it as deleting an IP which is not very elegant.
+		// Try to add one new field and function to handle this! @weizhang555
+		for _, addr := range addrs {
+			var del bool
+			if addr[0] == '-' {
+				del = true
+				addr = addr[1:]
+			}
+			ip, mask, err := network.IpParser(addr)
+			if err != nil {
+				return err
+			}
+			// size, _ := mask.Size()
+			// addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+			maskStr := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
+
+			if del {
+				delIP = append(delIP, hyperstartapi.IpAddress{ip.String(), maskStr})
+			} else {
+				addIP = append(addIP, hyperstartapi.IpAddress{ip.String(), maskStr})
+			}
+		}
+	}
+
+	if len(addIP) != 0 {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddIP, inf.NewName, "", addIP, 0); err != nil {
+			return err
+		}
+	}
+
+	if len(delIP) != 0 {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.DelIP, inf.NewName, "", delIP, 0); err != nil {
+			return err
+		}
+	}
+
+	if mtu > 0 {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.SetMtu, inf.NewName, "", nil, mtu); err != nil {
+			return err
+		}
 	}
 	return nil
 }

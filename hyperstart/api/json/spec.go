@@ -84,9 +84,9 @@ type IpAddress struct {
 
 type NetworkInf struct {
 	Device      string      `json:"device"`
-	IpAddress   string      `json:"ipAddress,omitempty"`
-	NetMask     string      `json:"netMask,omitempty"`
+	NewName     string      `json:"newDeviceName"`
 	IpAddresses []IpAddress `json:"ipAddresses"`
+	Mtu         uint64      `json:"mtu"`
 }
 
 type Route struct {

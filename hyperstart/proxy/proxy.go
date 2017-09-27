@@ -128,7 +128,7 @@ func (proxy *jsonProxy) UpdateInterface(ctx context.Context, req *hyperstartgrpc
 		addresses = append(addresses, hyperstartjson.IpAddress{addr.Address, addr.Mask})
 	}
 
-	err := proxy.json.UpdateInterface(req.Device, addresses)
+	err := proxy.json.UpdateInterface(libhyperstart.InfUpdateType(req.Type), req.Device, req.NewName, addresses, req.Mtu)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) AddRoute(ctx context.Context, req *hyperstartgrpc.AddRouteRequest) (*google_protobuf.Empty, error) {

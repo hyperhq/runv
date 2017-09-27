@@ -47,6 +47,9 @@ type InterfaceInfo struct {
 	Index     int
 	PeerIndex int
 	Ip        string
+	Mac       string
+	Name      string
+	Mtu       uint64
 }
 
 type nsListener struct {
@@ -111,6 +114,9 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, p
 			Lo:     false,
 			Bridge: fakeBridge,
 			Ip:     info.Ip,
+			Name:   info.Name,
+			Mac:    info.Mac,
+			Mtu:    info.Mtu,
 		}
 
 		if gw_route != nil && gw_route.LinkIndex == info.Index {
@@ -409,6 +415,9 @@ func collectionInterfaceInfo() []InterfaceInfo {
 		info := InterfaceInfo{
 			Index:     link.Attrs().Index,
 			PeerIndex: link.Attrs().ParentIndex,
+			Name:      link.Attrs().Name,
+			Mac:       link.Attrs().HardwareAddr.String(),
+			Mtu:       uint64(link.Attrs().MTU),
 		}
 		ipAddrs := []string{}
 		addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
