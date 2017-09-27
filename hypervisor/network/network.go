@@ -30,6 +30,13 @@ var (
 )
 
 func NicName(id string, index int) string {
+	// make sure nic name has less than 15 chars
+	// hold 3 chars for index.
+	// TODO: index could be larger than 3 chars, make it more robust
+	if len(id) > 12 {
+		id = string([]rune(id)[:12])
+	}
+
 	return fmt.Sprintf("%s%d", id, index)
 }
 

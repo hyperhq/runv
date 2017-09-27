@@ -21,10 +21,10 @@ var interfaceCommand = cli.Command{
 		infListCommand,
 	},
 	Before: func(context *cli.Context) error {
-		return cmdPrepare(context, true, context.Bool("detach"))
+		return cmdPrepare(context, true, true)
 	},
 	Action: func(context *cli.Context) error {
-		return nil
+		return cli.ShowSubcommandHelp(context)
 	},
 }
 
@@ -34,7 +34,7 @@ var infAddCommand = cli.Command{
 	ArgsUsage: `add <container-id>`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "tapname",
+			Name:  "host-device",
 			Usage: "set tap name, if interface with same name exists, use existing one instead of creating new one",
 		},
 		cli.StringFlag{
@@ -61,13 +61,11 @@ var infAddCommand = cli.Command{
 			return err
 		}
 		defer releaseFunc()
-
-		ip := context.String("ip")
 		conf := &api.InterfaceDescription{
 			Name:    context.String("name"),
-			Ip:      ip,
+			Ip:      context.String("ip"),
 			Mac:     context.String("mac"),
-			TapName: context.String("tapname"),
+			TapName: context.String("host-device"),
 			Mtu:     context.Uint64("mtu"),
 		}
 
@@ -168,9 +166,8 @@ var infUpdateCommand = cli.Command{
 		}
 
 		conf := &api.InterfaceDescription{
-			Id:   "-1",
-			Name: context.String("name"),
-			Mtu:  context.Uint64("mtu"),
+			Id:  "-1",
+			Mtu: context.Uint64("mtu"),
 		}
 		if ip := context.String("add-ip"); ip != "" {
 			conf.Ip = ip

@@ -308,7 +308,7 @@ func (nc *NetworkContext) netdevInsertFailed(idx int, name string) {
 
 func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, inf *api.InterfaceDescription, result chan<- VmEvent) {
 	if inf.TapName == "" {
-		inf.TapName = inf.Name + nc.sandbox.Id[3:]
+		inf.TapName = network.NicName(nc.sandbox.Id, index)
 	}
 
 	settings, err := network.Configure(inf)
