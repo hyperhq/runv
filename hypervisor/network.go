@@ -389,7 +389,7 @@ func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
 			routes = append(routes, hyperstartapi.Route{
 				Dest:    r.Destination,
 				Gateway: r.Gateway,
-				Device:  inf.DeviceName,
+				Device:  inf.NewName,
 			})
 		}
 	}
