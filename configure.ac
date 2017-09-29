@@ -11,15 +11,6 @@ AM_PROG_AR
 AC_PROG_RANLIB
 AC_CANONICAL_BUILD
 
-case $build_os in
-	darwin*)
-		AM_CONDITIONAL([ON_DARWIN], [ true ])
-		;;
-	*)
-		AM_CONDITIONAL([ON_DARWIN], [ false ])
-		;;
-esac
-
 # Checks for go tool chain
 AC_CHECK_PROG([has_go], [go], [yes], [no])
 if test "x$has_go" != "xyes" ; then
@@ -36,22 +27,7 @@ esac
 
 # Check for which host we are on and setup a few things
 # specifically based on the host
-AC_CHECK_PROG([has_virtualbox], [vboxmanage], [yes], [no])
-case $host_os in
-	darwin* )
-		# Do something specific for mac
-		if test "x$has_virtualbox" != "xyes" ; then
-			AC_MSG_ERROR(Unable to find vboxmanage binary in PATH)
-		fi
-		;;
-	linux*)
-		# Do something specific for linux
-		;;
-	*)
-		#Default Case
-		AC_MSG_ERROR([Your platform is not currently supported])
-		;;
-esac
+
 
 # Checks for libraries.
 
@@ -114,6 +90,4 @@ AC_MSG_RESULT([
 	with xen:   ${with_xen}
 
 	with libvirt: ${with_libvirt}
-
-	has virtualbox: ${has_virtualbox}
 ])

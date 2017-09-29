@@ -83,7 +83,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "driver",
-			Usage: "hypervisor driver (supports: kvm xen vbox)",
+			Usage: "hypervisor driver (supports: kvm xen)",
 		},
 		cli.IntFlag{
 			Name:  "default_cpus",
@@ -114,10 +114,6 @@ func main() {
 		cli.StringFlag{
 			Name:  "template",
 			Usage: "path to the template vm state directory",
-		},
-		cli.StringFlag{
-			Name:  "vbox",
-			Usage: "runv-compatible boot ISO for the container for vbox driver",
 		},
 	}
 	app.After = func(context *cli.Context) error {
