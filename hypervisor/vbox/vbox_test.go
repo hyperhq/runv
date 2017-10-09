@@ -1,5 +1,0 @@
-package vbox
-
-import (
-	"testing"
-)
