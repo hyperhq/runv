@@ -260,16 +260,13 @@ func (qc *QemuContext) RemoveDisk(ctx *hypervisor.VmContext, blockInfo *hypervis
 }
 
 func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
-	var (
-		fd       int = -1
-		err      error
-		waitChan chan hypervisor.VmEvent = make(chan hypervisor.VmEvent, 1)
-	)
+	waitChan := make(chan hypervisor.VmEvent, 1)
+	var err error = nil
 
 	if ctx.Boot.EnableVhostUser {
 		err = GetVhostUserPort(host.Device, host.Bridge, ctx.HomeDir, host.Options)
 	} else {
-		fd, err = GetTapFd(host.Device, host.Bridge, host.Options)
+		err = GetTapDevice(host.Device, host.Bridge, host.Options)
 	}
 
 	if err != nil {
@@ -283,14 +280,13 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 	go func() {
 		// close tap file if necessary
 		ev, ok := <-waitChan
-		syscall.Close(fd)
 		if !ok {
 			close(result)
 		} else {
 			result <- ev
 		}
 	}()
-	newNetworkAddSession(ctx, qc, host.Id, host.Device, fd, guest.Device, host.Mac, guest.Index, guest.Busaddr, waitChan)
+	newNetworkAddSession(ctx, qc, host, guest, waitChan)
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {
