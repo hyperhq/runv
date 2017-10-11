@@ -10,39 +10,35 @@ import (
 )
 
 func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id string, fd int, device, mac string, index, addr int, result chan<- hypervisor.VmEvent) {
-	commands := make([]*QmpCommand, 3)
+	commands := []*QmpCommand{}
 	scm := syscall.UnixRights(fd)
-	glog.V(1).Infof("send net to qemu at %d", fd)
-	commands[0] = &QmpCommand{
-		Execute: "getfd",
-		Arguments: map[string]interface{}{
-			"fdname": "fd" + device,
-		},
-		Scm: scm,
-	}
-	commands[1] = &QmpCommand{
+	commands = appends(commands, &QmpCommand{
 		Execute: "netdev_add",
 		Arguments: map[string]interface{}{
-			"type": "tap", "id": device, "fd": "fd" + device,
+			"type":   "tap",
+			"script": "no",
+			"id":     guest.Device,
+			"ifname": host.Device,
+			"br":     host.Bridge,
 		},
-	}
-	commands[2] = &QmpCommand{
+	})
+	commands = append(commands, &QmpCommand{
 		Execute: "device_add",
 		Arguments: map[string]interface{}{
 			"driver": "virtio-net-ccw",
-			"netdev": device,
-			"mac":    mac,
-			"id":     device,
+			"netdev": guest.Device,
+			"mac":    host.Mac,
+			"id":     guest.Device,
 		},
-	}
+	})
 
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: defaultRespond(result, &hypervisor.NetDevInsertedEvent{
-			Id:         id,
-			Index:      index,
-			DeviceName: device,
-			Address:    addr,
+			Id:         host.Id,
+			Index:      guest.Index,
+			DeviceName: guest.Device,
+			Address:    guest.Busaddr,
 		}),
 	}
 }
