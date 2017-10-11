@@ -30,7 +30,7 @@ $ sudo make install
 ```
 
 ## Work with containerd
-First, install containerd and save its default configuration to `/etc/containerd/config.toml`, which is the default configuration file containerd looks for.
+First, install [containerd](https://github.com/containerd/containerd) in the [containerd release page](https://github.com/containerd/containerd/releases), then save its default configuration to `/etc/containerd/config.toml`, which is the default configuration file containerd looks for.
 
 ```
 $containerd config default > /etc/containerd/config.toml
