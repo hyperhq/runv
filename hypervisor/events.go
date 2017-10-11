@@ -55,9 +55,9 @@ type InterfaceCreated struct {
 	Bridge     string
 	HostDevice string
 	DeviceName string
+	NewName    string // only useful when renaming nic
 	MacAddr    string
 	IpAddr     string
-	NewName    string
 	Mtu        uint64
 	RouteTable []*RouteRule
 }

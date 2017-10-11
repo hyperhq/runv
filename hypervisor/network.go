@@ -79,7 +79,8 @@ func (nc *NetworkContext) freeSlot(slot int) {
 		}
 	}
 	nc.sandbox.Log(DEBUG, "Free slot %d of eth", slot)
-	delete(nc.eth, slot)
+	//reserve this slot, Do not want slot/index to be duplicated
+	nc.eth[slot] = nil
 }
 
 // nextAvailableDevName find the initial device name in guest when add a new tap device
@@ -93,7 +94,7 @@ func (nc *NetworkContext) nextAvailableDevName() string {
 	for i := 0; i <= MAX_NIC; i++ {
 		find := false
 		for _, inf := range nc.eth {
-			if inf != nil && inf.NewName == fmt.Sprintf("eth%d", i) {
+			if inf != nil && inf.DeviceName == fmt.Sprintf("eth%d", i) {
 				find = true
 				break
 			}
@@ -249,6 +250,9 @@ func (nc *NetworkContext) allInterfaces() (nics []*InterfaceCreated) {
 }
 
 func (nc *NetworkContext) updateInterface(inf *api.InterfaceDescription) error {
+	nc.slotLock.Lock()
+	defer nc.slotLock.Unlock()
+
 	oldInf, ok := nc.idMap[inf.Id]
 	if !ok {
 		nc.sandbox.Log(WARNING, "trying update a non-exist interface %s", inf.Id)
@@ -256,11 +260,8 @@ func (nc *NetworkContext) updateInterface(inf *api.InterfaceDescription) error {
 	}
 
 	// only support update some fields: Name, ip addresses, mtu
-	nc.slotLock.Lock()
-	defer nc.slotLock.Unlock()
-
 	if inf.Name != "" {
-		oldInf.NewName = inf.Name
+		oldInf.DeviceName = inf.Name
 	}
 
 	if inf.Mtu > 0 {
@@ -334,11 +335,8 @@ func (nc *NetworkContext) configureInterface(index, pciAddr int, name string, in
 		Options: inf.Options,
 	}
 
-	// Note: Use created.NewName add tap name
-	// this is because created.DeviceName isn't always uniq,
-	// instead NewName is real nic name in VM which is certainly uniq
 	g := &GuestNicInfo{
-		Device:  created.NewName,
+		Device:  created.DeviceName,
 		Ipaddr:  created.IpAddr,
 		Index:   created.Index,
 		Busaddr: created.PCIAddr,
@@ -389,7 +387,7 @@ func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
 			routes = append(routes, hyperstartapi.Route{
 				Dest:    r.Destination,
 				Gateway: r.Gateway,
-				Device:  inf.NewName,
+				Device:  inf.DeviceName,
 			})
 		}
 	}
