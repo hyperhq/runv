@@ -110,7 +110,7 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, p
 		nicId := strconv.Itoa(info.Index)
 
 		conf := &api.InterfaceDescription{
-			Id:     nicId, //ip as an id
+			Id:     nicId,
 			Lo:     false,
 			Bridge: fakeBridge,
 			Ip:     info.Ip,

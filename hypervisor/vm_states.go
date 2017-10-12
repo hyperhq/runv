@@ -131,7 +131,6 @@ func (ctx *VmContext) hyperstartAddInterface(id string) error {
 		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddInf, inf.DeviceName, inf.NewName, addrs, inf.Mtu); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
@@ -140,8 +139,7 @@ func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		// using new name as device name
-		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.NewName, "", nil, 0)
+		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.DeviceName, "", nil, 0)
 	}
 }
 
@@ -182,19 +180,19 @@ func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu
 	}
 
 	if len(addIP) != 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddIP, inf.NewName, "", addIP, 0); err != nil {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddIP, inf.DeviceName, "", addIP, 0); err != nil {
 			return err
 		}
 	}
 
 	if len(delIP) != 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.DelIP, inf.NewName, "", delIP, 0); err != nil {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.DelIP, inf.DeviceName, "", delIP, 0); err != nil {
 			return err
 		}
 	}
 
 	if mtu > 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.SetMtu, inf.NewName, "", nil, mtu); err != nil {
+		if err := ctx.hyperstart.UpdateInterface(libhyperstart.SetMtu, inf.DeviceName, "", nil, mtu); err != nil {
 			return err
 		}
 	}

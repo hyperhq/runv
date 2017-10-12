@@ -302,6 +302,7 @@ func (vm *Vm) AddRoute() error {
 
 func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	client := make(chan api.Result, 1)
+	// attach nic to vm
 	vm.ctx.AddInterface(info, client)
 
 	ev, ok := <-client
@@ -316,7 +317,14 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	if vm.ctx.LogLevel(TRACE) {
 		vm.Log(TRACE, "finial vmSpec.Interface is %#v", vm.ctx.networks.getInterface(info.Id))
 	}
-	return vm.ctx.hyperstartAddInterface(info.Id)
+
+	// setup nic info in vm
+	if err := vm.ctx.hyperstartAddInterface(info.Id); err != nil {
+		return err
+	}
+
+	// update nic metadata
+	return vm.ctx.UpdateInterface(info)
 }
 
 func (vm *Vm) AllNics() []*InterfaceCreated {

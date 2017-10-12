@@ -95,7 +95,7 @@ var infListCommand = cli.Command{
 		fmt.Fprintln(tw, "Name\tMac\tIP\tMtu")
 		nics := vm.AllNics()
 		for _, i := range nics {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", i.NewName, i.MacAddr, i.IpAddr, i.Mtu)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", i.DeviceName, i.MacAddr, i.IpAddr, i.Mtu)
 		}
 		tw.Flush()
 		return nil
@@ -122,7 +122,7 @@ var infRmCommand = cli.Command{
 
 		nics := vm.AllNics()
 		for _, i := range nics {
-			if i.NewName == inf {
+			if i.DeviceName == inf {
 				if err = vm.DeleteNic(i.Id); err != nil {
 					return cli.NewExitError(fmt.Sprintf("failed to delete interface %q: %v", inf, err), -1)
 				}
@@ -179,7 +179,7 @@ var infUpdateCommand = cli.Command{
 
 		nics := vm.AllNics()
 		for _, i := range nics {
-			if i.NewName == targetInf {
+			if i.DeviceName == targetInf {
 				conf.Id = i.Id
 				break
 			}

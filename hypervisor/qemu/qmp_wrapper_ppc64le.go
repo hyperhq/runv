@@ -12,13 +12,15 @@ import (
 
 func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	busAddr := fmt.Sprintf("0x%x", guest.Busaddr)
+	//make sure devId is unique, mix unique id with devicename
+	devId := guest.Device + host.Id
 	commands := []*QmpCommand{}
 	commands = append(commands, &QmpCommand{
 		Execute: "netdev_add",
 		Arguments: map[string]interface{}{
 			"type":   "tap",
 			"script": "no",
-			"id":     guest.Device,
+			"id":     devId,
 			"ifname": host.Device,
 			"br":     host.Bridge,
 		},
@@ -27,11 +29,11 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, qc *QemuCo
 		Execute: "device_add",
 		Arguments: map[string]interface{}{
 			"driver": "virtio-net-pci",
-			"netdev": guest.Device,
+			"netdev": devId,
 			"mac":    host.Mac,
 			"bus":    "pci.0",
 			"addr":   busAddr,
-			"id":     guest.Device,
+			"id":     devId,
 		},
 	})
 

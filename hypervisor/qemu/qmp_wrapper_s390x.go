@@ -9,15 +9,16 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id string, fd int, device, mac string, index, addr int, result chan<- hypervisor.VmEvent) {
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	commands := []*QmpCommand{}
-	scm := syscall.UnixRights(fd)
+	//make sure devId is unique, mix unique id with devicename
+	devId := guest.Device + host.Id
 	commands = appends(commands, &QmpCommand{
 		Execute: "netdev_add",
 		Arguments: map[string]interface{}{
 			"type":   "tap",
 			"script": "no",
-			"id":     guest.Device,
+			"id":     devId,
 			"ifname": host.Device,
 			"br":     host.Bridge,
 		},
@@ -26,9 +27,9 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id string,
 		Execute: "device_add",
 		Arguments: map[string]interface{}{
 			"driver": "virtio-net-ccw",
-			"netdev": guest.Device,
+			"netdev": devId,
 			"mac":    host.Mac,
-			"id":     guest.Device,
+			"id":     devId,
 		},
 	})
 
