@@ -283,10 +283,13 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 	go func() {
 		// close tap file if necessary
 		ev, ok := <-waitChan
-		syscall.Close(fd)
 		if !ok {
+			syscall.Close(fd)
 			close(result)
 		} else {
+			if _, ok := ev.(*hypervisor.DeviceFailed); ok {
+				syscall.Close(fd)
+			}
 			result <- ev
 		}
 	}()
