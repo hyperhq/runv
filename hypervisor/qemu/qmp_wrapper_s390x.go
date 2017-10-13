@@ -43,6 +43,7 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd int, ho
 			Index:      guest.Index,
 			DeviceName: guest.Device,
 			Address:    guest.Busaddr,
+			TapFd:      fd,
 		}),
 	}
 }

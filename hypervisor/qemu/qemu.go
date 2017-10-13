@@ -297,6 +297,7 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {
+	syscall.Close(n.TapFd)
 	newNetworkDelSession(ctx, qc, n.NewName, callback, result)
 }
 
