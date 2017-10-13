@@ -10,38 +10,43 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
-	busAddr := fmt.Sprintf("0x%x", guest.Busaddr)
-	commands := []*QmpCommand{}
-	commands = append(commands, &QmpCommand{
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id string, fd int, device, mac string, index, addr int, result chan<- hypervisor.VmEvent) {
+	busAddr := fmt.Sprintf("0x%x", addr)
+	commands := make([]*QmpCommand, 3)
+	scm := syscall.UnixRights(fd)
+	glog.V(1).Infof("send net to qemu at %d", fd)
+	commands[0] = &QmpCommand{
+		Execute: "getfd",
+		Arguments: map[string]interface{}{
+			"fdname": "fd" + device,
+		},
+		Scm: scm,
+	}
+	commands[1] = &QmpCommand{
 		Execute: "netdev_add",
 		Arguments: map[string]interface{}{
-			"type":   "tap",
-			"script": "no",
-			"id":     guest.Device,
-			"ifname": host.Device,
-			"br":     host.Bridge,
+			"type": "tap", "id": device, "fd": "fd" + device,
 		},
-	})
-	commands = append(commands, &QmpCommand{
+	}
+	commands[2] = &QmpCommand{
 		Execute: "device_add",
 		Arguments: map[string]interface{}{
 			"driver": "virtio-net-pci",
-			"netdev": guest.Device,
-			"mac":    host.Mac,
+			"netdev": device,
+			"mac":    mac,
 			"bus":    "pci.0",
 			"addr":   busAddr,
-			"id":     guest.Device,
+			"id":     device,
 		},
-	})
+	}
 
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: defaultRespond(result, &hypervisor.NetDevInsertedEvent{
-			Id:         host.Id,
-			Index:      guest.Index,
-			DeviceName: guest.Device,
-			Address:    guest.Busaddr,
+			Id:         id,
+			Index:      index,
+			DeviceName: device,
+			Address:    addr,
 		}),
 	}
 }
