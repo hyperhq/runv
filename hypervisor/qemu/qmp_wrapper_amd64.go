@@ -10,11 +10,11 @@ import (
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id, tapname string, fd int, device, mac string, index, addr int, result chan<- hypervisor.VmEvent) {
-	busAddr := fmt.Sprintf("0x%x", addr)
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd int, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
+	busAddr := fmt.Sprintf("0x%x", guest.Busaddr)
 	commands := []*QmpCommand{}
 	if ctx.Boot.EnableVhostUser {
-		chardevId := device + "-chardev"
+		chardevId := guest.Device + "-chardev"
 		commands = append(commands, &QmpCommand{
 			Execute: "chardev-add",
 			Arguments: map[string]interface{}{
@@ -25,7 +25,7 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id, tapnam
 						"addr": map[string]interface{}{
 							"type": "unix",
 							"data": map[string]interface{}{
-								"path": ctx.HomeDir + "/" + id,
+								"path": ctx.HomeDir + "/" + host.Id,
 							},
 						},
 						"wait":   false,
@@ -37,7 +37,7 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id, tapnam
 			Execute: "netdev_add",
 			Arguments: map[string]interface{}{
 				"type":       "vhost-user",
-				"id":         device,
+				"id":         guest.Device,
 				"chardev":    chardevId,
 				"vhostforce": true,
 			},
@@ -48,20 +48,20 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id, tapnam
 		commands = append(commands, &QmpCommand{
 			Execute: "getfd",
 			Arguments: map[string]interface{}{
-				"fdname": "fd" + device,
+				"fdname": "fd" + guest.Device,
 			},
 			Scm: scm,
 		}, &QmpCommand{
 			Execute: "netdev_add",
 			Arguments: map[string]interface{}{
-				"type": "tap", "id": device, "fd": "fd" + device,
+				"type": "tap", "id": guest.Device, "fd": "fd" + guest.Device,
 			},
 		})
-	} else if tapname != "" {
+	} else if host.Device != "" {
 		commands = append(commands, &QmpCommand{
 			Execute: "netdev_add",
 			Arguments: map[string]interface{}{
-				"type": "tap", "id": device, "ifname": tapname, "script": "no",
+				"type": "tap", "id": guest.Device, "ifname": host.Device, "script": "no",
 			},
 		})
 	}
@@ -69,21 +69,21 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, id, tapnam
 		Execute: "device_add",
 		Arguments: map[string]interface{}{
 			"driver": "virtio-net-pci",
-			"netdev": device,
-			"mac":    mac,
+			"netdev": guest.Device,
+			"mac":    host.Mac,
 			"bus":    "pci.0",
 			"addr":   busAddr,
-			"id":     device,
+			"id":     guest.Device,
 		},
 	})
 
 	qc.qmp <- &QmpSession{
 		commands: commands,
 		respond: defaultRespond(result, &hypervisor.NetDevInsertedEvent{
-			Id:         id,
-			Index:      index,
-			DeviceName: device,
-			Address:    addr,
+			Id:         host.Id,
+			Index:      guest.Index,
+			DeviceName: guest.Device,
+			Address:    guest.Busaddr,
 		}),
 	}
 }

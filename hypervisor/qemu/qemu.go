@@ -290,7 +290,7 @@ func (qc *QemuContext) AddNic(ctx *hypervisor.VmContext, host *hypervisor.HostNi
 			result <- ev
 		}
 	}()
-	newNetworkAddSession(ctx, qc, host.Id, host.Device, fd, guest.Device, host.Mac, guest.Index, guest.Busaddr, waitChan)
+	newNetworkAddSession(ctx, qc, fd, host, guest, waitChan)
 }
 
 func (qc *QemuContext) RemoveNic(ctx *hypervisor.VmContext, n *hypervisor.InterfaceCreated, callback hypervisor.VmEvent, result chan<- hypervisor.VmEvent) {
