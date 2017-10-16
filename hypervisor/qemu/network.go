@@ -4,31 +4,58 @@ package qemu
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor/network"
-	"github.com/vishvananda/netlink"
 )
 
-func GetTapDevice(device, bridge, options string) error {
-	la := netlink.NewLinkAttrs()
-	la.Name = device
-	tapdev := &netlink.Tuntap{LinkAttrs: la, Mode: syscall.IFF_TAP}
+const (
+	IFNAMSIZ       = 16
+	CIFF_TAP       = 0x0002
+	CIFF_NO_PI     = 0x1000
+	CIFF_ONE_QUEUE = 0x2000
+)
 
-	if err := netlink.LinkAdd(tapdev); err != nil {
-		glog.Errorf("fail to create tap device: %v, %v", device, err)
-		return err
+type ifReq struct {
+	Name  [IFNAMSIZ]byte
+	Flags uint16
+	pad   [0x28 - 0x10 - 2]byte
+}
+
+func GetTapFd(device, bridge, options string) (int, error) {
+	var (
+		req   ifReq
+		errno syscall.Errno
+	)
+
+	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	if err != nil {
+		return -1, err
 	}
 
-	if err := network.UpAndAddToBridge(device, bridge, options); err != nil {
+	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
+	copy(req.Name[:len(req.Name)-1], []byte(device))
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
+		uintptr(syscall.TUNSETIFF),
+		uintptr(unsafe.Pointer(&req)))
+	if errno != 0 {
+		tapFile.Close()
+		return -1, fmt.Errorf("create tap device failed\n")
+	}
+
+	err = network.UpAndAddToBridge(device, bridge, options)
+	if err != nil {
 		glog.Errorf("Add to bridge failed %s %s", bridge, device)
-		return err
+		tapFile.Close()
+		return -1, err
 	}
 
-	return nil
+	return int(tapFile.Fd()), nil
 }
 
 func GetVhostUserPort(device, bridge, sockPath, option string) error {

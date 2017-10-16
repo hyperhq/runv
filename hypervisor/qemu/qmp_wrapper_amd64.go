@@ -4,11 +4,13 @@ package qemu
 
 import (
 	"fmt"
+	"syscall"
 
+	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, fd int, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
 	busAddr := fmt.Sprintf("0x%x", guest.Busaddr)
 	commands := []*QmpCommand{}
 	if ctx.Boot.EnableVhostUser {
@@ -40,15 +42,26 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, host *hype
 				"vhostforce": true,
 			},
 		})
-	} else {
+	} else if fd > 0 {
+		scm := syscall.UnixRights(fd)
+		glog.V(1).Infof("send net to qemu at %d", fd)
+		commands = append(commands, &QmpCommand{
+			Execute: "getfd",
+			Arguments: map[string]interface{}{
+				"fdname": "fd" + guest.Device,
+			},
+			Scm: scm,
+		}, &QmpCommand{
+			Execute: "netdev_add",
+			Arguments: map[string]interface{}{
+				"type": "tap", "id": guest.Device, "fd": "fd" + guest.Device,
+			},
+		})
+	} else if host.Device != "" {
 		commands = append(commands, &QmpCommand{
 			Execute: "netdev_add",
 			Arguments: map[string]interface{}{
-				"type":   "tap",
-				"script": "no",
-				"id":     guest.Device,
-				"ifname": host.Device,
-				"br":     host.Bridge,
+				"type": "tap", "id": guest.Device, "ifname": host.Device, "script": "no",
 			},
 		})
 	}
@@ -71,6 +84,7 @@ func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, host *hype
 			Index:      guest.Index,
 			DeviceName: guest.Device,
 			Address:    guest.Busaddr,
+			TapFd:      fd,
 		}),
 	}
 }

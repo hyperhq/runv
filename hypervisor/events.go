@@ -52,6 +52,7 @@ type InterfaceCreated struct {
 	Id         string //user specified in (ref api.InterfaceDescription: a user identifier of interface, user may use this to specify a nic, normally you can use IPAddr as an Id.)
 	Index      int
 	PCIAddr    int
+	TapFd      int
 	Bridge     string
 	HostDevice string
 	DeviceName string
@@ -73,6 +74,7 @@ type NetDevInsertedEvent struct {
 	Index      int
 	DeviceName string
 	Address    int
+	TapFd      int
 }
 
 func (ne *NetDevInsertedEvent) ResultId() string {

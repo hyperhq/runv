@@ -173,6 +173,8 @@ func (nc *NetworkContext) addInterface(inf *api.InterfaceDescription, result cha
 			result <- fe
 			return
 		} else if ni, ok := ev.(*NetDevInsertedEvent); ok {
+			created := nc.idMap[inf.Id]
+			created.TapFd = ni.TapFd
 			nc.sandbox.Log(DEBUG, "nic insert success: %s", ni.Id)
 			result <- ni
 			return
