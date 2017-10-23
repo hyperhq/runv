@@ -31,6 +31,12 @@ esac
 
 # Checks for libraries.
 
+AC_ARG_WITH([9p],
+            [AS_HELP_STRING([--without-9p],
+                            [run runv with 9p])],
+            [with_9p=no],[with_9p=yes])
+
+
 LIBVIRT_REQUIRED="1.2.2"
 
 AC_ARG_WITH([libvirt],
@@ -76,6 +82,8 @@ fi
 
 AM_CONDITIONAL([WITH_XEN], [test "x$with_xen" == "xyes"])
 
+AM_CONDITIONAL([WITH_9P], [test "x$with_9p" == "xyes"])
+
 AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT
@@ -90,4 +98,6 @@ AC_MSG_RESULT([
 	with xen:   ${with_xen}
 
 	with libvirt: ${with_libvirt}
+
+	with 9p: ${with_9p}
 ])

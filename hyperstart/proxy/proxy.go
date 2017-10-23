@@ -10,6 +10,7 @@ import (
 	hyperstartgrpc "github.com/hyperhq/runv/hyperstart/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/hypervisor"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -108,10 +109,16 @@ func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *hyperstartgrpc.Tt
 }
 
 func (proxy *jsonProxy) StartSandbox(ctx context.Context, req *hyperstartgrpc.StartSandboxRequest) (*google_protobuf.Empty, error) {
+	var sharedDir string
+	if hypervisor.Is9pfsSupported() {
+		sharedDir = "share_dir"
+	} else {
+		sharedDir = ""
+	}
 	pod := &hyperstartjson.Pod{
 		Hostname: req.Hostname,
 		Dns:      req.Dns,
-		ShareDir: "share_dir",
+		ShareDir: sharedDir,
 	}
 	err := proxy.json.StartSandbox(pod)
 	return pbEmpty(err), err

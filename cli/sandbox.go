@@ -69,11 +69,12 @@ func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, erro
 		return singlefactory.New(templatefactory.NewFromExisted(tconfig)), nil
 	}
 	bootConfig := hypervisor.BootConfig{
-		Kernel:      kernel,
-		Initrd:      initrd,
-		Bios:        bios,
-		Cbfs:        cbfs,
-		EnableVsock: vsock,
+		Kernel:          kernel,
+		Initrd:          initrd,
+		Bios:            bios,
+		Cbfs:            cbfs,
+		EnableVsock:     vsock,
+		ContainerRootFs: spec.Root.Path,
 	}
 	return singlefactory.Dummy(bootConfig), nil
 }
@@ -153,6 +154,7 @@ func destroySandbox(vm *hypervisor.Vm, lockFile *os.File) {
 		glog.Errorf("StopPod timeout")
 	}
 	vm.Kill()
+	os.RemoveAll("/tmp/" + vm.Id)
 
 	// cli refactor todo: kill the proxy if vm.Shutdown() failed.
 
