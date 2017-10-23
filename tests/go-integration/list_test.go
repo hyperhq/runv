@@ -86,7 +86,6 @@ func (s *RunVSuite) TestListSleepJson(c *check.C) {
 			c.Assert(cs.ID, check.Equals, ctrName)
 			c.Assert(cs.Pid, checker.Not(checker.Equals), 0)
 			c.Assert(cs.Bundle, checker.Equals, s.bundlePath)
-			c.Assert(cs.Status, checker.Equals, "running")
 			flag = 0
 			break
 		}
