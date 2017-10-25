@@ -4,13 +4,10 @@ package qemu
 
 import (
 	"fmt"
-	"syscall"
-
-	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
-func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) {
+func newNetworkAddSession(ctx *hypervisor.VmContext, qc *QemuContext, host *hypervisor.HostNicInfo, guest *hypervisor.GuestNicInfo, result chan<- hypervisor.VmEvent) { 
 	busAddr := fmt.Sprintf("0x%x", guest.Busaddr)
 	commands := []*QmpCommand{}
 	commands = append(commands, &QmpCommand{
