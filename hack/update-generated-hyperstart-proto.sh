@@ -1,1 +1,1 @@
-protoc --proto_path=hyperstart/api/grpc/ --go_out=plugins=grpc:hyperstart/api/grpc/ hyperstart/api/grpc/hyperstart.proto
+protoc --proto_path=hyperstart/api/grpc/ --go_out=plugins=grpc:hyperstart/api/grpc/ hyperstart/api/grpc/hyperstart.proto hyperstart/api/grpc/oci.proto

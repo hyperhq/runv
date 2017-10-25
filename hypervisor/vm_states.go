@@ -43,7 +43,7 @@ func (ctx *VmContext) newContainer(id string) error {
 	if ok {
 		ctx.Log(TRACE, "start sending INIT_NEWCONTAINER")
 		var err error
-		err = ctx.hyperstart.NewContainer(c.VmSpec())
+		err = ctx.hyperstart.CreateContainer(c.VmSpec())
 		if err == nil {
 			c.stdinPipe, c.stdoutPipe, c.stderrPipe = libhyperstart.StdioPipe(ctx.hyperstart, id, "init")
 			if c.tty != nil {

@@ -25,9 +25,10 @@ type Hyperstart interface {
 	Unpause() error
 
 	APIVersion() (uint32, error)
-	NewContainer(c *hyperstartapi.Container) error
+	CreateContainer(c *hyperstartapi.Container) error
+	StartContainer(container string) error
 	RestoreContainer(c *hyperstartapi.Container) error
-	AddProcess(container string, p *hyperstartapi.Process) error
+	ExecProcess(container string, p *hyperstartapi.Process) error
 	SignalProcess(container, process string, signal syscall.Signal) error
 	WaitProcess(container, process string) int
 

@@ -64,46 +64,50 @@ func pbEmpty(err error) *google_protobuf.Empty {
 }
 
 // execution
-func (proxy *jsonProxy) AddContainer(ctx context.Context, req *hyperstartgrpc.AddContainerRequest) (*google_protobuf.Empty, error) {
+func (proxy *jsonProxy) CreateContainer(ctx context.Context, req *hyperstartgrpc.CreateContainerRequest) (*google_protobuf.Empty, error) {
 	c := container4grpc2json(req.Container, req.Init)
-	err := proxy.json.NewContainer(c)
+	err := proxy.json.CreateContainer(c)
 	return pbEmpty(err), err
 }
-func (proxy *jsonProxy) AddProcess(ctx context.Context, req *hyperstartgrpc.AddProcessRequest) (*google_protobuf.Empty, error) {
+func (proxy *jsonProxy) StartContainer(ctx context.Context, req *hyperstartgrpc.StartContainerRequest) (*google_protobuf.Empty, error) {
+	err := proxy.json.StartContainer(req.ContainerId)
+	return pbEmpty(err), err
+}
+func (proxy *jsonProxy) ExecProcess(ctx context.Context, req *hyperstartgrpc.ExecProcessRequest) (*google_protobuf.Empty, error) {
 	p := process4grpc2json(req.Process)
-	err := proxy.json.AddProcess(req.Container, p)
+	err := proxy.json.ExecProcess(req.ContainerId, p)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) SignalProcess(ctx context.Context, req *hyperstartgrpc.SignalProcessRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.SignalProcess(req.Container, req.Process, syscall.Signal(req.Signal))
+	err := proxy.json.SignalProcess(req.ContainerId, req.ProcessId, syscall.Signal(req.Signal))
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) WaitProcess(ctx context.Context, req *hyperstartgrpc.WaitProcessRequest) (*hyperstartgrpc.WaitProcessResponse, error) {
-	ret := proxy.json.WaitProcess(req.Container, req.Process)
+	ret := proxy.json.WaitProcess(req.ContainerId, req.ProcessId)
 	return &hyperstartgrpc.WaitProcessResponse{Status: int32(ret)}, nil
 }
 
 // stdio
 func (proxy *jsonProxy) WriteStdin(ctx context.Context, req *hyperstartgrpc.WriteStreamRequest) (*hyperstartgrpc.WriteStreamResponse, error) {
-	length, err := proxy.json.WriteStdin(req.Container, req.Process, req.Data)
+	length, err := proxy.json.WriteStdin(req.ContainerId, req.ProcessId, req.Data)
 	return &hyperstartgrpc.WriteStreamResponse{Len: uint32(length)}, err
 }
 func (proxy *jsonProxy) ReadStdout(ctx context.Context, req *hyperstartgrpc.ReadStreamRequest) (*hyperstartgrpc.ReadStreamResponse, error) {
 	data := make([]byte, req.Len)
-	length, err := proxy.json.ReadStdout(req.Container, req.Process, data)
+	length, err := proxy.json.ReadStdout(req.ContainerId, req.ProcessId, data)
 	return &hyperstartgrpc.ReadStreamResponse{Data: data[0:length]}, err
 }
 func (proxy *jsonProxy) ReadStderr(ctx context.Context, req *hyperstartgrpc.ReadStreamRequest) (*hyperstartgrpc.ReadStreamResponse, error) {
 	data := make([]byte, req.Len)
-	length, err := proxy.json.ReadStderr(req.Container, req.Process, data)
+	length, err := proxy.json.ReadStderr(req.ContainerId, req.ProcessId, data)
 	return &hyperstartgrpc.ReadStreamResponse{Data: data[0:length]}, err
 }
 func (proxy *jsonProxy) CloseStdin(ctx context.Context, req *hyperstartgrpc.CloseStdinRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.CloseStdin(req.Container, req.Process)
+	err := proxy.json.CloseStdin(req.ContainerId, req.ProcessId)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *hyperstartgrpc.TtyWinResizeRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.TtyWinResize(req.Container, req.Process, uint16(req.Row), uint16(req.Column))
+	err := proxy.json.TtyWinResize(req.ContainerId, req.ProcessId, uint16(req.Row), uint16(req.Column))
 	return pbEmpty(err), err
 }
 

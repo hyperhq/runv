@@ -802,7 +802,7 @@ func (h *jsonBasedHyperstart) removeProcess(container, process string) {
 	}
 }
 
-func (h *jsonBasedHyperstart) NewContainer(c *hyperstartapi.Container) error {
+func (h *jsonBasedHyperstart) CreateContainer(c *hyperstartapi.Container) error {
 	h.Lock()
 	if _, existed := h.procs[pKey{c: c.Id, p: c.Process.Id}]; existed {
 		h.Unlock()
@@ -822,6 +822,10 @@ func (h *jsonBasedHyperstart) NewContainer(c *hyperstartapi.Container) error {
 		return err
 	}
 	return err
+}
+
+func (h *jsonBasedHyperstart) StartContainer(container string) error {
+	return nil
 }
 
 func (h *jsonBasedHyperstart) RestoreContainer(c *hyperstartapi.Container) error {
@@ -849,7 +853,7 @@ func (h *jsonBasedHyperstart) RestoreContainer(c *hyperstartapi.Container) error
 	return nil
 }
 
-func (h *jsonBasedHyperstart) AddProcess(container string, p *hyperstartapi.Process) error {
+func (h *jsonBasedHyperstart) ExecProcess(container string, p *hyperstartapi.Process) error {
 	h.Lock()
 	if _, existed := h.procs[pKey{c: container, p: p.Id}]; existed {
 		h.Unlock()
