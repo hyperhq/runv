@@ -51,7 +51,7 @@ function runv() {
 
 # Raw wrapper for runv.
 function __runv() {
-	"$RUNVPATH"/runv --kernel "$HYPERSTARTPATH"/build/kernel --initrd "$HYPERSTARTPATH"/build/hyper-initrd.img --debug --root "$ROOT" "$@"
+	"$RUNVPATH"/runv --kernel "$HYPERSTARTPATH"/build/arch/x86_64/kernel --initrd "$HYPERSTARTPATH"/build/hyper-initrd.img --debug --root "$ROOT" "$@"
 }
 
 # Wrapper for runv spec.
