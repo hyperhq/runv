@@ -11,7 +11,7 @@ set -o pipefail
 export HYPERSTARTPATH="$GOPATH/src/github.com/hyperhq/hyperstart"
 export RUNVPATH="$GOPATH/src/github.com/hyperhq/runv"
 cd $HYPERSTARTPATH && ./autogen.sh && ./configure && make
-cp -v $HYPERSTARTPATH/build/{kernel,hyper-initrd.img} $RUNVPATH/tests/go-integration/test_data/
+cp -v $HYPERSTARTPATH/build/{arch/x86_64/kernel,hyper-initrd.img} $RUNVPATH/tests/go-integration/test_data/
 
 # do runv integration-test
 cd $RUNVPATH
