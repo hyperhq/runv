@@ -3,6 +3,7 @@ package grpc
 import (
 	"encoding/json"
 	"io/ioutil"
+	"reflect"
 	"testing"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -83,4 +84,51 @@ func TestGRPCtoOCI(t *testing.T) {
 	assert.NoError(err, "Could not convert gRPC structure")
 
 	assertIsEqual(t, newOciSpec, grpcSpec)
+}
+
+func testCopyValue(t *testing.T, to, from interface{}) {
+	assert := assert.New(t)
+
+	err := copyValue(reflect.ValueOf(to).Elem(), reflect.ValueOf(from))
+	assert.NoError(err, "Could not copy to %v", reflect.ValueOf(from).Kind())
+	assert.Equal(reflect.ValueOf(to).Elem().Interface(), reflect.ValueOf(from).Interface())
+}
+
+func TestCopyValueString(t *testing.T) {
+	from := "foobar"
+	to := new(string)
+
+	testCopyValue(t, to, from)
+}
+
+func TestCopyValueSlice(t *testing.T) {
+	from := []string{"foobar", "barfoo"}
+	to := new([]string)
+
+	testCopyValue(t, to, from)
+}
+
+func TestCopyValueStruc(t *testing.T) {
+	type dummyStruct struct {
+		S string
+		I int
+	}
+
+	from := dummyStruct{
+		S: "foobar",
+		I: 18,
+	}
+	to := new(dummyStruct)
+
+	testCopyValue(t, to, from)
+}
+
+func TestCopyValueMap(t *testing.T) {
+	from := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+	}
+	to := new(map[string]string)
+
+	testCopyValue(t, to, from)
 }
