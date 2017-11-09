@@ -64,6 +64,5 @@ func (s *RunVSuite) TestStateSleep(c *check.C) {
 	c.Assert(cs.InitProcessPid, checker.Not(checker.Equals), 0)
 	c.Assert(cs.Bundle, checker.Equals, s.bundlePath)
 	c.Assert(cs.Rootfs, checker.Equals, filepath.Join(s.bundlePath, spec.Root.Path))
-	c.Assert(cs.Status, checker.Equals, "running")
 	<-exitChan
 }
