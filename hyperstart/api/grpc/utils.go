@@ -123,6 +123,28 @@ func structFieldName(v reflect.Value, index int) (string, error) {
 	return v.Type().Field(index).Name, nil
 }
 
+func isEmbeddedStruct(v reflect.Value, index int) bool {
+	if v.Kind() != reflect.Struct || index > v.Type().NumField()-1 {
+		return false
+	}
+
+	return v.Type().Field(index).Anonymous
+}
+
+func findStructField(v reflect.Value, name string) (reflect.Value, error) {
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("Can only infer field name from structs")
+	}
+
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Name == name {
+			return v.Field(i), nil
+		}
+	}
+
+	return reflect.Value{}, fmt.Errorf("Could not find field %s", name)
+}
+
 func copyStructValue(to, from reflect.Value) error {
 	if to.Kind() != reflect.Struct && from.Kind() != reflect.Struct {
 		return fmt.Errorf("Can only copy structs into structs")
@@ -132,54 +154,39 @@ func copyStructValue(to, from reflect.Value) error {
 		return nil
 	}
 
-	if to.NumField() != from.NumField() {
-		return fmt.Errorf("Structures must have the same number of fields")
-	}
-
 	for i := 0; i < to.NumField(); i++ {
-		var fromFieldIndex int
+		// If one of the field is embedded, we copy between the embedded field
+		// and the structure itself. The fields in the embedded field should
+		// be found in the parent structure.
+		if isEmbeddedStruct(to, i) {
+			if err := copyStructValue(to.Field(i), from); err != nil {
+				return err
+			}
+			continue
+		}
 
-		// We want to verify that both fields have the same name
-		toFieldName, err := structFieldName(to, i)
+		if isEmbeddedStruct(from, i) {
+			if err := copyStructValue(to, from.Field(i)); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Find the destination structure field name.
+		fieldName, err := structFieldName(to, i)
 		if err != nil {
 			return err
 		}
 
-		fromFieldName, err := structFieldName(from, i)
+		// Try to find the same field name in the origin structure.
+		// This can fail as we support copying between structures
+		// that optionally have embedded fields.
+		v, err := findStructField(from, fieldName)
 		if err != nil {
-			return err
+			continue
 		}
 
-		// The two fields at index i do not have the same name.
-		// Maybe they're not ordered the same way, let's look through
-		// the from struct fields and check if we find one that matches
-		// the to struct field we're trying to copy into.
-		if fromFieldName != toFieldName {
-			fieldFound := false
-			j := 0
-
-			for j = 0; j < from.NumField(); j++ {
-				fieldName, err := structFieldName(from, j)
-				if err != nil {
-					continue
-				}
-
-				if fieldName == toFieldName {
-					fieldFound = true
-					break
-				}
-			}
-
-			if !fieldFound {
-				return fmt.Errorf("Wrong field names %s vs %s", toFieldName, fromFieldName)
-			} else {
-				fromFieldIndex = j
-			}
-		} else {
-			fromFieldIndex = i
-		}
-
-		if err := copyValue(to.Field(i), from.Field(fromFieldIndex)); err != nil {
+		if err := copyValue(to.Field(i), v); err != nil {
 			return err
 		}
 	}

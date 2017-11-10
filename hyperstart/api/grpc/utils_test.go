@@ -41,6 +41,20 @@ func assertIsEqual(t *testing.T, ociSpec *specs.Spec, grpcSpec *Spec) {
 	assert.Equal(len(grpcSpec.Linux.Resources.Devices), 1)
 	assert.Equal(grpcSpec.Linux.Resources.Devices[0].Access, "rwm")
 
+	// Linux checks: Block IO, for checking embedded structures copy
+	assert.NotNil(ociSpec.Linux.Resources.BlockIO.LeafWeight)
+	assert.NotNil(ociSpec.Linux.Resources.BlockIO.Weight)
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.Weight, *ociSpec.Linux.Resources.BlockIO.Weight)
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.LeafWeight, *ociSpec.Linux.Resources.BlockIO.LeafWeight)
+	assert.NotEqual(len(grpcSpec.Linux.Resources.BlockIO.WeightDevice), 0)
+	assert.Equal(len(grpcSpec.Linux.Resources.BlockIO.WeightDevice), len(grpcSpec.Linux.Resources.BlockIO.WeightDevice))
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.WeightDevice[0].Major, ociSpec.Linux.Resources.BlockIO.WeightDevice[0].Major)
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.WeightDevice[0].Minor, ociSpec.Linux.Resources.BlockIO.WeightDevice[0].Minor)
+	assert.NotNil(ociSpec.Linux.Resources.BlockIO.WeightDevice[0].LeafWeight)
+	assert.NotNil(ociSpec.Linux.Resources.BlockIO.WeightDevice[0].Weight)
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.WeightDevice[0].Weight, *ociSpec.Linux.Resources.BlockIO.WeightDevice[0].Weight)
+	assert.EqualValues(grpcSpec.Linux.Resources.BlockIO.WeightDevice[0].LeafWeight, *ociSpec.Linux.Resources.BlockIO.WeightDevice[0].LeafWeight)
+
 	// Linux checks: Namespaces
 	assert.Equal(len(grpcSpec.Linux.Namespaces), len(ociSpec.Linux.Namespaces))
 	assert.Equal(len(grpcSpec.Linux.Namespaces), 5)

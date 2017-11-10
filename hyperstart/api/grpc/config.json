@@ -178,7 +178,19 @@
 					"allow": false,
 					"access": "rwm"
 				}
-			]
+			],
+			"blockIO": {
+				"weight": 32,
+				"leafWeight": 33,
+				"weightDevice": [
+					{
+						"major": 10,
+						"minor": 11,
+						"weight": 64,
+						"leafWeight": 128
+					}
+				]
+			}
 		},
 		"namespaces": [
 			{
