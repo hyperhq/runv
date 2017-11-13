@@ -45,8 +45,9 @@ var proxyCommand = cli.Command{
 			context.String("hyperstart-stream-sock") == "" || context.String("proxy-hyperstart") == "" {
 			return err
 		}
+
 		glog.Infof("agent.NewJsonBasedHyperstart")
-		h, _ := agent.NewJsonBasedHyperstart(context.String("vmid"), context.String("hyperstart-ctl-sock"), context.String("hyperstart-stream-sock"), 1, false, false)
+		h, _ := agent.NewJsonBasedHyperstart(context.String("vmid"), context.String("hyperstart-ctl-sock"), context.String("hyperstart-stream-sock"), 1, true, false)
 
 		var s *grpc.Server
 		grpcSock := context.String("proxy-hyperstart")
