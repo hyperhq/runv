@@ -56,6 +56,17 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 			"-kernel", boot.Kernel, "-initrd", boot.Initrd, "-append", cmdline)
 	}
 
+	if !hypervisor.Is9pfsSupported() {
+		params = append(params, "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x6")
+		params = append(params, "-drive", "file=/tmp/"+ctx.Id+"/rootfs.img,format=qcow2,if=none,id=drive-scsi0-1-0-0")
+		params = append(params, "-device", "scsi-hd,bus=scsi0.0,channel=0,scsi-id=1,lun=0,drive=drive-scsi0-1-0-0,id=scsi0-1-0-0")
+		params = append(params, "-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi1,bus=pci.0,addr=0x3")
+	} else {
+		params = append(params, "-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3")
+		params = append(params, "-fsdev", fmt.Sprintf("local,id=virtio9p,path=%s,security_model=none", ctx.ShareDir))
+		params = append(params, "-device", fmt.Sprintf("virtio-9p-pci,fsdev=virtio9p,mount_tag=%s", hypervisor.ShareDirTag))
+	}
+
 	params = append(params,
 		"-realtime", "mlock=off", "-no-user-config", "-nodefaults", "-no-hpet",
 		"-rtc", "base=utc,clock=vm,driftfix=slew", "-no-reboot", "-display", "none", "-boot", "strict=on",
@@ -82,12 +93,9 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	}
 
 	return append(params, "-qmp", fmt.Sprintf("unix:%s,server,nowait", qc.qmpSockName), "-serial", fmt.Sprintf("unix:%s,server,nowait", ctx.ConsoleSockName),
-		"-device", "virtio-serial-pci,id=virtio-serial0,bus=pci.0,addr=0x2", "-device", "virtio-scsi-pci,id=scsi0,bus=pci.0,addr=0x3",
 		"-chardev", fmt.Sprintf("socket,id=charch0,path=%s,server,nowait", ctx.HyperSockName),
 		"-device", "virtserialport,bus=virtio-serial0.0,nr=1,chardev=charch0,id=channel0,name=sh.hyper.channel.0",
 		"-chardev", fmt.Sprintf("socket,id=charch1,path=%s,server,nowait", ctx.TtySockName),
 		"-device", "virtserialport,bus=virtio-serial0.0,nr=2,chardev=charch1,id=channel1,name=sh.hyper.channel.1",
-		"-fsdev", fmt.Sprintf("local,id=virtio9p,path=%s,security_model=none", ctx.ShareDir),
-		"-device", fmt.Sprintf("virtio-9p-pci,fsdev=virtio9p,mount_tag=%s", hypervisor.ShareDirTag),
 	)
 }

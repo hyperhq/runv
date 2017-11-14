@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -771,6 +772,18 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 		}
 	}
 
+	if !Is9pfsSupported() {
+		_, err := exec.LookPath("virt-make-fs")
+		if err != nil {
+			return nil, err
+		} else {
+			err = createRootFSDisk(id, b.ContainerRootFs)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	vm := newVm(id, b.CPU, b.Memory)
 	if err := vm.launch(b); err != nil {
 		return nil, err
@@ -787,4 +800,31 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 
 	vm.Log(TRACE, "GetVm succeeded")
 	return vm, nil
+}
+
+func createRootFSDisk(containerID string, rootfsPath string) error {
+
+	//Container RootFS spec.Root.Path
+	//Create RootFS raw image at runqQemuRoot + "/vm_image" + vmdata.ContainerID
+	cmd := exec.Command("/bin/mkdir", "-p", "/tmp/"+containerID)
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("runq error: mkdir failed: %v", err)
+	}
+	//Create rootfs.img
+	cmd = exec.Command("/usr/bin/virt-make-fs", "--label=rootfs", "-F", "qcow2", "-s", "+512M", "-t", "ext4", rootfsPath,
+		"/tmp/"+containerID+"/rootfs.img")
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		fmt.Printf("Stderr %s", cmd.Stderr)
+		fmt.Printf("Stdout %s", cmd.Stdout)
+		return fmt.Errorf("runq error: virt-make-fs failed: %v", err)
+	}
+
+	return nil
+
 }

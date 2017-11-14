@@ -108,7 +108,7 @@ type Pod struct {
 	DnsOptions            []string              `json:"dnsOptions,omitempty"`
 	DnsSearch             []string              `json:"dnsSearch,omitempty"`
 	DeprecatedRoutes      []Route               `json:"routes,omitempty"`
-	ShareDir              string                `json:"shareDir"`
+	ShareDir              string                `json:"shareDir,omitempty"`
 	PortmappingWhiteLists *PortmappingWhiteList `json:"portmappingWhiteLists,omitempty"`
 }
 

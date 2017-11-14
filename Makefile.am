@@ -1,4 +1,10 @@
 export GO15VENDOREXPERIMENT=1
+if WITH_9P
+9P_BUILD_TAG=with_9p
+else
+9P_BUILD_TAG=
+endif
+
 if WITH_XEN
 XEN_BUILD_TAG=with_xen
 else
@@ -13,7 +19,7 @@ endif
 
 COMMIT=`git describe --dirty --always --tags 2> /dev/null || true`
 GOLDFLAGS="-X main.gitCommit=${COMMIT} -X main.version=${VERSION}"
-HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
+HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG) $(9P_BUILD_TAG)
 
 all-local: build-runv
 clean-local:
