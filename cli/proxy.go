@@ -7,14 +7,12 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hyperstart/proxy"
-	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/telnet"
 	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
@@ -42,10 +40,6 @@ var proxyCommand = cli.Command{
 		cli.StringFlag{
 			Name:  "proxy-hyperstart",
 			Usage: "gprc sock address to be created for proxying hyperstart API",
-		},
-		cli.StringFlag{
-			Name:  "watch-vm-console",
-			Usage: "vm's console sock address to connected(readonly)",
 		},
 		cli.BoolFlag{
 			Name:  "watch-hyperstart",
@@ -75,15 +69,6 @@ var proxyCommand = cli.Command{
 				s.Stop()
 			}()
 		}
-		if context.String("watch-vm-console") != "" {
-			glog.Infof("watchConsole() sock: %s", context.String("watch-vm-console"))
-			err = watchConsole(context.String("watch-vm-console"))
-			if err != nil {
-				glog.Errorf("watchConsole() failed, err: %#v", err)
-				return err
-			}
-		}
-
 		grpcSock := context.String("proxy-hyperstart")
 		glog.Infof("proxy.NewServer")
 		s, err = proxy.NewServer(grpcSock, h)
@@ -184,7 +169,6 @@ func createProxy(context *cli.Context, VMID, ctlSock, streamSock, grpcSock strin
 	}
 	args = append(args, "proxy", "--vmid", VMID, "--hyperstart-ctl-sock", ctlSock,
 		"--hyperstart-stream-sock", streamSock, "--proxy-hyperstart", grpcSock,
-		"--watch-vm-console", filepath.Join(hypervisor.BaseDir, VMID, hypervisor.ConsoleSockName),
 		"--watch-hyperstart")
 	cmd = &exec.Cmd{
 		Path: path,
