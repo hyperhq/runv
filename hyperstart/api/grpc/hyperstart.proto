@@ -25,8 +25,8 @@ service HyperstartService {
 	// misc (TODO: some rpcs can be replaced by hyperstart-exec)
 	rpc StartSandbox(StartSandboxRequest) returns (google.protobuf.Empty);
 	rpc DestroySandbox(DestroySandboxRequest) returns (google.protobuf.Empty);
-	rpc UpdateInterface(UpdateInterfaceRequest) returns (google.protobuf.Empty);
-	rpc AddRoute(AddRouteRequest) returns (google.protobuf.Empty);
+	rpc AddInterfaces(AddInterfacesRequest) returns (google.protobuf.Empty);
+	rpc AddRoutes(AddRoutesRequest) returns (google.protobuf.Empty);
 	rpc OnlineCPUMem(OnlineCPUMemRequest) returns (google.protobuf.Empty);
 }
 
@@ -100,15 +100,11 @@ message IpAddress {
 	string mask = 2;
 }
 
-message UpdateInterfaceRequest {
-	uint64 type	=1;
-	string device = 2;
-	string newName = 3;
-	repeated IpAddress ipAddresses = 4;
-	uint64 mtu = 5;
+message AddInterfacesRequest {
+	repeated Iface ifaces = 1;
 }
 
-message AddRouteRequest {
+message AddRoutesRequest {
 	repeated Route routes = 1;
 }
 
@@ -160,4 +156,13 @@ message Route {
 	string dest = 1;
 	string gateway = 2;
 	string device = 3;
+}
+
+message Iface {
+	uint64 type = 1;
+	string device = 2;
+	string newName = 3;
+	repeated IpAddress ipAddresses = 4;
+	uint64 mtu = 5;
+	string hwAddr = 6;
 }
