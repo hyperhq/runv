@@ -2,16 +2,19 @@ syntax = "proto3";
 
 package grpc;
 
+import "oci.proto";
 import "google/protobuf/empty.proto";
 
 // To generate hyperstart.pb.go, run:
-// $ protoc --go_out=plugins=grpc:. hyperstart.proto
+// $ go get -u github.com/google/protobuf
+// $ protoc -I=$GOPATH/src/github.com/google/protobuf/src/ -I. --go_out=plugins=grpc:. hyperstart.proto oci.proto
 
 // unstable
 service HyperstartService {
 	// execution
-	rpc AddContainer(AddContainerRequest) returns (google.protobuf.Empty);
-	rpc AddProcess(AddProcessRequest) returns (google.protobuf.Empty);
+	rpc CreateContainer(CreateContainerRequest) returns (google.protobuf.Empty);
+	rpc StartContainer(StartContainerRequest) returns (google.protobuf.Empty);
+	rpc ExecProcess(ExecProcessRequest) returns (google.protobuf.Empty);
 	rpc SignalProcess(SignalProcessRequest) returns (google.protobuf.Empty);
 	rpc WaitProcess(WaitProcessRequest) returns (WaitProcessResponse); // wait & reap like waitpid(2)
 
@@ -30,25 +33,30 @@ service HyperstartService {
 	rpc OnlineCPUMem(OnlineCPUMemRequest) returns (google.protobuf.Empty);
 }
 
-message AddContainerRequest {
+message CreateContainerRequest {
 	Container container = 1;
 	Process init = 2;
+	Spec OCI = 3;
 }
 
-message AddProcessRequest {
-	string container = 1;
+message StartContainerRequest {
+	string container_id = 1;
+}
+
+message ExecProcessRequest {
+	string container_id = 1;
 	Process process = 2;
 }
 
 message SignalProcessRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 	uint32 signal = 3;
 }
 
 message WaitProcessRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 }
 
 message WaitProcessResponse {
@@ -56,8 +64,8 @@ message WaitProcessResponse {
 }
 
 message WriteStreamRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 	bytes data = 3;
 }
 
@@ -66,8 +74,8 @@ message WriteStreamResponse {
 }
 
 message ReadStreamRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 	uint32 len = 3;
 }
 
@@ -76,13 +84,13 @@ message ReadStreamResponse {
 }
 
 message CloseStdinRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 }
 
 message TtyWinResizeRequest {
-	string container = 1;
-	string process = 2;
+	string container_id = 1;
+	string process_id = 2;
 	uint32 row = 3;
 	uint32 column = 4;
 }

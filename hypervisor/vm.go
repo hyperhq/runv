@@ -509,7 +509,7 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 		}
 	}
 
-	err := vm.ctx.hyperstart.AddProcess(process.Container, &hyperstartapi.Process{
+	err := vm.ctx.hyperstart.ExecProcess(process.Container, &hyperstartapi.Process{
 		Id:       process.Id,
 		Terminal: process.Terminal,
 		Args:     process.Args,

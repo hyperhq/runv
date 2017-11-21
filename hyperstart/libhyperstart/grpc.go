@@ -102,9 +102,9 @@ func (h *grpcBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName stri
 
 func (h *grpcBasedHyperstart) WriteStdin(container, process string, data []byte) (int, error) {
 	ret, err := h.grpc.WriteStdin(h.ctx, &hyperstartgrpc.WriteStreamRequest{
-		Container: container,
-		Process:   process,
-		Data:      data,
+		ContainerId: container,
+		ProcessId:   process,
+		Data:        data,
 	})
 	if err == nil {
 		return int(ret.Len), nil
@@ -118,9 +118,9 @@ func (h *grpcBasedHyperstart) WriteStdin(container, process string, data []byte)
 
 func (h *grpcBasedHyperstart) ReadStdout(container, process string, data []byte) (int, error) {
 	ret, err := h.grpc.ReadStdout(h.ctx, &hyperstartgrpc.ReadStreamRequest{
-		Container: container,
-		Process:   process,
-		Len:       uint32(len(data)),
+		ContainerId: container,
+		ProcessId:   process,
+		Len:         uint32(len(data)),
 	})
 	if err == nil {
 		copy(data, ret.Data)
@@ -135,9 +135,9 @@ func (h *grpcBasedHyperstart) ReadStdout(container, process string, data []byte)
 
 func (h *grpcBasedHyperstart) ReadStderr(container, process string, data []byte) (int, error) {
 	ret, err := h.grpc.ReadStderr(h.ctx, &hyperstartgrpc.ReadStreamRequest{
-		Container: container,
-		Process:   process,
-		Len:       uint32(len(data)),
+		ContainerId: container,
+		ProcessId:   process,
+		Len:         uint32(len(data)),
 	})
 	if err == nil {
 		copy(data, ret.Data)
@@ -152,18 +152,18 @@ func (h *grpcBasedHyperstart) ReadStderr(container, process string, data []byte)
 
 func (h *grpcBasedHyperstart) CloseStdin(container, process string) error {
 	_, err := h.grpc.CloseStdin(h.ctx, &hyperstartgrpc.CloseStdinRequest{
-		Container: container,
-		Process:   process,
+		ContainerId: container,
+		ProcessId:   process,
 	})
 	return err
 }
 
 func (h *grpcBasedHyperstart) TtyWinResize(container, process string, row, col uint16) error {
 	_, err := h.grpc.TtyWinResize(h.ctx, &hyperstartgrpc.TtyWinResizeRequest{
-		Container: container,
-		Process:   process,
-		Row:       uint32(row),
-		Column:    uint32(col),
+		ContainerId: container,
+		ProcessId:   process,
+		Row:         uint32(row),
+		Column:      uint32(col),
 	})
 	return err
 }
@@ -200,10 +200,17 @@ func container4json2grpc(c *hyperstartjson.Container) *hyperstartgrpc.Container 
 	}
 }
 
-func (h *grpcBasedHyperstart) NewContainer(c *hyperstartjson.Container) error {
-	_, err := h.grpc.AddContainer(h.ctx, &hyperstartgrpc.AddContainerRequest{
+func (h *grpcBasedHyperstart) CreateContainer(c *hyperstartjson.Container) error {
+	_, err := h.grpc.CreateContainer(h.ctx, &hyperstartgrpc.CreateContainerRequest{
 		Container: container4json2grpc(c),
 		Init:      process4json2grpc(c.Process),
+	})
+	return err
+}
+
+func (h *grpcBasedHyperstart) StartContainer(container string) error {
+	_, err := h.grpc.StartContainer(h.ctx, &hyperstartgrpc.StartContainerRequest{
+		ContainerId: container,
 	})
 	return err
 }
@@ -213,19 +220,19 @@ func (h *grpcBasedHyperstart) RestoreContainer(c *hyperstartjson.Container) erro
 	return nil
 }
 
-func (h *grpcBasedHyperstart) AddProcess(container string, p *hyperstartjson.Process) error {
-	_, err := h.grpc.AddProcess(h.ctx, &hyperstartgrpc.AddProcessRequest{
-		Container: container,
-		Process:   process4json2grpc(p),
+func (h *grpcBasedHyperstart) ExecProcess(container string, p *hyperstartjson.Process) error {
+	_, err := h.grpc.ExecProcess(h.ctx, &hyperstartgrpc.ExecProcessRequest{
+		ContainerId: container,
+		Process:     process4json2grpc(p),
 	})
 	return err
 }
 
 func (h *grpcBasedHyperstart) SignalProcess(container, process string, signal syscall.Signal) error {
 	_, err := h.grpc.SignalProcess(h.ctx, &hyperstartgrpc.SignalProcessRequest{
-		Container: container,
-		Process:   process,
-		Signal:    uint32(signal),
+		ContainerId: container,
+		ProcessId:   process,
+		Signal:      uint32(signal),
 	})
 	return err
 }
@@ -235,8 +242,8 @@ func (h *grpcBasedHyperstart) SignalProcess(container, process string, signal sy
 // the non-first call of WaitProcess() after process started MAY fail to find the process if the process exited earlier
 func (h *grpcBasedHyperstart) WaitProcess(container, process string) int {
 	ret, err := h.grpc.WaitProcess(h.ctx, &hyperstartgrpc.WaitProcessRequest{
-		Container: container,
-		Process:   process,
+		ContainerId: container,
+		ProcessId:   process,
 	})
 	if err != nil {
 		return -1
