@@ -274,14 +274,6 @@ func (vm *Vm) Kill() {
 	vm.ctx.poweroffVM(false, "vm.Kill()")
 }
 
-func (vm *Vm) WriteFile(container, target string, data []byte) error {
-	return vm.ctx.hyperstart.WriteFile(container, target, data)
-}
-
-func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
-	return vm.ctx.hyperstart.ReadFile(container, target)
-}
-
 func (vm *Vm) SignalProcess(container, process string, signal syscall.Signal) error {
 	return vm.ctx.hyperstart.SignalProcess(container, process, signal)
 }
