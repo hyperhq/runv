@@ -46,31 +46,6 @@ func (ctx *VmContext) newContainer(id string) error {
 	}
 }
 
-func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
-	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
-
-	if ctx.current != StateRunning {
-		ctx.Log(DEBUG, "start container %s during %v", id, ctx.current)
-		return false, NewNotReadyError(ctx.Id)
-	}
-
-	c, ok := ctx.containers[id]
-	if !ok {
-		return false, fmt.Errorf("try to associate a container not exist in sandbox")
-	}
-	// FIXME do we need filter some error type? error=stopped isn't always true.
-	err = ctx.hyperstart.RestoreContainer(c.VmSpec())
-	if err != nil {
-		ctx.Log(ERROR, "restore conatiner failed in hyperstart, mark as stopped: %v", err)
-		if strings.Contains(err.Error(), "hyperstart closed") {
-			return false, err
-		}
-		return false, nil
-	}
-	return true, nil
-}
-
 func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
