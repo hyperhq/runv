@@ -562,7 +562,6 @@ func (vm *Vm) Pause(pause bool) error {
 	if ctx.PauseState != pauseState {
 		/* FIXME: only support pause whole vm now */
 		if pause {
-			ctx.cancelWatchHyperstart <- struct{}{}
 			err = ctx.hyperstart.PauseSync()
 		}
 		if err != nil {
@@ -579,7 +578,6 @@ func (vm *Vm) Pause(pause bool) error {
 
 		if !pause {
 			err = ctx.hyperstart.Unpause()
-			go ctx.watchHyperstart()
 		}
 		if err != nil {
 			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
