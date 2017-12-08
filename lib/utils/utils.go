@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,17 @@ func SocketConnect(addr string) (net.Conn, error) {
 	default:
 		return nil, fmt.Errorf("unsupported destination: %s", addr)
 	}
+}
+
+func IsUnixSocket(path string) bool {
+	for i := 0; i < 500; i++ {
+		time.Sleep(20 * time.Millisecond)
+		fi, err := os.Stat(path)
+		if err == nil {
+			return fi.Mode()&os.ModeSocket != 0
+		}
+	}
+	return false
 }
 
 func UnixSocketConnect(addr string) (conn net.Conn, err error) {

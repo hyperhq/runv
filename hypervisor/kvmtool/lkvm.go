@@ -213,6 +213,11 @@ func (kc *KvmtoolContext) Launch(ctx *hypervisor.VmContext) {
 			conPty, ctlPty, ttyPty := lookupPtys(output[:len])
 			ctx.Log(hypervisor.INFO, "find %v %v %v", conPty, ctlPty, ttyPty)
 			if conPty != "" && ctlPty != "" && ttyPty != "" {
+				err = os.Symlink(conPty, ctx.ConsoleSockName)
+				if err != nil {
+					return
+				}
+
 				ctlSock, err = net.Listen("unix", ctx.HyperSockName)
 				if err != nil {
 					return
