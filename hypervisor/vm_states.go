@@ -8,7 +8,6 @@ import (
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/network"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 // states
@@ -41,17 +40,6 @@ func (ctx *VmContext) newContainer(id string) error {
 		var err error
 		err = ctx.hyperstart.NewContainer(c.VmSpec())
 		ctx.Log(TRACE, "sent INIT_NEWCONTAINER")
-		go func() {
-			status := ctx.hyperstart.WaitProcess(id, "init")
-			ctx.reportProcessFinished(types.E_CONTAINER_FINISHED, &types.ProcessFinished{
-				Id: id, Code: uint8(status), Ack: make(chan bool, 1),
-			})
-			ctx.lock.Lock()
-			if c, ok := ctx.containers[id]; ok {
-				c.Log(TRACE, "container finished, unset iostream pipes")
-			}
-			ctx.lock.Unlock()
-		}()
 		return err
 	} else {
 		return fmt.Errorf("container %s not exist", id)
@@ -80,17 +68,6 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 		}
 		return false, nil
 	}
-	go func() {
-		status := ctx.hyperstart.WaitProcess(id, "init")
-		ctx.reportProcessFinished(types.E_CONTAINER_FINISHED, &types.ProcessFinished{
-			Id: id, Code: uint8(status), Ack: make(chan bool, 1),
-		})
-		ctx.lock.Lock()
-		if c, ok := ctx.containers[id]; ok {
-			c.Log(TRACE, "container finished, unset iostream pipes")
-		}
-		ctx.lock.Unlock()
-	}()
 	return true, nil
 }
 

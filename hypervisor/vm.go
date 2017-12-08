@@ -170,58 +170,8 @@ func (vm *Vm) WaitVm(timeout int) <-chan error {
 	}, timeout)
 }
 
-func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
-	var (
-		waiting   = make(map[string]struct{})
-		result    = make(chan *api.ProcessExit, len(ids))
-		waitEvent = types.E_CONTAINER_FINISHED
-	)
-
-	if !isContainer {
-		waitEvent = types.E_EXEC_FINISHED
-	}
-
-	for _, id := range ids {
-		waiting[id] = struct{}{}
-	}
-
-	resChan := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
-		if response.Code == types.E_VM_SHUTDOWN {
-			return fmt.Errorf("get shutdown event"), true
-		}
-		if response.Code != waitEvent {
-			return nil, false
-		}
-		ps, _ := response.Data.(*types.ProcessFinished)
-		if _, ok := waiting[ps.Id]; ok {
-			result <- &api.ProcessExit{
-				Id:         ps.Id,
-				Code:       int(ps.Code),
-				FinishedAt: time.Now().UTC(),
-			}
-			select {
-			case ps.Ack <- true:
-				vm.ctx.Log(TRACE, "got shut down msg, acked here")
-			default:
-				vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
-			}
-			delete(waiting, ps.Id)
-			if len(waiting) == 0 {
-				// got all of processexit event, exit
-				return nil, true
-			}
-		}
-		// continue to wait other processexit event
-		return nil, false
-	}, timeout)
-
-	go func() {
-		if err := <-resChan; err != nil {
-			close(result)
-		}
-	}()
-
-	return result
+func (vm *Vm) WaitProcess(container, process string) int {
+	return vm.ctx.hyperstart.WaitProcess(container, process)
 }
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig) error {
@@ -420,17 +370,7 @@ func (vm *Vm) AddProcess(process *api.Process) error {
 		Group:    process.Group,
 	})
 
-	if err != nil {
-		return fmt.Errorf("exec command %v failed: %v", process.Args, err)
-	}
-
-	go func() {
-		status := vm.ctx.hyperstart.WaitProcess(process.Container, process.Id)
-		vm.ctx.reportProcessFinished(types.E_EXEC_FINISHED, &types.ProcessFinished{
-			Id: process.Id, Code: uint8(status), Ack: make(chan bool, 1),
-		})
-	}()
-	return nil
+	return err
 }
 
 func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
