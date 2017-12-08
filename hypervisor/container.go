@@ -1,7 +1,6 @@
 package hypervisor
 
 import (
-	"io"
 	"path/filepath"
 	"sync"
 
@@ -19,12 +18,6 @@ type ContainerContext struct {
 	process   *hyperstartapi.Process
 	fsmap     []*hyperstartapi.FsmapDescriptor
 	vmVolumes []*hyperstartapi.VolumeDescriptor
-
-	// TODO move streamCopy() to hyperd and remove all these tty and pipes
-	tty        *TtyIO
-	stdinPipe  io.WriteCloser
-	stdoutPipe io.Reader
-	stderrPipe io.Reader
 
 	logPrefix string
 }

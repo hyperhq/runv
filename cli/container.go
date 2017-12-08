@@ -234,7 +234,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		}
 		p.AdditionalGroup = ag
 	}
-	err = vm.AddProcess(p, nil)
+	err = vm.AddProcess(p)
 
 	if err != nil {
 		glog.V(1).Infof("add process to container failed: %v", err)

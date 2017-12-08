@@ -2,12 +2,9 @@ package hypervisor
 
 import (
 	"fmt"
-	"io"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/hyperhq/hypercontainer-utils/hlog"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/network"
@@ -43,12 +40,6 @@ func (ctx *VmContext) newContainer(id string) error {
 		ctx.Log(TRACE, "start sending INIT_NEWCONTAINER")
 		var err error
 		err = ctx.hyperstart.NewContainer(c.VmSpec())
-		if err == nil {
-			c.stdinPipe, c.stdoutPipe, c.stderrPipe = libhyperstart.StdioPipe(ctx.hyperstart, id, "init")
-			if c.tty != nil {
-				go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
-			}
-		}
 		ctx.Log(TRACE, "sent INIT_NEWCONTAINER")
 		go func() {
 			status := ctx.hyperstart.WaitProcess(id, "init")
@@ -58,10 +49,6 @@ func (ctx *VmContext) newContainer(id string) error {
 			ctx.lock.Lock()
 			if c, ok := ctx.containers[id]; ok {
 				c.Log(TRACE, "container finished, unset iostream pipes")
-				c.stdinPipe = nil
-				c.stdoutPipe = nil
-				c.stderrPipe = nil
-				c.tty = nil
 			}
 			ctx.lock.Unlock()
 		}()
@@ -101,10 +88,6 @@ func (ctx *VmContext) restoreContainer(id string) (alive bool, err error) {
 		ctx.lock.Lock()
 		if c, ok := ctx.containers[id]; ok {
 			c.Log(TRACE, "container finished, unset iostream pipes")
-			c.stdinPipe = nil
-			c.stdoutPipe = nil
-			c.stderrPipe = nil
-			c.tty = nil
 		}
 		ctx.lock.Unlock()
 	}()
@@ -198,74 +181,6 @@ func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu
 		}
 	}
 	return nil
-}
-
-// TODO move this logic to hyperd
-type TtyIO struct {
-	Stdin  io.ReadCloser
-	Stdout io.Writer
-	Stderr io.Writer
-}
-
-func (tty *TtyIO) Close() {
-	hlog.Log(TRACE, "Close tty")
-
-	if tty.Stdin != nil {
-		tty.Stdin.Close()
-	}
-	cf := func(w io.Writer) {
-		if w == nil {
-			return
-		}
-		if c, ok := w.(io.WriteCloser); ok {
-			c.Close()
-		}
-	}
-	cf(tty.Stdout)
-	cf(tty.Stderr)
-}
-
-// TODO move this logic to hyperd
-func streamCopy(tty *TtyIO, stdinPipe io.WriteCloser, stdoutPipe, stderrPipe io.Reader) {
-	var wg sync.WaitGroup
-	// old way cleanup all(expect stdinPipe) no matter what kinds of fails, TODO: change it
-	var once sync.Once
-	// cleanup closes tty.Stdin and thus terminates the first go routine
-	cleanup := func() {
-		tty.Close()
-	}
-	if tty.Stdin != nil {
-		go func() {
-			_, err := io.Copy(stdinPipe, tty.Stdin)
-			stdinPipe.Close()
-			if err != nil {
-				// we should not call cleanup when tty.Stdin reaches EOF
-				once.Do(cleanup)
-			}
-		}()
-	}
-	if tty.Stdout != nil {
-		wg.Add(1)
-		go func() {
-			_, err := io.Copy(tty.Stdout, stdoutPipe)
-			if err != nil {
-				once.Do(cleanup)
-			}
-			wg.Done()
-		}()
-	}
-	if tty.Stderr != nil && stderrPipe != nil {
-		wg.Add(1)
-		go func() {
-			_, err := io.Copy(tty.Stderr, stderrPipe)
-			if err != nil {
-				once.Do(cleanup)
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	once.Do(cleanup)
 }
 
 func (ctx *VmContext) startPod() error {

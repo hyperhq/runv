@@ -13,7 +13,6 @@ import (
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -376,7 +375,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return vm.ctx.hyperstart.OnlineCpuMem()
 }
 
-func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(container, execId, cmd string, terminal bool) error {
 	var command []string
 
 	if cmd == "" {
@@ -392,10 +391,10 @@ func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) err
 		Terminal:  terminal,
 		Args:      command,
 		Envs:      []string{},
-		Workdir:   "/"}, tty)
+		Workdir:   "/"})
 }
 
-func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
+func (vm *Vm) AddProcess(process *api.Process) error {
 	if !vm.ctx.IsRunning() {
 		return NewNotReadyError(vm.Id)
 	}
@@ -424,12 +423,7 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 	if err != nil {
 		return fmt.Errorf("exec command %v failed: %v", process.Args, err)
 	}
-	if tty == nil {
-		return nil
-	}
 
-	inPipe, outPipe, errPipe := libhyperstart.StdioPipe(vm.ctx.hyperstart, process.Container, process.Id)
-	go streamCopy(tty, inPipe, outPipe, errPipe)
 	go func() {
 		status := vm.ctx.hyperstart.WaitProcess(process.Container, process.Id)
 		vm.ctx.reportProcessFinished(types.E_EXEC_FINISHED, &types.ProcessFinished{
