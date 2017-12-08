@@ -1,11 +1,9 @@
 package hypervisor
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -525,14 +523,6 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 		execId = "init"
 	}
 	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
-}
-
-func (vm *Vm) Attach(tty *TtyIO, container string) error {
-	cmd := &AttachCommand{
-		Streams:   tty,
-		Container: container,
-	}
-	return vm.ctx.attachCmd(cmd)
 }
 
 func (vm *Vm) Stats() *types.PodStats {

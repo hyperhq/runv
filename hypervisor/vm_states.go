@@ -1,7 +1,6 @@
 package hypervisor
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -198,34 +197,6 @@ func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu
 			return err
 		}
 	}
-	return nil
-}
-
-// TODO remove attachCmd and move streamCopy to hyperd
-func (ctx *VmContext) attachCmd(cmd *AttachCommand) error {
-	ctx.lock.Lock()
-	defer ctx.lock.Unlock()
-
-	if ctx.current != StateRunning {
-		ctx.Log(DEBUG, "attach container %s during %v", cmd.Container, ctx.current)
-		return NewNotReadyError(ctx.Id)
-	}
-
-	c, ok := ctx.containers[cmd.Container]
-	if !ok {
-		estr := fmt.Sprintf("cannot find container %s to attach", cmd.Container)
-		ctx.Log(ERROR, estr)
-		return errors.New(estr)
-	}
-
-	if c.tty != nil {
-		return fmt.Errorf("we can attach only once")
-	}
-	c.tty = cmd.Streams
-	if c.stdinPipe != nil {
-		go streamCopy(c.tty, c.stdinPipe, c.stdoutPipe, c.stderrPipe)
-	}
-
 	return nil
 }
 
