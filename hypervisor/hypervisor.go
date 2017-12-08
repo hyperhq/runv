@@ -2,7 +2,6 @@ package hypervisor
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
@@ -31,39 +30,6 @@ func (ctx *VmContext) loop() {
 	ctx.Log(DEBUG, "main event loop exiting")
 }
 
-func (ctx *VmContext) watchHyperstart() {
-	next := time.NewTimer(10 * time.Second)
-	timeout := time.AfterFunc(60*time.Second, func() {
-		ctx.Log(ERROR, "watch hyperstart timeout")
-		ctx.Hub <- &InitFailedEvent{Reason: "watch hyperstart timeout"}
-		ctx.hyperstart.Close()
-	})
-	ctx.Log(DEBUG, "watch hyperstart")
-loop:
-	for {
-		ctx.Log(TRACE, "issue VERSION request for keep-alive test")
-		_, err := ctx.hyperstart.APIVersion()
-		if err != nil {
-			ctx.Log(WARNING, "keep-alive test end with error: %v", err)
-			ctx.hyperstart.Close()
-			ctx.Hub <- &InitFailedEvent{Reason: "hyperstart failed: " + err.Error()}
-			break
-		}
-		if !timeout.Stop() {
-			<-timeout.C
-		}
-		select {
-		case <-ctx.cancelWatchHyperstart:
-			break loop
-		case <-next.C:
-		}
-		next.Reset(10 * time.Second)
-		timeout.Reset(60 * time.Second)
-	}
-	next.Stop()
-	timeout.Stop()
-}
-
 func (ctx *VmContext) WaitSockConnected() {
 	<-ctx.sockConnected
 }
@@ -80,7 +46,6 @@ func (ctx *VmContext) Launch() {
 		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
 	} else {
 		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
-		go ctx.watchHyperstart()
 	}
 	if err != nil {
 		ctx.Log(ERROR, "failed to create hypervisor")
@@ -129,9 +94,6 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 		go watchVmConsole(context)
 	}
 
-	if !paused {
-		go context.watchHyperstart()
-	}
 	go context.loop()
 	return context, nil
 }

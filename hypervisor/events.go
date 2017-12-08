@@ -25,11 +25,6 @@ type ShutdownCommand struct {
 }
 type ReleaseVMCommand struct{}
 
-type AttachCommand struct {
-	Streams   *TtyIO
-	Container string
-}
-
 type VolumeInfo struct {
 	Name         string //volumen name in spec
 	Filepath     string //block dev absolute path, or dir path relative to share dir
@@ -130,7 +125,6 @@ func (qe *BlockdevInsertedEvent) Event() int { return EVENT_BLOCK_INSERTED }
 func (qe *InterfaceCreated) Event() int      { return EVENT_INTERFACE_ADD }
 func (qe *NetDevInsertedEvent) Event() int   { return EVENT_INTERFACE_INSERTED }
 func (qe *NetDevRemovedEvent) Event() int    { return EVENT_INTERFACE_EJECTED }
-func (qe *AttachCommand) Event() int         { return COMMAND_ATTACH }
 func (qe *ShutdownCommand) Event() int       { return COMMAND_SHUTDOWN }
 func (qe *ReleaseVMCommand) Event() int      { return COMMAND_RELEASE }
 func (qe *InitFailedEvent) Event() int       { return ERROR_INIT_FAIL }

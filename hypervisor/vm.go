@@ -1,11 +1,9 @@
 package hypervisor
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +13,6 @@ import (
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/api"
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -173,58 +170,8 @@ func (vm *Vm) WaitVm(timeout int) <-chan error {
 	}, timeout)
 }
 
-func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *api.ProcessExit {
-	var (
-		waiting   = make(map[string]struct{})
-		result    = make(chan *api.ProcessExit, len(ids))
-		waitEvent = types.E_CONTAINER_FINISHED
-	)
-
-	if !isContainer {
-		waitEvent = types.E_EXEC_FINISHED
-	}
-
-	for _, id := range ids {
-		waiting[id] = struct{}{}
-	}
-
-	resChan := vm.WaitResponse(func(response *types.VmResponse) (error, bool) {
-		if response.Code == types.E_VM_SHUTDOWN {
-			return fmt.Errorf("get shutdown event"), true
-		}
-		if response.Code != waitEvent {
-			return nil, false
-		}
-		ps, _ := response.Data.(*types.ProcessFinished)
-		if _, ok := waiting[ps.Id]; ok {
-			result <- &api.ProcessExit{
-				Id:         ps.Id,
-				Code:       int(ps.Code),
-				FinishedAt: time.Now().UTC(),
-			}
-			select {
-			case ps.Ack <- true:
-				vm.ctx.Log(TRACE, "got shut down msg, acked here")
-			default:
-				vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
-			}
-			delete(waiting, ps.Id)
-			if len(waiting) == 0 {
-				// got all of processexit event, exit
-				return nil, true
-			}
-		}
-		// continue to wait other processexit event
-		return nil, false
-	}, timeout)
-
-	go func() {
-		if err := <-resChan; err != nil {
-			close(result)
-		}
-	}()
-
-	return result
+func (vm *Vm) WaitProcess(container, process string) int {
+	return vm.ctx.hyperstart.WaitProcess(container, process)
 }
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig) error {
@@ -272,14 +219,6 @@ func (vm *Vm) Shutdown() api.Result {
 // TODO: should we provide a method to force kill vm
 func (vm *Vm) Kill() {
 	vm.ctx.poweroffVM(false, "vm.Kill()")
-}
-
-func (vm *Vm) WriteFile(container, target string, data []byte) error {
-	return vm.ctx.hyperstart.WriteFile(container, target, data)
-}
-
-func (vm *Vm) ReadFile(container, target string) ([]byte, error) {
-	return vm.ctx.hyperstart.ReadFile(container, target)
 }
 
 func (vm *Vm) SignalProcess(container, process string, signal syscall.Signal) error {
@@ -386,95 +325,7 @@ func (vm *Vm) OnlineCpuMem() error {
 	return vm.ctx.hyperstart.OnlineCpuMem()
 }
 
-func (vm *Vm) HyperstartExecSync(cmd []string, stdin []byte) (stdout, stderr []byte, err error) {
-	if len(cmd) == 0 {
-		return nil, nil, fmt.Errorf("'hyperstart-exec' without command")
-	}
-
-	execId := fmt.Sprintf("hyperstart-exec-%s", utils.RandStr(10, "alpha"))
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	tty := &TtyIO{
-		Stdin:  ioutil.NopCloser(bytes.NewReader(stdin)),
-		Stdout: &stdoutBuf,
-		Stderr: &stderrBuf,
-	}
-
-	result := vm.WaitProcess(false, []string{execId}, -1)
-	if result == nil {
-		err = fmt.Errorf("can not wait hyperstart-exec %q", execId)
-		vm.Log(ERROR, err)
-		return nil, nil, err
-	}
-
-	err = vm.AddProcess(&api.Process{
-		Container: hyperstartapi.HYPERSTART_EXEC_CONTAINER,
-		Id:        execId,
-		Terminal:  false,
-		Args:      cmd,
-		Envs:      []string{},
-		Workdir:   "/"}, tty)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	r, ok := <-result
-	if !ok {
-		err = fmt.Errorf("wait hyperstart-exec %q interrupted", execId)
-		vm.Log(ERROR, err)
-		return nil, nil, err
-	}
-
-	vm.Log(TRACE, "hyperstart-exec %q terminated at %v with code %d", execId, r.FinishedAt, r.Code)
-
-	if r.Code != 0 {
-		return stdoutBuf.Bytes(), stderrBuf.Bytes(), fmt.Errorf("exit with error code:%d", r.Code)
-	}
-	return stdoutBuf.Bytes(), stderrBuf.Bytes(), nil
-}
-
-func (vm *Vm) HyperstartExec(cmd string, tty *TtyIO) (int, error) {
-	var command []string
-
-	if cmd == "" {
-		return -1, fmt.Errorf("'hyperstart exec' without command")
-	}
-
-	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
-		return 0, err
-	}
-
-	execID := fmt.Sprintf("hyperstart-exec-%s", utils.RandStr(10, "alpha"))
-	result := vm.WaitProcess(false, []string{execID}, -1)
-	if result == nil {
-		err := fmt.Errorf("can not wait hyperstart-exec %q", execID)
-		vm.Log(ERROR, err)
-		return -1, err
-	}
-
-	err := vm.AddProcess(&api.Process{
-		Container: hyperstartapi.HYPERSTART_EXEC_CONTAINER,
-		Id:        execID,
-		Terminal:  false,
-		Args:      command,
-		Envs:      []string{},
-		Workdir:   "/"}, tty)
-	if err != nil {
-		return -1, err
-	}
-
-	r, ok := <-result
-	if !ok {
-		err = fmt.Errorf("wait hyperstart-exec %q interrupted", execID)
-		vm.Log(ERROR, err)
-		return -1, err
-	}
-
-	vm.Log(TRACE, "hyperstart-exec %q terminated at %v with code %d", execID, r.FinishedAt, r.Code)
-	return r.Code, nil
-}
-
-func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) error {
+func (vm *Vm) Exec(container, execId, cmd string, terminal bool) error {
 	var command []string
 
 	if cmd == "" {
@@ -490,10 +341,10 @@ func (vm *Vm) Exec(container, execId, cmd string, terminal bool, tty *TtyIO) err
 		Terminal:  terminal,
 		Args:      command,
 		Envs:      []string{},
-		Workdir:   "/"}, tty)
+		Workdir:   "/"})
 }
 
-func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
+func (vm *Vm) AddProcess(process *api.Process) error {
 	if !vm.ctx.IsRunning() {
 		return NewNotReadyError(vm.Id)
 	}
@@ -519,22 +370,7 @@ func (vm *Vm) AddProcess(process *api.Process, tty *TtyIO) error {
 		Group:    process.Group,
 	})
 
-	if err != nil {
-		return fmt.Errorf("exec command %v failed: %v", process.Args, err)
-	}
-	if tty == nil {
-		return nil
-	}
-
-	inPipe, outPipe, errPipe := libhyperstart.StdioPipe(vm.ctx.hyperstart, process.Container, process.Id)
-	go streamCopy(tty, inPipe, outPipe, errPipe)
-	go func() {
-		status := vm.ctx.hyperstart.WaitProcess(process.Container, process.Id)
-		vm.ctx.reportProcessFinished(types.E_EXEC_FINISHED, &types.ProcessFinished{
-			Id: process.Id, Code: uint8(status), Ack: make(chan bool, 1),
-		})
-	}()
-	return nil
+	return err
 }
 
 func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
@@ -623,14 +459,6 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
 }
 
-func (vm *Vm) Attach(tty *TtyIO, container string) error {
-	cmd := &AttachCommand{
-		Streams:   tty,
-		Container: container,
-	}
-	return vm.ctx.attachCmd(cmd)
-}
-
 func (vm *Vm) Stats() *types.PodStats {
 	ctx := vm.ctx
 
@@ -674,7 +502,6 @@ func (vm *Vm) Pause(pause bool) error {
 	if ctx.PauseState != pauseState {
 		/* FIXME: only support pause whole vm now */
 		if pause {
-			ctx.cancelWatchHyperstart <- struct{}{}
 			err = ctx.hyperstart.PauseSync()
 		}
 		if err != nil {
@@ -691,7 +518,6 @@ func (vm *Vm) Pause(pause bool) error {
 
 		if !pause {
 			err = ctx.hyperstart.Unpause()
-			go ctx.watchHyperstart()
 		}
 		if err != nil {
 			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
