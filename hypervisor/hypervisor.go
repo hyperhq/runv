@@ -50,9 +50,6 @@ func (ctx *VmContext) Launch() {
 	if err != nil {
 		ctx.Log(ERROR, "failed to create hypervisor")
 	}
-	if ctx.LogLevel(DEBUG) {
-		go watchVmConsole(ctx)
-	}
 	close(ctx.sockConnected)
 	go ctx.loop()
 }
@@ -89,10 +86,6 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 	}
 
 	context.DCtx.Associate(context)
-
-	if context.LogLevel(DEBUG) {
-		go watchVmConsole(context)
-	}
 
 	go context.loop()
 	return context, nil

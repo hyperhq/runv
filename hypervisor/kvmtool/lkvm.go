@@ -442,33 +442,3 @@ func (kc *KvmtoolContext) AddMem(ctx *hypervisor.VmContext, slot, size int) erro
 func (kc *KvmtoolContext) Save(ctx *hypervisor.VmContext, path string) error {
 	return fmt.Errorf("Save is unsupported on kvmtool driver")
 }
-
-func (kc *KvmtoolContext) ConnectConsole(console chan<- string) error {
-	pty, err := os.OpenFile(kc.conPty, os.O_RDWR|syscall.O_NOCTTY, 0600)
-	if err != nil {
-		glog.Errorf("fail to open %v, %v", kc.conPty, err)
-		return err
-	}
-
-	_, err = term.SetRawTerminal(pty.Fd())
-	if err != nil {
-		glog.Errorf("fail to setrowmode for %v: %v", kc.conPty, err)
-		return err
-	}
-
-	go func() {
-		data := make([]byte, 128)
-		for {
-			nr, err := pty.Read(data)
-			if err != nil {
-				glog.Errorf("fail to read console: %v", err)
-				break
-			}
-			console <- string(data[:nr])
-		}
-		pty.Close()
-	}()
-
-	return nil
-
-}

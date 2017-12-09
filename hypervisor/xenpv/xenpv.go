@@ -273,32 +273,3 @@ func (xc *XenPvContext) AddMem(ctx *hypervisor.VmContext, slot, size int) error 
 func (xc *XenPvContext) Save(ctx *hypervisor.VmContext, path string) error {
 	return fmt.Errorf("Save is unsupported on xenpv driver")
 }
-
-func (xc *XenPvContext) ConnectConsole(console chan<- string) error {
-	reader, writer := io.Pipe()
-	args := []string{"console", "-t", "pv", fmt.Sprintf("%d", xc.domId)}
-	cmd := exec.Command(xc.driver.executable, args...)
-	cmd.Stdout = writer
-	cmd.Stderr = writer
-	err := cmd.Start()
-	if err != nil {
-		return fmt.Errorf("fail to connect to console of dom %d: %v\n", xc.domId, err)
-	}
-
-	go func() {
-		data := make([]byte, 128)
-		for {
-			nr, err := reader.Read(data)
-			if err != nil {
-				glog.Errorf("fail to read console: %v", err)
-				break
-			}
-			console <- string(data[:nr])
-		}
-		reader.Close()
-		writer.Close()
-		cmd.Wait()
-	}()
-
-	return nil
-}

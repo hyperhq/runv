@@ -609,3 +609,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 	vm.Log(TRACE, "GetVm succeeded")
 	return vm, nil
 }
+
+func (vm *Vm) WatchConsole() {
+	go WatchConsole(GetConsoleProto(), vm.ctx.ConsoleSockName)
+}
