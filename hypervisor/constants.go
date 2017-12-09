@@ -15,16 +15,7 @@ const (
 	DefaultMaxMem  = 32768 // size in MiB
 )
 
-var InterfaceCount int = 1
 var PciAddrFrom int = 0x05
-
-const (
-	ST_CREATING = iota
-	ST_CREATED
-	ST_STARTING
-	ST_RUNNING
-	ST_STOPPING
-)
 
 const (
 	EVENT_VM_EXIT = iota

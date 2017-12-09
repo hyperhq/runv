@@ -52,12 +52,6 @@ type InterfaceInfo struct {
 	Mtu       uint64
 }
 
-type nsListener struct {
-	enc *gob.Encoder
-	dec *gob.Decoder
-	cmd *exec.Cmd
-}
-
 type tcMirredPair struct {
 	NsIfIndex   int
 	HostIfIndex int

@@ -564,14 +564,6 @@ func (vm *Vm) Dump() ([]byte, error) {
 	return pinfo.serialize()
 }
 
-func errorResponse(cause string) *types.VmResponse {
-	return &types.VmResponse{
-		Code:  -1,
-		Cause: cause,
-		Data:  nil,
-	}
-}
-
 func newVm(vmId string, cpu, memory int) *Vm {
 	return &Vm{
 		Id:        vmId,
