@@ -78,7 +78,7 @@ func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, erro
 	return singlefactory.Dummy(bootConfig), nil
 }
 
-func createAndLockSandBox(f factory.Factory, spec *specs.Spec, cpu int, mem int) (*hypervisor.Vm, *os.File, error) {
+func createAndLockSandBox(context *cli.Context, f factory.Factory, spec *specs.Spec, cpu int, mem int) (*hypervisor.Vm, *os.File, error) {
 	vm, err := f.GetVm(cpu, mem)
 	if err != nil {
 		glog.Errorf("Create VM failed with err: %v", err)
@@ -92,6 +92,12 @@ func createAndLockSandBox(f factory.Factory, spec *specs.Spec, cpu int, mem int)
 
 	sandbox := api.SandboxInfoFromOCF(spec)
 	vm.InitSandbox(sandbox)
+
+	err = createWatcher(context, vm.Id)
+	if err != nil {
+		vm.Kill()
+		return nil, nil, err
+	}
 
 	rsp := <-r
 
