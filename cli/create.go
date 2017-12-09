@@ -125,7 +125,7 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 			return nil
 		}
 		cpu, mem := getContainerCPUMemory(context, spec)
-		vm, lockFile, err = createAndLockSandBox(f, spec, cpu, mem)
+		vm, lockFile, err = createAndLockSandBox(context, f, spec, cpu, mem)
 		if err != nil {
 			return nil
 		}

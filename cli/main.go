@@ -140,6 +140,7 @@ func main() {
 		proxyCommand,
 		shimCommand,
 		nsListenCommand,
+		watcherCommand,
 	}
 	if err := app.Run(os.Args); err != nil {
 		glog.Errorf("app.Run(os.Args) failed with err: %#v", err)

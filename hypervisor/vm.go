@@ -229,11 +229,6 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 	return vm.SignalProcess(container, "init", signal)
 }
 
-// Should only be called near after AssociateVm
-func (vm *Vm) AssociateContainer(container string) (alive bool, err error) {
-	return vm.ctx.restoreContainer(container)
-}
-
 func (vm *Vm) AddRoute() error {
 	routes := vm.ctx.networks.getRoutes()
 	return vm.ctx.hyperstart.AddRoute(routes)
@@ -613,4 +608,8 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 
 	vm.Log(TRACE, "GetVm succeeded")
 	return vm, nil
+}
+
+func (vm *Vm) WatchConsole() {
+	go WatchConsole(GetConsoleProto(), vm.ctx.ConsoleSockName)
 }
