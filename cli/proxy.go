@@ -16,6 +16,7 @@ import (
 	"github.com/hyperhq/runv/hyperstart/proxy"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/lib/telnet"
+	"github.com/hyperhq/runv/lib/term"
 	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
 	"github.com/urfave/cli"
@@ -111,15 +112,34 @@ var proxyCommand = cli.Command{
 }
 
 func watchConsole(console string) error {
-	conn, err := utils.UnixSocketConnect(console)
-	if err != nil {
-		return err
+	var (
+		br *bufio.Reader
+	)
+
+	if utils.IsUnixSocket(console) {
+		conn, err := utils.UnixSocketConnect(console)
+		if err != nil {
+			return err
+		}
+		tc, err := telnet.NewConn(conn)
+		if err != nil {
+			return err
+		}
+		br = bufio.NewReader(tc)
+	} else {
+		//lkvm
+		file, err := os.OpenFile(console, os.O_RDWR|syscall.O_NOCTTY, 0600)
+		if err != nil {
+			return err
+		}
+
+		_, err = term.SetRawTerminal(file.Fd())
+		if err != nil {
+			glog.Errorf("fail to set raw mode for %v: %v", console, err)
+			return err
+		}
+		br = bufio.NewReader(file)
 	}
-	tc, err := telnet.NewConn(conn)
-	if err != nil {
-		return err
-	}
-	br := bufio.NewReader(tc)
 
 	go func() {
 		for {
