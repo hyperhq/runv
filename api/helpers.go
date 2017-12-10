@@ -24,7 +24,6 @@ func ContainerDescriptionFromOCF(id string, s *ocispecs.Spec) *ContainerDescript
 		Name:       s.Hostname,
 		Image:      "",
 		Labels:     make(map[string]string),
-		Tty:        s.Process.Terminal,
 		RootVolume: nil,
 		RootPath:   "rootfs",
 		OciSpec:    *s,

@@ -33,7 +33,6 @@ type PersistVolumeInfo struct {
 	ScsiId       int
 	ContainerIds []string
 	IsRootVol    bool
-	Containers   []int // deprecated
 	MontPoints   []string
 }
 
