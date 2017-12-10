@@ -320,8 +320,6 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 	}
 	cc := &ContainerContext{
 		ContainerDescription: c,
-		fsmap:                []*hyperstartapi.FsmapDescriptor{},
-		vmVolumes:            []*hyperstartapi.VolumeDescriptor{},
 		sandbox:              ctx,
 		logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, c.Id),
 	}
