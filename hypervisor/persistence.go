@@ -326,7 +326,6 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 		cc := &ContainerContext{
 			ContainerDescription: pinfo.Containers[pc.Id],
 			fsmap:                pc.Fsmap,
-			process:              pc.Process,
 			vmVolumes:            pc.Volumes,
 			sandbox:              ctx,
 			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
@@ -338,9 +337,6 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 				observers:      make(map[string]*sync.WaitGroup),
 				lock:           &sync.RWMutex{},
 			},
-		}
-		if cc.process.Id == "" {
-			cc.process.Id = "init"
 		}
 		// restore wg for volumes attached to container
 		wgDisk := &sync.WaitGroup{}

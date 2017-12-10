@@ -15,7 +15,6 @@ type ContainerContext struct {
 
 	root *DiskContext
 
-	process   *hyperstartapi.Process
 	fsmap     []*hyperstartapi.FsmapDescriptor
 	vmVolumes []*hyperstartapi.VolumeDescriptor
 
@@ -34,7 +33,7 @@ func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
 		Fstype:        rootfsType,
 		Volumes:       cc.vmVolumes,
 		Fsmap:         cc.fsmap,
-		Process:       cc.process,
+		Process:       hyperstartapi.ProcessFromOci("init", cc.OciSpec.Process),
 		Sysctl:        cc.OciSpec.Linux.Sysctl,
 		RestartPolicy: "never",
 		Initialize:    cc.Initialize,
@@ -98,10 +97,4 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 
 	cc.Log(TRACE, "all images and volume resources have been added to sandbox")
 	result <- api.NewResultBase(cc.Id, true, "")
-}
-
-func (cc *ContainerContext) configProcess() {
-	c := cc.ContainerDescription
-
-	cc.process = hyperstartapi.ProcessFromOci("init", c.OciSpec.Process)
 }

@@ -354,9 +354,6 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		added = append(added, vn)
 	}
 
-	//prepare runtime environment
-	cc.configProcess()
-
 	cc.root = NewDiskContext(ctx, c.RootVolume)
 	cc.root.isRootVol = true
 	cc.root.insert(nil)
