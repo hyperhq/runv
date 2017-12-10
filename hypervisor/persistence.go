@@ -56,6 +56,7 @@ type PersistInfo struct {
 	VolumeList     []*PersistVolumeInfo
 	NetworkList    []*PersistNetworkInfo
 	PortList       []*api.PortDescription
+	Containers     map[string]*api.ContainerDescription
 }
 
 func (p *PersistInfo) LogLevel(level hlog.LogLevel) bool {
@@ -87,6 +88,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)+len(ctx.containers)),
 		NetworkList:    make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
 		PortList:       make([]*api.PortDescription, len(nc.ports)),
+		Containers:     make(map[string]*api.ContainerDescription),
 	}
 
 	vid := 0
@@ -143,6 +145,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		rootVolume.ContainerIds = []string{c.Id}
 		rootVolume.IsRootVol = true
 		info.VolumeList[vid] = rootVolume
+		info.Containers[c.Id] = c.ContainerDescription
 		vid++
 		cid++
 	}
@@ -321,24 +324,12 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			return nil, fmt.Errorf("persistent data corrupt, lack of container root volume")
 		}
 		cc := &ContainerContext{
-			ContainerDescription: &api.ContainerDescription{
-				Id:         pc.Id,
-				RootPath:   pc.Rootfs,
-				Initialize: pc.Initialize,
-				RootVolume: &api.VolumeDescription{
-					Name:         bInfo.Name,
-					Source:       bInfo.Filename,
-					Format:       bInfo.Format,
-					Fstype:       bInfo.Fstype,
-					DockerVolume: bInfo.DockerVolume,
-					ReadOnly:     bInfo.ReadOnly,
-				},
-			},
-			fsmap:     pc.Fsmap,
-			process:   pc.Process,
-			vmVolumes: pc.Volumes,
-			sandbox:   ctx,
-			logPrefix: fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
+			ContainerDescription: pinfo.Containers[pc.Id],
+			fsmap:                pc.Fsmap,
+			process:              pc.Process,
+			vmVolumes:            pc.Volumes,
+			sandbox:              ctx,
+			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
 			root: &DiskContext{
 				DiskDescriptor: bInfo,
 				sandbox:        ctx,
