@@ -7,7 +7,6 @@ import (
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/api"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -55,7 +54,7 @@ type PersistInfo struct {
 	Id             string
 	Paused         bool
 	DriverInfo     map[string]interface{}
-	VmSpec         *hyperstartapi.Pod
+	SandboxConfig  *api.SandboxConfig
 	HwStat         *VmHwStatus
 	VolumeList     []*PersistVolumeInfo
 	NetworkList    []*PersistNetworkInfo
@@ -87,7 +86,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		Id:             ctx.Id,
 		Paused:         ctx.PauseState == PauseStatePaused,
 		DriverInfo:     dr,
-		VmSpec:         ctx.networks.sandboxInfo(),
+		SandboxConfig:  ctx.networks.SandboxConfig,
 		HwStat:         ctx.dumpHwInfo(),
 		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)+len(ctx.containers)),
 		NetworkList:    make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
@@ -198,17 +197,7 @@ func (vol *PersistVolumeInfo) blockInfo() *DiskDescriptor {
 }
 
 func (nc *NetworkContext) load(pinfo *PersistInfo) {
-	nc.SandboxConfig = &api.SandboxConfig{
-		Hostname: pinfo.VmSpec.Hostname,
-		Dns:      pinfo.VmSpec.Dns,
-	}
-	portWhilteList := pinfo.VmSpec.PortmappingWhiteLists
-	if portWhilteList != nil {
-		nc.Neighbors = &api.NeighborNetworks{
-			InternalNetworks: portWhilteList.InternalNetworks,
-			ExternalNetworks: portWhilteList.ExternalNetworks,
-		}
-	}
+	nc.SandboxConfig = pinfo.SandboxConfig
 
 	for i, p := range pinfo.PortList {
 		nc.ports[i] = p
