@@ -1,7 +1,6 @@
 package hypervisor
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -318,25 +317,6 @@ func (vm *Vm) AddMem(totalMem int) error {
 
 func (vm *Vm) OnlineCpuMem() error {
 	return vm.ctx.hyperstart.OnlineCpuMem()
-}
-
-func (vm *Vm) Exec(container, execId, cmd string, terminal bool) error {
-	var command []string
-
-	if cmd == "" {
-		return fmt.Errorf("'exec' without command")
-	}
-
-	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
-		return err
-	}
-	return vm.AddProcess(&api.Process{
-		Container: container,
-		Id:        execId,
-		Terminal:  terminal,
-		Args:      command,
-		Envs:      []string{},
-		Workdir:   "/"})
 }
 
 func (vm *Vm) AddProcess(process *api.Process) error {
