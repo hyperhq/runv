@@ -12,7 +12,11 @@ import (
 	"github.com/hyperhq/runv/lib/utils"
 )
 
-const CURRENT_PERSIST_VERSION = 20170611
+const CURRENT_PERSIST_VERSION = 20171210
+const COMPATIBLE_PERSIST_VERSION = CURRENT_PERSIST_VERSION
+
+// check to ensure CURRENT_PERSIST_VERSION >= COMPATIBLE_PERSIST_VERSION
+const _ uint = CURRENT_PERSIST_VERSION - COMPATIBLE_PERSIST_VERSION
 
 type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
@@ -251,7 +255,12 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 }
 
 func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse) (*VmContext, error) {
-	oldVersion := pinfo.PersistVersion < 20170224
+	if pinfo.PersistVersion > CURRENT_PERSIST_VERSION {
+		return nil, fmt.Errorf("error: detech saved data of newer version: PersistInfo's PersistVersion is %d, but compiled code version is %d", pinfo.PersistVersion, CURRENT_PERSIST_VERSION)
+	}
+	if pinfo.PersistVersion < COMPATIBLE_PERSIST_VERSION {
+		return nil, fmt.Errorf("error: detech saved data of older version, but no compatible handler for it: PersistInfo's PersistVersion is %d, but lowest compatible version is %d", pinfo.PersistVersion, COMPATIBLE_PERSIST_VERSION)
+	}
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
 	if err != nil {
@@ -282,22 +291,12 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 	pcList := pinfo.VmSpec.DeprecatedContainers
 	for _, vol := range pinfo.VolumeList {
 		binfo := vol.blockInfo()
-		if oldVersion {
-			if len(vol.Containers) != len(vol.MontPoints) {
-				return nil, fmt.Errorf("persistent data corrupt, volume info mismatch")
+		if vol.IsRootVol {
+			if len(vol.ContainerIds) != 1 {
+				return nil, fmt.Errorf("persistent data corrupt, root volume mismatch")
 			}
-			if len(vol.MontPoints) == 1 && vol.MontPoints[0] == "/" {
-				imageMap[pcList[vol.Containers[0]].Id] = binfo
-				continue
-			}
-		} else {
-			if vol.IsRootVol {
-				if len(vol.ContainerIds) != 1 {
-					return nil, fmt.Errorf("persistent data corrupt, root volume mismatch")
-				}
-				imageMap[vol.ContainerIds[0]] = binfo
-				continue
-			}
+			imageMap[vol.ContainerIds[0]] = binfo
+			continue
 		}
 		ctx.volumes[binfo.Name] = &DiskContext{
 			DiskDescriptor: binfo,
@@ -307,14 +306,8 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			// FIXME: is there any trouble if we set it as ready when restoring from persistence
 			ready: true,
 		}
-		if oldVersion {
-			for _, idx := range vol.Containers {
-				volumeMap[pcList[idx].Id] = append(volumeMap[pcList[idx].Id], ctx.volumes[binfo.Name])
-			}
-		} else {
-			for _, id := range vol.ContainerIds {
-				volumeMap[id] = append(volumeMap[id], ctx.volumes[binfo.Name])
-			}
+		for _, id := range vol.ContainerIds {
+			volumeMap[id] = append(volumeMap[id], ctx.volumes[binfo.Name])
 		}
 	}
 
