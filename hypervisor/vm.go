@@ -1,12 +1,10 @@
 package hypervisor
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -320,50 +318,12 @@ func (vm *Vm) OnlineCpuMem() error {
 	return vm.ctx.hyperstart.OnlineCpuMem()
 }
 
-func (vm *Vm) Exec(container, execId, cmd string, terminal bool) error {
-	var command []string
-
-	if cmd == "" {
-		return fmt.Errorf("'exec' without command")
-	}
-
-	if err := json.Unmarshal([]byte(cmd), &command); err != nil {
-		return err
-	}
-	return vm.AddProcess(&api.Process{
-		Container: container,
-		Id:        execId,
-		Terminal:  terminal,
-		Args:      command,
-		Envs:      []string{},
-		Workdir:   "/"})
-}
-
 func (vm *Vm) AddProcess(process *api.Process) error {
 	if !vm.ctx.IsRunning() {
 		return NewNotReadyError(vm.Id)
 	}
 
-	envs := []hyperstartapi.EnvironmentVar{}
-
-	for _, v := range process.Envs {
-		if eqlIndex := strings.Index(v, "="); eqlIndex > 0 {
-			envs = append(envs, hyperstartapi.EnvironmentVar{
-				Env:   v[:eqlIndex],
-				Value: v[eqlIndex+1:],
-			})
-		}
-	}
-
-	err := vm.ctx.hyperstart.AddProcess(process.Container, &hyperstartapi.Process{
-		Id:       process.Id,
-		Terminal: process.Terminal,
-		Args:     process.Args,
-		Envs:     envs,
-		Workdir:  process.Workdir,
-		User:     process.User,
-		Group:    process.Group,
-	})
+	err := vm.ctx.hyperstart.AddProcess(process.Container, hyperstartapi.ProcessFromOci(process.Id, &process.OciProcess))
 
 	return err
 }
@@ -562,14 +522,6 @@ func (vm *Vm) Dump() ([]byte, error) {
 	}
 
 	return pinfo.serialize()
-}
-
-func errorResponse(cause string) *types.VmResponse {
-	return &types.VmResponse{
-		Code:  -1,
-		Cause: cause,
-		Data:  nil,
-	}
 }
 
 func newVm(vmId string, cpu, memory int) *Vm {

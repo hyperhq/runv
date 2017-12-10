@@ -3,7 +3,6 @@ package hypervisor
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hyperstart/libhyperstart"
@@ -16,14 +15,6 @@ const (
 	StateTerminating = "TERMINATING"
 	StateNone        = "NONE"
 )
-
-func (ctx *VmContext) timedKill(seconds int) {
-	ctx.timer = time.AfterFunc(time.Duration(seconds)*time.Second, func() {
-		if ctx != nil && ctx.handler != nil {
-			ctx.DCtx.Kill(ctx)
-		}
-	})
-}
 
 func (ctx *VmContext) newContainer(id string) error {
 	ctx.lock.Lock()

@@ -51,12 +51,6 @@ var linuxSignalMap = map[string]syscall.Signal{
 	"XFSZ":   linuxsignal.SIGXFSZ,
 }
 
-type killContainerCmd struct {
-	Name   string
-	Root   string
-	Signal syscall.Signal
-}
-
 var killCommand = cli.Command{
 	Name:  "kill",
 	Usage: "kill sends the specified signal (default: SIGTERM) to the container's init process",
