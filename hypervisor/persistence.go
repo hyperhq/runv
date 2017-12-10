@@ -141,17 +141,13 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	}
 	defer nc.slotLock.RUnlock()
 
-	cid := 0
-	info.VmSpec.DeprecatedContainers = make([]hyperstartapi.Container, len(ctx.containers))
 	for _, c := range ctx.containers {
-		info.VmSpec.DeprecatedContainers[cid] = *c.VmSpec()
 		rootVolume := c.root.dump()
 		rootVolume.ContainerIds = []string{c.Id}
 		rootVolume.IsRootVol = true
 		info.VolumeList[vid] = rootVolume
 		info.Containers[c.Id] = c.ContainerDescription
 		vid++
-		cid++
 	}
 
 	return info, nil
@@ -288,7 +284,6 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 	imageMap := make(map[string]*DiskDescriptor)
 	// map container id to volume DiskContext list
 	volumeMap := make(map[string][]*DiskContext)
-	pcList := pinfo.VmSpec.DeprecatedContainers
 	for _, vol := range pinfo.VolumeList {
 		binfo := vol.blockInfo()
 		if vol.IsRootVol {
@@ -311,15 +306,15 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 		}
 	}
 
-	for _, pc := range pcList {
-		bInfo, ok := imageMap[pc.Id]
+	for cid, des := range pinfo.Containers {
+		bInfo, ok := imageMap[cid]
 		if !ok {
 			return nil, fmt.Errorf("persistent data corrupt, lack of container root volume")
 		}
 		cc := &ContainerContext{
-			ContainerDescription: pinfo.Containers[pc.Id],
+			ContainerDescription: des,
 			sandbox:              ctx,
-			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
+			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, cid),
 			root: &DiskContext{
 				DiskDescriptor: bInfo,
 				sandbox:        ctx,
@@ -331,7 +326,7 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 		}
 		// restore wg for volumes attached to container
 		wgDisk := &sync.WaitGroup{}
-		volList, ok := volumeMap[pc.Id]
+		volList, ok := volumeMap[cid]
 		if ok {
 			cc.Volumes = make(map[string]*api.VolumeReference, len(volList))
 			for _, vol := range volList {
