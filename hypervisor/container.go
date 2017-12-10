@@ -35,7 +35,7 @@ func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
 		Volumes:       cc.vmVolumes,
 		Fsmap:         cc.fsmap,
 		Process:       cc.process,
-		Sysctl:        cc.Sysctl,
+		Sysctl:        cc.OciSpec.Linux.Sysctl,
 		RestartPolicy: "never",
 		Initialize:    cc.Initialize,
 		ReadOnly:      cc.RootVolume.ReadOnly,
@@ -103,26 +103,5 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 func (cc *ContainerContext) configProcess() {
 	c := cc.ContainerDescription
 
-	envs := []hyperstartapi.EnvironmentVar{}
-	for e, v := range c.Envs {
-		envs = append(envs, hyperstartapi.EnvironmentVar{Env: e, Value: v})
-	}
-	cc.process = &hyperstartapi.Process{
-		Id:       "init",
-		Terminal: c.Tty,
-		Args:     append([]string{c.Path}, c.Args...),
-		Envs:     envs,
-		Workdir:  c.Workdir,
-		Rlimits:  make([]hyperstartapi.Rlimit, len(c.Rlimits)),
-	}
-	if c.UGI != nil {
-		cc.process.User = c.UGI.User
-		cc.process.Group = c.UGI.Group
-		cc.process.AdditionalGroups = c.UGI.AdditionalGroups
-	}
-	for i, l := range c.Rlimits {
-		cc.process.Rlimits[i].Type = l.Type
-		cc.process.Rlimits[i].Hard = l.Hard
-		cc.process.Rlimits[i].Soft = l.Soft
-	}
+	cc.process = hyperstartapi.ProcessFromOci("init", c.OciSpec.Process)
 }

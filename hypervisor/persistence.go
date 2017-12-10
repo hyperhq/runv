@@ -325,7 +325,6 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 				Id:         pc.Id,
 				RootPath:   pc.Rootfs,
 				Initialize: pc.Initialize,
-				Sysctl:     pc.Sysctl,
 				RootVolume: &api.VolumeDescription{
 					Name:         bInfo.Name,
 					Source:       bInfo.Filename,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -324,26 +323,7 @@ func (vm *Vm) AddProcess(process *api.Process) error {
 		return NewNotReadyError(vm.Id)
 	}
 
-	envs := []hyperstartapi.EnvironmentVar{}
-
-	for _, v := range process.Envs {
-		if eqlIndex := strings.Index(v, "="); eqlIndex > 0 {
-			envs = append(envs, hyperstartapi.EnvironmentVar{
-				Env:   v[:eqlIndex],
-				Value: v[eqlIndex+1:],
-			})
-		}
-	}
-
-	err := vm.ctx.hyperstart.AddProcess(process.Container, &hyperstartapi.Process{
-		Id:       process.Id,
-		Terminal: process.Terminal,
-		Args:     process.Args,
-		Envs:     envs,
-		Workdir:  process.Workdir,
-		User:     process.User,
-		Group:    process.Group,
-	})
+	err := vm.ctx.hyperstart.AddProcess(process.Container, hyperstartapi.ProcessFromOci(process.Id, &process.OciProcess))
 
 	return err
 }
