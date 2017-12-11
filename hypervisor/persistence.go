@@ -7,12 +7,15 @@ import (
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/api"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
-const CURRENT_PERSIST_VERSION = 20170611
+const CURRENT_PERSIST_VERSION = 20171210
+const COMPATIBLE_PERSIST_VERSION = CURRENT_PERSIST_VERSION
+
+// check to ensure CURRENT_PERSIST_VERSION >= COMPATIBLE_PERSIST_VERSION
+const _ uint = CURRENT_PERSIST_VERSION - COMPATIBLE_PERSIST_VERSION
 
 type VmHwStatus struct {
 	PciAddr  int    //next available pci addr for pci hotplug
@@ -30,7 +33,6 @@ type PersistVolumeInfo struct {
 	ScsiId       int
 	ContainerIds []string
 	IsRootVol    bool
-	Containers   []int // deprecated
 	MontPoints   []string
 }
 
@@ -51,7 +53,7 @@ type PersistInfo struct {
 	Id             string
 	Paused         bool
 	DriverInfo     map[string]interface{}
-	VmSpec         *hyperstartapi.Pod
+	SandboxConfig  *api.SandboxConfig
 	HwStat         *VmHwStatus
 	VolumeList     []*PersistVolumeInfo
 	NetworkList    []*PersistNetworkInfo
@@ -83,7 +85,7 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 		Id:             ctx.Id,
 		Paused:         ctx.PauseState == PauseStatePaused,
 		DriverInfo:     dr,
-		VmSpec:         ctx.networks.sandboxInfo(),
+		SandboxConfig:  ctx.networks.SandboxConfig,
 		HwStat:         ctx.dumpHwInfo(),
 		VolumeList:     make([]*PersistVolumeInfo, len(ctx.volumes)+len(ctx.containers)),
 		NetworkList:    make([]*PersistNetworkInfo, len(nc.eth)+len(nc.lo)),
@@ -137,17 +139,13 @@ func (ctx *VmContext) dump() (*PersistInfo, error) {
 	}
 	defer nc.slotLock.RUnlock()
 
-	cid := 0
-	info.VmSpec.DeprecatedContainers = make([]hyperstartapi.Container, len(ctx.containers))
 	for _, c := range ctx.containers {
-		info.VmSpec.DeprecatedContainers[cid] = *c.VmSpec()
 		rootVolume := c.root.dump()
 		rootVolume.ContainerIds = []string{c.Id}
 		rootVolume.IsRootVol = true
 		info.VolumeList[vid] = rootVolume
 		info.Containers[c.Id] = c.ContainerDescription
 		vid++
-		cid++
 	}
 
 	return info, nil
@@ -198,17 +196,7 @@ func (vol *PersistVolumeInfo) blockInfo() *DiskDescriptor {
 }
 
 func (nc *NetworkContext) load(pinfo *PersistInfo) {
-	nc.SandboxConfig = &api.SandboxConfig{
-		Hostname: pinfo.VmSpec.Hostname,
-		Dns:      pinfo.VmSpec.Dns,
-	}
-	portWhilteList := pinfo.VmSpec.PortmappingWhiteLists
-	if portWhilteList != nil {
-		nc.Neighbors = &api.NeighborNetworks{
-			InternalNetworks: portWhilteList.InternalNetworks,
-			ExternalNetworks: portWhilteList.ExternalNetworks,
-		}
-	}
+	nc.SandboxConfig = pinfo.SandboxConfig
 
 	for i, p := range pinfo.PortList {
 		nc.ports[i] = p
@@ -251,7 +239,12 @@ func (pinfo *PersistInfo) serialize() ([]byte, error) {
 }
 
 func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmResponse) (*VmContext, error) {
-	oldVersion := pinfo.PersistVersion < 20170224
+	if pinfo.PersistVersion > CURRENT_PERSIST_VERSION {
+		return nil, fmt.Errorf("error: detech saved data of newer version: PersistInfo's PersistVersion is %d, but compiled code version is %d", pinfo.PersistVersion, CURRENT_PERSIST_VERSION)
+	}
+	if pinfo.PersistVersion < COMPATIBLE_PERSIST_VERSION {
+		return nil, fmt.Errorf("error: detech saved data of older version, but no compatible handler for it: PersistInfo's PersistVersion is %d, but lowest compatible version is %d", pinfo.PersistVersion, COMPATIBLE_PERSIST_VERSION)
+	}
 
 	dc, err := HDriver.LoadContext(pinfo.DriverInfo)
 	if err != nil {
@@ -279,25 +272,14 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 	imageMap := make(map[string]*DiskDescriptor)
 	// map container id to volume DiskContext list
 	volumeMap := make(map[string][]*DiskContext)
-	pcList := pinfo.VmSpec.DeprecatedContainers
 	for _, vol := range pinfo.VolumeList {
 		binfo := vol.blockInfo()
-		if oldVersion {
-			if len(vol.Containers) != len(vol.MontPoints) {
-				return nil, fmt.Errorf("persistent data corrupt, volume info mismatch")
+		if vol.IsRootVol {
+			if len(vol.ContainerIds) != 1 {
+				return nil, fmt.Errorf("persistent data corrupt, root volume mismatch")
 			}
-			if len(vol.MontPoints) == 1 && vol.MontPoints[0] == "/" {
-				imageMap[pcList[vol.Containers[0]].Id] = binfo
-				continue
-			}
-		} else {
-			if vol.IsRootVol {
-				if len(vol.ContainerIds) != 1 {
-					return nil, fmt.Errorf("persistent data corrupt, root volume mismatch")
-				}
-				imageMap[vol.ContainerIds[0]] = binfo
-				continue
-			}
+			imageMap[vol.ContainerIds[0]] = binfo
+			continue
 		}
 		ctx.volumes[binfo.Name] = &DiskContext{
 			DiskDescriptor: binfo,
@@ -307,29 +289,20 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 			// FIXME: is there any trouble if we set it as ready when restoring from persistence
 			ready: true,
 		}
-		if oldVersion {
-			for _, idx := range vol.Containers {
-				volumeMap[pcList[idx].Id] = append(volumeMap[pcList[idx].Id], ctx.volumes[binfo.Name])
-			}
-		} else {
-			for _, id := range vol.ContainerIds {
-				volumeMap[id] = append(volumeMap[id], ctx.volumes[binfo.Name])
-			}
+		for _, id := range vol.ContainerIds {
+			volumeMap[id] = append(volumeMap[id], ctx.volumes[binfo.Name])
 		}
 	}
 
-	for _, pc := range pcList {
-		bInfo, ok := imageMap[pc.Id]
+	for cid, des := range pinfo.Containers {
+		bInfo, ok := imageMap[cid]
 		if !ok {
 			return nil, fmt.Errorf("persistent data corrupt, lack of container root volume")
 		}
 		cc := &ContainerContext{
-			ContainerDescription: pinfo.Containers[pc.Id],
-			fsmap:                pc.Fsmap,
-			process:              pc.Process,
-			vmVolumes:            pc.Volumes,
+			ContainerDescription: des,
 			sandbox:              ctx,
-			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, pc.Id),
+			logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, cid),
 			root: &DiskContext{
 				DiskDescriptor: bInfo,
 				sandbox:        ctx,
@@ -339,12 +312,9 @@ func (pinfo *PersistInfo) vmContext(hub chan VmEvent, client chan *types.VmRespo
 				lock:           &sync.RWMutex{},
 			},
 		}
-		if cc.process.Id == "" {
-			cc.process.Id = "init"
-		}
 		// restore wg for volumes attached to container
 		wgDisk := &sync.WaitGroup{}
-		volList, ok := volumeMap[pc.Id]
+		volList, ok := volumeMap[cid]
 		if ok {
 			cc.Volumes = make(map[string]*api.VolumeReference, len(volList))
 			for _, vol := range volList {

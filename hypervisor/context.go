@@ -320,8 +320,6 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 	}
 	cc := &ContainerContext{
 		ContainerDescription: c,
-		fsmap:                []*hyperstartapi.FsmapDescriptor{},
-		vmVolumes:            []*hyperstartapi.VolumeDescriptor{},
 		sandbox:              ctx,
 		logPrefix:            fmt.Sprintf("SB[%s] Con[%s] ", ctx.Id, c.Id),
 	}
@@ -353,9 +351,6 @@ func (ctx *VmContext) AddContainer(c *api.ContainerDescription, result chan api.
 		entry.wait(c.Id, wgDisk)
 		added = append(added, vn)
 	}
-
-	//prepare runtime environment
-	cc.configProcess()
 
 	cc.root = NewDiskContext(ctx, c.RootVolume)
 	cc.root.isRootVol = true

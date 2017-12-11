@@ -17,7 +17,6 @@ type ContainerDescription struct {
 	Image string
 	// User content or user specified behavior
 	Labels     map[string]string
-	Tty        bool
 	StopSignal string
 	// Creation Info, got during creation
 	RootVolume *VolumeDescription
@@ -27,6 +26,9 @@ type ContainerDescription struct {
 	Volumes    map[string]*VolumeReference
 	Initialize bool
 
+	// Any path referenced to the host path should be moved to
+	// VolumeDescription(RootVolume or vm.AddVolume()) and VolumeReference
+	// shadow copy, the caller shouldn't modify the spec
 	OciSpec ocispecs.Spec
 }
 
@@ -95,7 +97,10 @@ type Rlimit struct {
 }
 
 type Process struct {
-	Container  string
-	Id         string
+	Container string
+	Id        string
+	UGI       *UserGroupInfo
+
+	// shadow copy, the caller shouldn't modify the spec
 	OciProcess ocispecs.Process
 }
