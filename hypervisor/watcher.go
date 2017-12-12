@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/lib/telnet"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/hyperhq/runv/lib/utils"
@@ -78,10 +78,10 @@ func WatchConsole(proto, console string) error {
 	return nil
 }
 
-func WatchHyperstart(h libhyperstart.Hyperstart) error {
+func WatchHyperstart(h agent.SandboxAgent) error {
 	next := time.NewTimer(10 * time.Second)
 	timeout := time.AfterFunc(60*time.Second, func() {
-		glog.Errorf("watch hyperstart timeout")
+		glog.Errorf("watch agent timeout")
 		h.Close()
 	})
 	defer next.Stop()

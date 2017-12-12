@@ -11,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/agent"
 	_ "github.com/hyperhq/runv/cli/nsenter"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/kardianos/osext"
 	"github.com/kr/pty"
@@ -51,7 +51,7 @@ var shimCommand = cli.Command{
 		container := context.String("container")
 		process := context.String("process")
 
-		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
+		h, err := agent.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to connect to hyperstart proxy: %v", err), -1)
 		}
@@ -99,11 +99,11 @@ var shimCommand = cli.Command{
 	},
 }
 
-func proxyStdio(h libhyperstart.Hyperstart, container, process string, wg *sync.WaitGroup) {
+func proxyStdio(h agent.SandboxAgent, container, process string, wg *sync.WaitGroup) {
 	// don't wait the copying of the stdin, because `io.Copy(inPipe, os.Stdin)`
 	// can't terminate when no input. todo: find a better way.
 	wg.Add(2)
-	inPipe, outPipe, errPipe := libhyperstart.StdioPipe(h, container, process)
+	inPipe, outPipe, errPipe := agent.StdioPipe(h, container, process)
 	go func() {
 		_, err1 := io.Copy(inPipe, os.Stdin)
 		err2 := h.CloseStdin(container, process)
@@ -123,7 +123,7 @@ func proxyStdio(h libhyperstart.Hyperstart, container, process string, wg *sync.
 	}()
 }
 
-func forwardAllSignals(h libhyperstart.Hyperstart, container, process string) chan os.Signal {
+func forwardAllSignals(h agent.SandboxAgent, container, process string) chan os.Signal {
 	sigc := make(chan os.Signal, 2048)
 	// handle all signals for the process.
 	signal.Notify(sigc)

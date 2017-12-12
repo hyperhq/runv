@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/api"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -169,7 +169,7 @@ func (vm *Vm) WaitVm(timeout int) <-chan error {
 }
 
 func (vm *Vm) WaitProcess(container, process string) int {
-	return vm.ctx.hyperstart.WaitProcess(container, process)
+	return vm.ctx.agent.WaitProcess(container, process)
 }
 
 func (vm *Vm) InitSandbox(config *api.SandboxConfig) error {
@@ -220,7 +220,7 @@ func (vm *Vm) Kill() {
 }
 
 func (vm *Vm) SignalProcess(container, process string, signal syscall.Signal) error {
-	return vm.ctx.hyperstart.SignalProcess(container, process, signal)
+	return vm.ctx.agent.SignalProcess(container, process, signal)
 }
 
 func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
@@ -229,7 +229,7 @@ func (vm *Vm) KillContainer(container string, signal syscall.Signal) error {
 
 func (vm *Vm) AddRoute() error {
 	routes := vm.ctx.networks.getRoutes()
-	return vm.ctx.hyperstart.AddRoute(routes)
+	return vm.ctx.agent.AddRoute(routes)
 }
 
 func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
@@ -248,7 +248,7 @@ func (vm *Vm) AddNic(info *api.InterfaceDescription) error {
 	if vm.ctx.LogLevel(TRACE) {
 		vm.Log(TRACE, "finial vmSpec.Interface is %#v", vm.ctx.networks.getInterface(info.Id))
 	}
-	return vm.ctx.hyperstartAddInterface(info.Id)
+	return vm.ctx.agentAddInterface(info.Id)
 }
 
 func (vm *Vm) AllNics() []*InterfaceCreated {
@@ -256,7 +256,7 @@ func (vm *Vm) AllNics() []*InterfaceCreated {
 }
 
 func (vm *Vm) DeleteNic(id string) error {
-	if err := vm.ctx.hyperstartDeleteInterface(id); err != nil {
+	if err := vm.ctx.agentDeleteInterface(id); err != nil {
 		return err
 	}
 	client := make(chan api.Result, 1)
@@ -275,7 +275,7 @@ func (vm *Vm) DeleteNic(id string) error {
 }
 
 func (vm *Vm) UpdateNic(inf *api.InterfaceDescription) error {
-	if err := vm.ctx.hyperstartUpdateInterface(inf.Id, inf.Ip, inf.Mtu); err != nil {
+	if err := vm.ctx.agentUpdateInterface(inf.Id, inf.Ip, inf.Mtu); err != nil {
 		return err
 	}
 	return vm.ctx.UpdateInterface(inf)
@@ -315,7 +315,7 @@ func (vm *Vm) AddMem(totalMem int) error {
 }
 
 func (vm *Vm) OnlineCpuMem() error {
-	return vm.ctx.hyperstart.OnlineCpuMem()
+	return vm.ctx.agent.OnlineCpuMem()
 }
 
 func (vm *Vm) AddProcess(process *api.Process) error {
@@ -323,7 +323,7 @@ func (vm *Vm) AddProcess(process *api.Process) error {
 		return NewNotReadyError(vm.Id)
 	}
 
-	err := vm.ctx.hyperstart.AddProcess(process.Container, hyperstartapi.ProcessFromOci(process.Id, &process.OciProcess))
+	err := vm.ctx.agent.AddProcess(process.Container, hyperstartapi.ProcessFromOci(process.Id, &process.OciProcess))
 
 	return err
 }
@@ -411,7 +411,7 @@ func (vm *Vm) Tty(containerId, execId string, row, column int) error {
 	if execId == "" {
 		execId = "init"
 	}
-	return vm.ctx.hyperstart.TtyWinResize(containerId, execId, uint16(row), uint16(column))
+	return vm.ctx.agent.TtyWinResize(containerId, execId, uint16(row), uint16(column))
 }
 
 func (vm *Vm) Stats() *types.PodStats {
@@ -457,7 +457,7 @@ func (vm *Vm) Pause(pause bool) error {
 	if ctx.PauseState != pauseState {
 		/* FIXME: only support pause whole vm now */
 		if pause {
-			err = ctx.hyperstart.PauseSync()
+			err = ctx.agent.PauseSync()
 		}
 		if err != nil {
 			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
@@ -472,7 +472,7 @@ func (vm *Vm) Pause(pause bool) error {
 		}
 
 		if !pause {
-			err = ctx.hyperstart.Unpause()
+			err = ctx.agent.Unpause()
 		}
 		if err != nil {
 			vm.Log(ERROR, "%s sandbox failed: %v", command, err)
@@ -551,7 +551,7 @@ func GetVm(vmId string, b *BootConfig, waitStarted bool) (*Vm, error) {
 
 	if waitStarted {
 		vm.Log(TRACE, "waiting for vm to start")
-		if _, err := vm.ctx.hyperstart.APIVersion(); err != nil {
+		if _, err := vm.ctx.agent.APIVersion(); err != nil {
 			vm.Log(ERROR, "VM start failed: %v", err)
 			return nil, fmt.Errorf("VM start failed: %v", err)
 		}

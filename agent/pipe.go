@@ -1,9 +1,9 @@
-package libhyperstart
+package agent
 
 import "io"
 
 type inPipe struct {
-	h    Hyperstart
+	h    SandboxAgent
 	c, p string
 }
 
@@ -16,7 +16,7 @@ func (p *inPipe) Close() error {
 }
 
 type outPipe struct {
-	h    Hyperstart
+	h    SandboxAgent
 	c, p string
 }
 
@@ -25,7 +25,7 @@ func (p *outPipe) Read(data []byte) (n int, err error) {
 }
 
 type errPipe struct {
-	h    Hyperstart
+	h    SandboxAgent
 	c, p string
 }
 
@@ -33,6 +33,6 @@ func (p *errPipe) Read(data []byte) (n int, err error) {
 	return p.h.ReadStderr(p.c, p.p, data)
 }
 
-func StdioPipe(h Hyperstart, c, p string) (io.WriteCloser, io.Reader, io.Reader) {
+func StdioPipe(h SandboxAgent, c, p string) (io.WriteCloser, io.Reader, io.Reader) {
 	return &inPipe{h: h, c: c, p: p}, &outPipe{h: h, c: c, p: p}, &errPipe{h: h, c: c, p: p}
 }

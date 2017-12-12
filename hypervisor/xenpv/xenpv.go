@@ -9,7 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/golang/glog"
-	api "github.com/hyperhq/runv/hyperstart/api/json"
+	api "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
 	xl "github.com/hyperhq/runv/lib/runvxenlight"

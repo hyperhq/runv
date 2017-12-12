@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/api"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
 )
 
 type ContainerContext struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/hypervisor/network"
 )
 
@@ -29,7 +29,7 @@ func (ctx *VmContext) newContainer(id string) error {
 	if ok {
 		ctx.Log(TRACE, "start sending INIT_NEWCONTAINER")
 		var err error
-		err = ctx.hyperstart.NewContainer(c.VmSpec())
+		err = ctx.agent.NewContainer(c.VmSpec())
 		ctx.Log(TRACE, "sent INIT_NEWCONTAINER")
 		return err
 	} else {
@@ -37,7 +37,7 @@ func (ctx *VmContext) newContainer(id string) error {
 	}
 }
 
-func (ctx *VmContext) hyperstartAddInterface(id string) error {
+func (ctx *VmContext) agentAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
@@ -53,7 +53,7 @@ func (ctx *VmContext) hyperstartAddInterface(id string) error {
 			maskStr := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
 			addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), maskStr})
 		}
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddInf, inf.DeviceName, inf.NewName, addrs, inf.Mtu); err != nil {
+		if err := ctx.agent.UpdateInterface(agent.AddInf, inf.DeviceName, inf.NewName, addrs, inf.Mtu); err != nil {
 			return err
 		}
 
@@ -61,16 +61,16 @@ func (ctx *VmContext) hyperstartAddInterface(id string) error {
 	return nil
 }
 
-func (ctx *VmContext) hyperstartDeleteInterface(id string) error {
+func (ctx *VmContext) agentDeleteInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
 		// using new name as device name
-		return ctx.hyperstart.UpdateInterface(libhyperstart.DelInf, inf.NewName, "", nil, 0)
+		return ctx.agent.UpdateInterface(agent.DelInf, inf.NewName, "", nil, 0)
 	}
 }
 
-func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu uint64) error {
+func (ctx *VmContext) agentUpdateInterface(id string, addresses string, mtu uint64) error {
 	var (
 		addIP, delIP []hyperstartapi.IpAddress
 	)
@@ -107,19 +107,19 @@ func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu
 	}
 
 	if len(addIP) != 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.AddIP, inf.NewName, "", addIP, 0); err != nil {
+		if err := ctx.agent.UpdateInterface(agent.AddIP, inf.NewName, "", addIP, 0); err != nil {
 			return err
 		}
 	}
 
 	if len(delIP) != 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.DelIP, inf.NewName, "", delIP, 0); err != nil {
+		if err := ctx.agent.UpdateInterface(agent.DelIP, inf.NewName, "", delIP, 0); err != nil {
 			return err
 		}
 	}
 
 	if mtu > 0 {
-		if err := ctx.hyperstart.UpdateInterface(libhyperstart.SetMtu, inf.NewName, "", nil, mtu); err != nil {
+		if err := ctx.agent.UpdateInterface(agent.SetMtu, inf.NewName, "", nil, mtu); err != nil {
 			return err
 		}
 	}
@@ -128,7 +128,7 @@ func (ctx *VmContext) hyperstartUpdateInterface(id string, addresses string, mtu
 
 func (ctx *VmContext) startPod() error {
 	ctx.Log(INFO, "startPod: %#v", ctx.networks.sandboxInfo())
-	err := ctx.hyperstart.StartSandbox(ctx.networks.sandboxInfo())
+	err := ctx.agent.StartSandbox(ctx.networks.sandboxInfo())
 	if err == nil {
 		ctx.Log(INFO, "pod start successfully")
 		ctx.reportSuccess("Start POD success", []byte{})
@@ -142,7 +142,7 @@ func (ctx *VmContext) startPod() error {
 
 func (ctx *VmContext) shutdownVM() {
 	ctx.setTimeout(10)
-	err := ctx.hyperstart.DestroySandbox()
+	err := ctx.agent.DestroySandbox()
 	if err == nil {
 		ctx.Log(DEBUG, "POD destroyed")
 		ctx.poweroffVM(false, "")

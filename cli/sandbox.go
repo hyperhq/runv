@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/factory"
 	singlefactory "github.com/hyperhq/runv/factory/single"
 	templatefactory "github.com/hyperhq/runv/factory/template"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor"
 	templatecore "github.com/hyperhq/runv/template"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -213,12 +213,12 @@ func shareDirPath(vm *hypervisor.Vm) string {
 }
 
 func setupHyperstartFunc(context *cli.Context) {
-	libhyperstart.NewHyperstart = func(vmid, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (libhyperstart.Hyperstart, error) {
+	agent.NewHyperstart = func(vmid, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (agent.SandboxAgent, error) {
 		return newHyperstart(context, vmid, ctlSock, streamSock)
 	}
 }
 
-func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (libhyperstart.Hyperstart, error) {
+func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (agent.SandboxAgent, error) {
 	grpcSock := filepath.Join(hypervisor.BaseDir, vmid, "hyperstartgrpc.sock")
 
 	glog.Infof("newHyperstart() on socket: %s", grpcSock)
@@ -241,9 +241,9 @@ func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (libh
 		}
 	}
 
-	h, err := libhyperstart.NewGrpcBasedHyperstart(grpcSock)
+	h, err := agent.NewGrpcBasedHyperstart(grpcSock)
 	if err != nil {
-		glog.Errorf("libhyperstart.NewGrpcBasedHyperstart() failed with err: %#v", err)
+		glog.Errorf("agent.NewGrpcBasedHyperstart() failed with err: %#v", err)
 	}
 	return h, err
 }

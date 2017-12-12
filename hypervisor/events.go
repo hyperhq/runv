@@ -32,7 +32,7 @@ type VolumeUnmounted struct {
 
 type BlockdevInsertedEvent struct {
 	DeviceName string
-	ScsiAddr   string // pass scsi addr to hyperstart
+	ScsiAddr   string // pass scsi addr to agent
 }
 
 type InterfaceCreated struct {

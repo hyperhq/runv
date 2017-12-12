@@ -1,9 +1,9 @@
-package libhyperstart
+package agent
 
 import (
 	"syscall"
 
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 )
 
 type InfUpdateType uint64
@@ -16,8 +16,8 @@ const (
 	SetMtu
 )
 
-// Hyperstart interface to hyperstart API
-type Hyperstart interface {
+// SandboxAgent interface to agent API
+type SandboxAgent interface {
 	Close()
 	LastStreamSeq() uint64
 
