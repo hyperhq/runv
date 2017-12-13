@@ -5,6 +5,12 @@ else
 XEN_BUILD_TAG=
 endif
 
+if WITH_XEN490
+XEN490_BUILD_TAG=with_xen490
+else
+XEN490_BUILD_TAG=
+endif
+
 if WITH_LIBVIRT
 LIBVIRT_BUILD_TAG=with_libvirt
 else
@@ -13,7 +19,7 @@ endif
 
 COMMIT=`git describe --dirty --always --tags 2> /dev/null || true`
 GOLDFLAGS="-X main.gitCommit=${COMMIT} -X main.version=${VERSION}"
-HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
+HYPER_BULD_TAGS=$(XEN_BUILD_TAG) $(XEN490_BUILD_TAG) $(LIBVIRT_BUILD_TAG)
 
 all-local: build-runv
 clean-local:
