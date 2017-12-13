@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
-	"github.com/hyperhq/runv/hyperstart/proxy"
+	"github.com/hyperhq/runv/agent"
+	"github.com/hyperhq/runv/agent/proxy"
 	"github.com/kardianos/osext"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
@@ -45,8 +45,8 @@ var proxyCommand = cli.Command{
 			context.String("hyperstart-stream-sock") == "" || context.String("proxy-hyperstart") == "" {
 			return err
 		}
-		glog.Infof("libhyperstart.NewJsonBasedHyperstart")
-		h, _ := libhyperstart.NewJsonBasedHyperstart(context.String("vmid"), context.String("hyperstart-ctl-sock"), context.String("hyperstart-stream-sock"), 1, false, false)
+		glog.Infof("agent.NewJsonBasedHyperstart")
+		h, _ := agent.NewJsonBasedHyperstart(context.String("vmid"), context.String("hyperstart-ctl-sock"), context.String("hyperstart-stream-sock"), 1, false, false)
 
 		var s *grpc.Server
 		grpcSock := context.String("proxy-hyperstart")

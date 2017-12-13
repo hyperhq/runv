@@ -1,4 +1,4 @@
-package libhyperstart
+package agent
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	hyperstartgrpc "github.com/hyperhq/runv/hyperstart/api/grpc"
-	hyperstartjson "github.com/hyperhq/runv/hyperstart/api/json"
+	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
+	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -24,7 +24,7 @@ type grpcBasedHyperstart struct {
 }
 
 // NewGrpcBasedHyperstart create hyperstart interface with grpc protocol
-func NewGrpcBasedHyperstart(hyperstartGRPCSock string) (Hyperstart, error) {
+func NewGrpcBasedHyperstart(hyperstartGRPCSock string) (SandboxAgent, error) {
 	grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
 	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithTimeout(5 * time.Second)}
 	dialOpts = append(dialOpts,

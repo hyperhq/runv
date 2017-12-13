@@ -7,9 +7,9 @@ import (
 	"time"
 
 	google_protobuf "github.com/golang/protobuf/ptypes/empty"
-	hyperstartgrpc "github.com/hyperhq/runv/hyperstart/api/grpc"
-	hyperstartjson "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
+	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
+	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -18,7 +18,7 @@ import (
 
 type jsonProxy struct {
 	// json hyperstart api
-	json libhyperstart.Hyperstart
+	json agent.SandboxAgent
 
 	// grpc server
 	address string
@@ -128,7 +128,7 @@ func (proxy *jsonProxy) UpdateInterface(ctx context.Context, req *hyperstartgrpc
 		addresses = append(addresses, hyperstartjson.IpAddress{addr.Address, addr.Mask})
 	}
 
-	err := proxy.json.UpdateInterface(libhyperstart.InfUpdateType(req.Type), req.Device, req.NewName, addresses, req.Mtu)
+	err := proxy.json.UpdateInterface(agent.InfUpdateType(req.Type), req.Device, req.NewName, addresses, req.Mtu)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) AddRoute(ctx context.Context, req *hyperstartgrpc.AddRouteRequest) (*google_protobuf.Empty, error) {
@@ -149,7 +149,7 @@ func (proxy *jsonProxy) OnlineCPUMem(ctx context.Context, req *hyperstartgrpc.On
 }
 
 // NewServer initializes a brand new grpc server with registered grpc services
-func NewServer(address string, json libhyperstart.Hyperstart) (*grpc.Server, error) {
+func NewServer(address string, json agent.SandboxAgent) (*grpc.Server, error) {
 	s := grpc.NewServer()
 	jp := &jsonProxy{
 		json: json,

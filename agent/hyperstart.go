@@ -1,4 +1,4 @@
-package libhyperstart
+package agent
 
 import (
 	"encoding/binary"
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
@@ -60,7 +60,7 @@ type hyperstartCmd struct {
 	result chan<- error
 }
 
-func NewJsonBasedHyperstart(id, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (Hyperstart, error) {
+func NewJsonBasedHyperstart(id, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (SandboxAgent, error) {
 	h := &jsonBasedHyperstart{
 		logPrefix:     fmt.Sprintf("SB[%s] ", id),
 		procs:         make(map[pKey]*pState),

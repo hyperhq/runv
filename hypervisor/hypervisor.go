@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
@@ -43,9 +43,9 @@ func (ctx *VmContext) Launch() {
 	if ctx.Boot.BootFromTemplate {
 		ctx.Log(TRACE, "boot from template")
 		ctx.PauseState = PauseStatePaused
-		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
+		ctx.agent, err = agent.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, false, true)
 	} else {
-		ctx.hyperstart, err = libhyperstart.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
+		ctx.agent, err = agent.NewHyperstart(ctx.Id, ctx.ctlSockAddr(), ctx.ttySockAddr(), 1, true, false)
 	}
 	if err != nil {
 		ctx.Log(ERROR, "failed to create hypervisor")
@@ -79,7 +79,7 @@ func VmAssociate(vmId string, hub chan VmEvent, client chan *types.VmResponse, p
 	}
 
 	paused := context.PauseState == PauseStatePaused
-	context.hyperstart, err = libhyperstart.NewHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
+	context.agent, err = agent.NewHyperstart(context.Id, context.ctlSockAddr(), context.ttySockAddr(), pinfo.HwStat.AttachId, false, paused)
 	if err != nil {
 		context.Log(ERROR, "failed to create hypervisor")
 		return nil, err

@@ -16,7 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hyperstart/api/json"
+	"github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/network"
 	"github.com/hyperhq/runv/hypervisor/types"

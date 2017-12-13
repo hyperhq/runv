@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/lib/linuxsignal"
 	"github.com/urfave/cli"
 )
@@ -87,7 +87,7 @@ signal to the init process of the "ubuntu01" container:
 			return cli.NewExitError(fmt.Sprintf("parse signal failed %v, signal string:%s", err, sigstr), -1)
 		}
 
-		h, err := libhyperstart.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
+		h, err := agent.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}

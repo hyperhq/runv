@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperhq/runv/agent"
+	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/api"
-	hyperstartapi "github.com/hyperhq/runv/hyperstart/api/json"
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
 )
@@ -44,7 +44,7 @@ type VmContext struct {
 
 	//	InterfaceCount int
 
-	hyperstart libhyperstart.Hyperstart
+	agent agent.SandboxAgent
 
 	// Specification
 	volumes    map[string]*DiskContext
@@ -196,7 +196,7 @@ func (ctx *VmContext) Close() {
 		ctx.Log(INFO, "VmContext Close()")
 		ctx.lock.Lock()
 		defer ctx.lock.Unlock()
-		ctx.hyperstart.Close()
+		ctx.agent.Close()
 		ctx.unsetTimeout()
 		ctx.networks.close()
 		ctx.DCtx.Close()

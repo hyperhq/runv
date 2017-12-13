@@ -7,12 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/hyperhq/runv/hyperstart/libhyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/lib/term"
 	"github.com/opencontainers/runc/libcontainer/utils"
 )
 
-func resizeTty(h libhyperstart.Hyperstart, container, process string) {
+func resizeTty(h agent.SandboxAgent, container, process string) {
 	ws, err := term.GetWinsize(os.Stdin.Fd())
 	if err != nil {
 		fmt.Printf("Error getting size: %s", err.Error())
@@ -24,7 +24,7 @@ func resizeTty(h libhyperstart.Hyperstart, container, process string) {
 	}
 }
 
-func monitorTtySize(h libhyperstart.Hyperstart, container, process string) {
+func monitorTtySize(h agent.SandboxAgent, container, process string) {
 	resizeTty(h, container, process)
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)

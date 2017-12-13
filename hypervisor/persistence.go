@@ -155,7 +155,7 @@ func (ctx *VmContext) dumpHwInfo() *VmHwStatus {
 	return &VmHwStatus{
 		PciAddr:  ctx.pciAddr,
 		ScsiId:   ctx.scsiId,
-		AttachId: ctx.hyperstart.LastStreamSeq(),
+		AttachId: ctx.agent.LastStreamSeq(),
 		GuestCid: ctx.GuestCid,
 	}
 }
