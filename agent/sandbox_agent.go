@@ -16,6 +16,12 @@ const (
 	SetMtu
 )
 
+// adaptor types for different protocols
+type IpAddress struct {
+	IpAddress string
+	NetMask   string
+}
+
 // SandboxAgent interface to agent API
 type SandboxAgent interface {
 	Close()
@@ -42,7 +48,7 @@ type SandboxAgent interface {
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)
 	AddRoute(r []hyperstartapi.Route) error
-	UpdateInterface(t InfUpdateType, dev, newName string, addresses []hyperstartapi.IpAddress, mtu uint64) error
+	UpdateInterface(t InfUpdateType, dev, newName string, addresses []IpAddress, mtu uint64) error
 	OnlineCpuMem() error
 }
 

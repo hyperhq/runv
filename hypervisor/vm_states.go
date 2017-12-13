@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/hyperhq/runv/agent"
-	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/hypervisor/network"
 )
 
@@ -41,7 +40,7 @@ func (ctx *VmContext) agentAddInterface(id string) error {
 	if inf := ctx.networks.getInterface(id); inf == nil {
 		return fmt.Errorf("can't find interface whose ID is %s", id)
 	} else {
-		addrs := []hyperstartapi.IpAddress{}
+		addrs := []agent.IpAddress{}
 		ipAddrs := strings.Split(inf.IpAddr, ",")
 		for _, addr := range ipAddrs {
 			ip, mask, err := network.IpParser(addr)
@@ -49,9 +48,9 @@ func (ctx *VmContext) agentAddInterface(id string) error {
 				return err
 			}
 			// size, _ := mask.Size()
-			// addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+			// addrs = append(addrs, agent.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
 			maskStr := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
-			addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), maskStr})
+			addrs = append(addrs, agent.IpAddress{ip.String(), maskStr})
 		}
 		if err := ctx.agent.UpdateInterface(agent.AddInf, inf.DeviceName, inf.NewName, addrs, inf.Mtu); err != nil {
 			return err
@@ -72,7 +71,7 @@ func (ctx *VmContext) agentDeleteInterface(id string) error {
 
 func (ctx *VmContext) agentUpdateInterface(id string, addresses string, mtu uint64) error {
 	var (
-		addIP, delIP []hyperstartapi.IpAddress
+		addIP, delIP []agent.IpAddress
 	)
 	inf := ctx.networks.getInterface(id)
 	if inf == nil {
@@ -95,13 +94,13 @@ func (ctx *VmContext) agentUpdateInterface(id string, addresses string, mtu uint
 				return err
 			}
 			// size, _ := mask.Size()
-			// addrs = append(addrs, hyperstartapi.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
+			// addrs = append(addrs, agent.IpAddress{ip.String(), fmt.Sprintf("%d", size)})
 			maskStr := fmt.Sprintf("%d.%d.%d.%d", mask[0], mask[1], mask[2], mask[3])
 
 			if del {
-				delIP = append(delIP, hyperstartapi.IpAddress{ip.String(), maskStr})
+				delIP = append(delIP, agent.IpAddress{ip.String(), maskStr})
 			} else {
-				addIP = append(addIP, hyperstartapi.IpAddress{ip.String(), maskStr})
+				addIP = append(addIP, agent.IpAddress{ip.String(), maskStr})
 			}
 		}
 	}
