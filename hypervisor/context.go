@@ -68,12 +68,6 @@ type VmContext struct {
 
 type stateHandler func(ctx *VmContext, event VmEvent)
 
-func NewVmSpec() *hyperstartapi.Pod {
-	return &hyperstartapi.Pod{
-		ShareDir: ShareDirTag,
-	}
-}
-
 func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc DriverContext, boot *BootConfig) (*VmContext, error) {
 	var (
 		//dir and sockets:

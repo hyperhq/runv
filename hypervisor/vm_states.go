@@ -126,8 +126,8 @@ func (ctx *VmContext) agentUpdateInterface(id string, addresses string, mtu uint
 }
 
 func (ctx *VmContext) startPod() error {
-	ctx.Log(INFO, "startPod: %#v", ctx.networks.sandboxInfo())
-	err := ctx.agent.StartSandbox(ctx.networks.sandboxInfo())
+	ctx.Log(INFO, "startPod: sharetag:%s, %#v", ShareDirTag, ctx.networks.SandboxConfig)
+	err := ctx.agent.StartSandbox(ctx.networks.SandboxConfig, ShareDirTag)
 	if err == nil {
 		ctx.Log(INFO, "pod start successfully")
 		ctx.reportSuccess("Start POD success", []byte{})

@@ -10,6 +10,7 @@ import (
 	"github.com/hyperhq/runv/agent"
 	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -108,12 +109,11 @@ func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *hyperstartgrpc.Tt
 }
 
 func (proxy *jsonProxy) StartSandbox(ctx context.Context, req *hyperstartgrpc.StartSandboxRequest) (*google_protobuf.Empty, error) {
-	pod := &hyperstartjson.Pod{
+	sb := &runvapi.SandboxConfig{
 		Hostname: req.Hostname,
 		Dns:      req.Dns,
-		ShareDir: "share_dir",
 	}
-	err := proxy.json.StartSandbox(pod)
+	err := proxy.json.StartSandbox(sb, "share_dir")
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) DestroySandbox(ctx context.Context, req *hyperstartgrpc.DestroySandboxRequest) (*google_protobuf.Empty, error) {

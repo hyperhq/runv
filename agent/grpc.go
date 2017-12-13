@@ -12,6 +12,7 @@ import (
 
 	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -244,10 +245,10 @@ func (h *grpcBasedHyperstart) WaitProcess(container, process string) int {
 	return int(ret.Status)
 }
 
-func (h *grpcBasedHyperstart) StartSandbox(pod *hyperstartjson.Pod) error {
+func (h *grpcBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error {
 	_, err := h.grpc.StartSandbox(h.ctx, &hyperstartgrpc.StartSandboxRequest{
-		Hostname: pod.Hostname,
-		Dns:      pod.Dns,
+		Hostname: sb.Hostname,
+		Dns:      sb.Dns,
 	})
 	return err
 }

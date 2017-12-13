@@ -40,24 +40,6 @@ func NewNetworkContext() *NetworkContext {
 	}
 }
 
-func (nc *NetworkContext) sandboxInfo() *hyperstartapi.Pod {
-
-	vmSpec := NewVmSpec()
-
-	vmSpec.Hostname = nc.Hostname
-	vmSpec.Dns = nc.Dns
-	vmSpec.DnsSearch = nc.DnsSearch
-	vmSpec.DnsOptions = nc.DnsOptions
-	if nc.Neighbors != nil {
-		vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
-			InternalNetworks: nc.Neighbors.InternalNetworks,
-			ExternalNetworks: nc.Neighbors.ExternalNetworks,
-		}
-	}
-
-	return vmSpec
-}
-
 func (nc *NetworkContext) applySlot() int {
 	for i := 0; i <= MAX_NIC; i++ {
 		if _, ok := nc.eth[i]; !ok {

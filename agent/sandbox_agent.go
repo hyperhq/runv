@@ -4,6 +4,7 @@ import (
 	"syscall"
 
 	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 )
 
 type InfUpdateType uint64
@@ -43,7 +44,7 @@ type SandboxAgent interface {
 	CloseStdin(container, process string) error
 	TtyWinResize(container, process string, row, col uint16) error
 
-	StartSandbox(pod *hyperstartapi.Pod) error
+	StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error
 	DestroySandbox() error
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
@@ -917,8 +918,21 @@ func (h *jsonBasedHyperstart) WaitProcess(container, process string) int {
 	return -1
 }
 
-func (h *jsonBasedHyperstart) StartSandbox(pod *hyperstartapi.Pod) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_STARTPOD, pod)
+func (h *jsonBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error {
+	vmSpec := hyperstartapi.Pod{ShareDir: sharetag}
+
+	vmSpec.Hostname = sb.Hostname
+	vmSpec.Dns = sb.Dns
+	vmSpec.DnsSearch = sb.DnsSearch
+	vmSpec.DnsOptions = sb.DnsOptions
+	if sb.Neighbors != nil {
+		vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
+			InternalNetworks: sb.Neighbors.InternalNetworks,
+			ExternalNetworks: sb.Neighbors.ExternalNetworks,
+		}
+	}
+
+	return h.hyperstartCommand(hyperstartapi.INIT_STARTPOD, vmSpec)
 }
 
 func (h *jsonBasedHyperstart) DestroySandbox() error {
