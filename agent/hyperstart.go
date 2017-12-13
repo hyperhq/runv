@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
 	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/lib/utils"
 )
 
@@ -642,20 +643,35 @@ func (h *jsonBasedHyperstart) ReadFile(container, path string) ([]byte, error) {
 	})
 }
 
-func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
+func (h *jsonBasedHyperstart) AddRoute(r []Route) error {
+	routes := []hyperstartapi.Route{}
+	for _, e := range r {
+		routes = append(routes, hyperstartapi.Route{
+			Dest:    e.Dest,
+			Gateway: e.Gateway,
+			Device:  e.Device,
+		})
+	}
+	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: routes})
 }
 
-func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []hyperstartapi.IpAddress, mtu uint64) error {
+func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []IpAddress, mtu uint64) error {
 	inf := hyperstartapi.NetworkInf{
 		Device:      dev,
 		IpAddresses: []hyperstartapi.IpAddress{},
+	}
+	ips := make([]hyperstartapi.IpAddress, len(ipAddresses))
+	for i, ip := range ipAddresses {
+		ips[i] = hyperstartapi.IpAddress{
+			IpAddress: ip.IpAddress,
+			NetMask:   ip.NetMask,
+		}
 	}
 	switch t {
 	case AddInf:
 		inf.NewName = newName
 		inf.Mtu = mtu
-		inf.IpAddresses = ipAddresses
+		inf.IpAddresses = ips
 		if err := h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
 			return fmt.Errorf("json: failed to send <add interface> command to hyperstart: %v", err)
 		}
@@ -664,7 +680,7 @@ func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName stri
 			return fmt.Errorf("json: failed to send <delete interface> command to hyperstart. inf: %#v, error: %v", inf, err)
 		}
 	case AddIP:
-		inf.IpAddresses = ipAddresses
+		inf.IpAddresses = ips
 		if err := h.hyperstartCommand(hyperstartapi.INIT_SETUPINTERFACE, inf); err != nil {
 			return fmt.Errorf("json: failed to send <add ip> command to hyperstart: %v", err)
 		}
@@ -910,8 +926,21 @@ func (h *jsonBasedHyperstart) WaitProcess(container, process string) int {
 	return -1
 }
 
-func (h *jsonBasedHyperstart) StartSandbox(pod *hyperstartapi.Pod) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_STARTPOD, pod)
+func (h *jsonBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error {
+	vmSpec := hyperstartapi.Pod{ShareDir: sharetag}
+
+	vmSpec.Hostname = sb.Hostname
+	vmSpec.Dns = sb.Dns
+	vmSpec.DnsSearch = sb.DnsSearch
+	vmSpec.DnsOptions = sb.DnsOptions
+	if sb.Neighbors != nil {
+		vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
+			InternalNetworks: sb.Neighbors.InternalNetworks,
+			ExternalNetworks: sb.Neighbors.ExternalNetworks,
+		}
+	}
+
+	return h.hyperstartCommand(hyperstartapi.INIT_STARTPOD, vmSpec)
 }
 
 func (h *jsonBasedHyperstart) DestroySandbox() error {

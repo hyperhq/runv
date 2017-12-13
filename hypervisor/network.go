@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 )
@@ -38,24 +38,6 @@ func NewNetworkContext() *NetworkContext {
 		idMap:    make(map[string]*InterfaceCreated),
 		slotLock: &sync.RWMutex{},
 	}
-}
-
-func (nc *NetworkContext) sandboxInfo() *hyperstartapi.Pod {
-
-	vmSpec := NewVmSpec()
-
-	vmSpec.Hostname = nc.Hostname
-	vmSpec.Dns = nc.Dns
-	vmSpec.DnsSearch = nc.DnsSearch
-	vmSpec.DnsOptions = nc.DnsOptions
-	if nc.Neighbors != nil {
-		vmSpec.PortmappingWhiteLists = &hyperstartapi.PortmappingWhiteList{
-			InternalNetworks: nc.Neighbors.InternalNetworks,
-			ExternalNetworks: nc.Neighbors.ExternalNetworks,
-		}
-	}
-
-	return vmSpec
 }
 
 func (nc *NetworkContext) applySlot() int {
@@ -383,14 +365,14 @@ func (nc *NetworkContext) getIPAddrs() []string {
 	return res
 }
 
-func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
+func (nc *NetworkContext) getRoutes() []agent.Route {
 	nc.slotLock.RLock()
 	defer nc.slotLock.RUnlock()
-	routes := []hyperstartapi.Route{}
+	routes := []agent.Route{}
 
 	for _, inf := range nc.idMap {
 		for _, r := range inf.RouteTable {
-			routes = append(routes, hyperstartapi.Route{
+			routes = append(routes, agent.Route{
 				Dest:    r.Destination,
 				Gateway: r.Gateway,
 				Device:  inf.NewName,

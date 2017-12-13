@@ -12,6 +12,7 @@ import (
 
 	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -73,7 +74,7 @@ func (h *grpcBasedHyperstart) ReadFile(container, path string) ([]byte, error) {
 	return nil, fmt.Errorf("ReadFile() is unsupported on grpc based hyperstart API")
 }
 
-func (h *grpcBasedHyperstart) AddRoute(routes []hyperstartjson.Route) error {
+func (h *grpcBasedHyperstart) AddRoute(routes []Route) error {
 	req := &hyperstartgrpc.AddRouteRequest{}
 	for _, r := range routes {
 		req.Routes = append(req.Routes, &hyperstartgrpc.Route{
@@ -86,7 +87,7 @@ func (h *grpcBasedHyperstart) AddRoute(routes []hyperstartjson.Route) error {
 	return err
 }
 
-func (h *grpcBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []hyperstartjson.IpAddress, mtu uint64) error {
+func (h *grpcBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []IpAddress, mtu uint64) error {
 	req := &hyperstartgrpc.UpdateInterfaceRequest{
 		Type:    uint64(t),
 		Device:  dev,
@@ -244,10 +245,10 @@ func (h *grpcBasedHyperstart) WaitProcess(container, process string) int {
 	return int(ret.Status)
 }
 
-func (h *grpcBasedHyperstart) StartSandbox(pod *hyperstartjson.Pod) error {
+func (h *grpcBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error {
 	_, err := h.grpc.StartSandbox(h.ctx, &hyperstartgrpc.StartSandboxRequest{
-		Hostname: pod.Hostname,
-		Dns:      pod.Dns,
+		Hostname: sb.Hostname,
+		Dns:      sb.Dns,
 	})
 	return err
 }

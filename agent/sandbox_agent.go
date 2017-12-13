@@ -4,6 +4,7 @@ import (
 	"syscall"
 
 	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 )
 
 type InfUpdateType uint64
@@ -15,6 +16,18 @@ const (
 	DelIP
 	SetMtu
 )
+
+// adaptor types for different protocols
+type IpAddress struct {
+	IpAddress string
+	NetMask   string
+}
+
+type Route struct {
+	Dest    string
+	Gateway string
+	Device  string
+}
 
 // SandboxAgent interface to agent API
 type SandboxAgent interface {
@@ -37,12 +50,12 @@ type SandboxAgent interface {
 	CloseStdin(container, process string) error
 	TtyWinResize(container, process string, row, col uint16) error
 
-	StartSandbox(pod *hyperstartapi.Pod) error
+	StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error
 	DestroySandbox() error
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)
-	AddRoute(r []hyperstartapi.Route) error
-	UpdateInterface(t InfUpdateType, dev, newName string, addresses []hyperstartapi.IpAddress, mtu uint64) error
+	AddRoute(r []Route) error
+	UpdateInterface(t InfUpdateType, dev, newName string, addresses []IpAddress, mtu uint64) error
 	OnlineCpuMem() error
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/hyperhq/runv/agent"
 	hyperstartgrpc "github.com/hyperhq/runv/agent/api/grpc"
 	hyperstartjson "github.com/hyperhq/runv/agent/api/hyperstart"
+	runvapi "github.com/hyperhq/runv/api"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -108,12 +109,11 @@ func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *hyperstartgrpc.Tt
 }
 
 func (proxy *jsonProxy) StartSandbox(ctx context.Context, req *hyperstartgrpc.StartSandboxRequest) (*google_protobuf.Empty, error) {
-	pod := &hyperstartjson.Pod{
+	sb := &runvapi.SandboxConfig{
 		Hostname: req.Hostname,
 		Dns:      req.Dns,
-		ShareDir: "share_dir",
 	}
-	err := proxy.json.StartSandbox(pod)
+	err := proxy.json.StartSandbox(sb, "share_dir")
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) DestroySandbox(ctx context.Context, req *hyperstartgrpc.DestroySandboxRequest) (*google_protobuf.Empty, error) {
@@ -123,18 +123,18 @@ func (proxy *jsonProxy) DestroySandbox(ctx context.Context, req *hyperstartgrpc.
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) UpdateInterface(ctx context.Context, req *hyperstartgrpc.UpdateInterfaceRequest) (*google_protobuf.Empty, error) {
-	addresses := []hyperstartjson.IpAddress{}
+	addresses := []agent.IpAddress{}
 	for _, addr := range req.IpAddresses {
-		addresses = append(addresses, hyperstartjson.IpAddress{addr.Address, addr.Mask})
+		addresses = append(addresses, agent.IpAddress{addr.Address, addr.Mask})
 	}
 
 	err := proxy.json.UpdateInterface(agent.InfUpdateType(req.Type), req.Device, req.NewName, addresses, req.Mtu)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) AddRoute(ctx context.Context, req *hyperstartgrpc.AddRouteRequest) (*google_protobuf.Empty, error) {
-	routes := []hyperstartjson.Route{}
+	routes := []agent.Route{}
 	for _, r := range req.Routes {
-		routes = append(routes, hyperstartjson.Route{
+		routes = append(routes, agent.Route{
 			Dest:    r.Dest,
 			Gateway: r.Gateway,
 			Device:  r.Device,
