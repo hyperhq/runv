@@ -74,7 +74,7 @@ func (h *grpcBasedHyperstart) ReadFile(container, path string) ([]byte, error) {
 	return nil, fmt.Errorf("ReadFile() is unsupported on grpc based hyperstart API")
 }
 
-func (h *grpcBasedHyperstart) AddRoute(routes []hyperstartjson.Route) error {
+func (h *grpcBasedHyperstart) AddRoute(routes []Route) error {
 	req := &hyperstartgrpc.AddRouteRequest{}
 	for _, r := range routes {
 		req.Routes = append(req.Routes, &hyperstartgrpc.Route{

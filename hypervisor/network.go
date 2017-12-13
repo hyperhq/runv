@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
+	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
 )
@@ -365,14 +365,14 @@ func (nc *NetworkContext) getIPAddrs() []string {
 	return res
 }
 
-func (nc *NetworkContext) getRoutes() []hyperstartapi.Route {
+func (nc *NetworkContext) getRoutes() []agent.Route {
 	nc.slotLock.RLock()
 	defer nc.slotLock.RUnlock()
-	routes := []hyperstartapi.Route{}
+	routes := []agent.Route{}
 
 	for _, inf := range nc.idMap {
 		for _, r := range inf.RouteTable {
-			routes = append(routes, hyperstartapi.Route{
+			routes = append(routes, agent.Route{
 				Dest:    r.Destination,
 				Gateway: r.Gateway,
 				Device:  inf.NewName,

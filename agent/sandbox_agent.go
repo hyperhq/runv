@@ -23,6 +23,12 @@ type IpAddress struct {
 	NetMask   string
 }
 
+type Route struct {
+	Dest    string
+	Gateway string
+	Device  string
+}
+
 // SandboxAgent interface to agent API
 type SandboxAgent interface {
 	Close()
@@ -48,7 +54,7 @@ type SandboxAgent interface {
 	DestroySandbox() error
 	WriteFile(container, path string, data []byte) error
 	ReadFile(container, path string) ([]byte, error)
-	AddRoute(r []hyperstartapi.Route) error
+	AddRoute(r []Route) error
 	UpdateInterface(t InfUpdateType, dev, newName string, addresses []IpAddress, mtu uint64) error
 	OnlineCpuMem() error
 }

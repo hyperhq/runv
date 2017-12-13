@@ -643,8 +643,16 @@ func (h *jsonBasedHyperstart) ReadFile(container, path string) ([]byte, error) {
 	})
 }
 
-func (h *jsonBasedHyperstart) AddRoute(r []hyperstartapi.Route) error {
-	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: r})
+func (h *jsonBasedHyperstart) AddRoute(r []Route) error {
+	routes := []hyperstartapi.Route{}
+	for _, e := range r {
+		routes = append(routes, hyperstartapi.Route{
+			Dest:    e.Dest,
+			Gateway: e.Gateway,
+			Device:  e.Device,
+		})
+	}
+	return h.hyperstartCommand(hyperstartapi.INIT_SETUPROUTE, hyperstartapi.Routes{Routes: routes})
 }
 
 func (h *jsonBasedHyperstart) UpdateInterface(t InfUpdateType, dev, newName string, ipAddresses []IpAddress, mtu uint64) error {

@@ -132,9 +132,9 @@ func (proxy *jsonProxy) UpdateInterface(ctx context.Context, req *hyperstartgrpc
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) AddRoute(ctx context.Context, req *hyperstartgrpc.AddRouteRequest) (*google_protobuf.Empty, error) {
-	routes := []hyperstartjson.Route{}
+	routes := []agent.Route{}
 	for _, r := range req.Routes {
-		routes = append(routes, hyperstartjson.Route{
+		routes = append(routes, agent.Route{
 			Dest:    r.Dest,
 			Gateway: r.Gateway,
 			Device:  r.Device,
