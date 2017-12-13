@@ -74,8 +74,8 @@ XEN_REQUIRED="4.5.0"
 XENPV_REQUIRED="4.9.0"
 
 if test "$with_xen" = yes; then
-	PKG_CHECK_MODULES([xenlight], [xenlight >= $XEN_REQUIRED], [with_xen=yes], [with_xen=no])
-	PKG_CHECK_MODULES([xenlight], [xenlight >= $XENPV_REQUIRED], [with_xen490=yes], [with_xen490=no])
+    PKG_CHECK_MODULES([xen_4_5], [xenlight >= $XEN_REQUIRED], [with_xen=yes], [with_xen=no])
+    PKG_CHECK_MODULES([xen_4_9], [xenlight >= $XENPV_REQUIRED], [with_xen490=yes], [with_xen490=no])
 fi
 
 if test "x$with_xen" != "xno" ; then
