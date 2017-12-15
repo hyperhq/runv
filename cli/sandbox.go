@@ -219,7 +219,7 @@ func setupHyperstartFunc(context *cli.Context) {
 }
 
 func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (agent.SandboxAgent, error) {
-	grpcSock := filepath.Join(hypervisor.BaseDir, vmid, "hyperstartgrpc.sock")
+	grpcSock := filepath.Join(hypervisor.BaseDir, vmid, "kata-agent.sock")
 
 	glog.Infof("newHyperstart() on socket: %s", grpcSock)
 	if st, err := os.Stat(grpcSock); err != nil {
@@ -241,7 +241,7 @@ func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (agen
 		}
 	}
 
-	h, err := agent.NewGrpcBasedHyperstart(grpcSock)
+	h, err := agent.NewKataAgent(grpcSock)
 	if err != nil {
 		glog.Errorf("agent.NewGrpcBasedHyperstart() failed with err: %#v", err)
 	}

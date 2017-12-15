@@ -3,8 +3,8 @@ package agent
 import (
 	"syscall"
 
-	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	runvapi "github.com/hyperhq/runv/api"
+	ocispecs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 type InfUpdateType uint64
@@ -29,6 +29,16 @@ type Route struct {
 	Device  string
 }
 
+type Storage struct {
+	Driver        string
+	DriverOptions map[string]string
+
+	Source     string
+	Fstype     string
+	Options    []string
+	MountPoint string
+}
+
 // SandboxAgent interface to agent API
 type SandboxAgent interface {
 	Close()
@@ -38,9 +48,9 @@ type SandboxAgent interface {
 	Unpause() error
 
 	APIVersion() (uint32, error)
-	NewContainer(c *hyperstartapi.Container) error
-	RestoreContainer(c *hyperstartapi.Container) error
-	AddProcess(container string, p *hyperstartapi.Process) error
+	CreateContainer(container string, user *runvapi.UserGroupInfo, storages []*Storage, c *ocispecs.Spec) error
+	StartContainer(container string) error
+	ExecProcess(container, process string, user *runvapi.UserGroupInfo, p *ocispecs.Process) error
 	SignalProcess(container, process string, signal syscall.Signal) error
 	WaitProcess(container, process string) int
 
@@ -50,10 +60,8 @@ type SandboxAgent interface {
 	CloseStdin(container, process string) error
 	TtyWinResize(container, process string, row, col uint16) error
 
-	StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error
+	StartSandbox(sb *runvapi.SandboxConfig, storages []*Storage) error
 	DestroySandbox() error
-	WriteFile(container, path string, data []byte) error
-	ReadFile(container, path string) ([]byte, error)
 	AddRoute(r []Route) error
 	UpdateInterface(t InfUpdateType, dev, newName string, addresses []IpAddress, mtu uint64) error
 	OnlineCpuMem() error

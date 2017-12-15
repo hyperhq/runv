@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
-	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/types"
 	"github.com/hyperhq/runv/lib/utils"
@@ -323,7 +322,7 @@ func (vm *Vm) AddProcess(process *api.Process) error {
 		return NewNotReadyError(vm.Id)
 	}
 
-	err := vm.ctx.agent.AddProcess(process.Container, hyperstartapi.ProcessFromOci(process.Id, &process.OciProcess))
+	err := vm.ctx.agent.ExecProcess(process.Container, process.Id, process.UGI, &process.OciProcess)
 
 	return err
 }

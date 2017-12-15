@@ -41,15 +41,21 @@
   revision = "20d25e2804050c1cd24a7eea1e7a6447dd0e74ec"
 
 [[projects]]
+  name = "github.com/gogo/protobuf"
+  packages = ["gogoproto","proto","protoc-gen-gogo/descriptor","sortkeys","types"]
+  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
+  branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["proto","ptypes/empty"]
-  revision = "748d386b5c1ea99658fd69fe9f03991ce86a90c1"
+  packages = ["proto","ptypes","ptypes/any","ptypes/duration","ptypes/timestamp"]
+  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
   branch = "master"
@@ -66,6 +72,13 @@
   name = "github.com/kardianos/osext"
   packages = ["."]
   revision = "9b883c5eb462dd5cb1b0a7a104fe86bc6b9bd391"
+
+[[projects]]
+  branch = "runv"
+  name = "github.com/kata-containers/agent"
+  packages = ["protocols/grpc"]
+  revision = "ae0b8d1304a5f3bcdf921436c1484bb1555f7d50"
+  source = "github.com/laijs/kata-agent"
 
 [[projects]]
   name = "github.com/kr/pty"
@@ -91,8 +104,8 @@
 [[projects]]
   name = "github.com/opencontainers/runtime-spec"
   packages = ["specs-go"]
-  revision = "02137cd4e50b37a01665e1731fcd4ac2d2178230"
-  version = "v1.0.0"
+  revision = "4e3b9264a330d094b0386c3703c5f379119711e8"
+  version = "v1.0.1"
 
 [[projects]]
   name = "github.com/philhofer/fwd"
@@ -139,7 +152,7 @@
 [[projects]]
   name = "golang.org/x/net"
   packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "d379faa25cbdc04d653984913a2ceb43b0bc46d7"
+  revision = "a8b9294777976932365dabb6640cf1468d95c70f"
 
 [[projects]]
   name = "golang.org/x/sys"
@@ -147,13 +160,25 @@
   revision = "d8f5ea21b9295e315e612b4bcf4bedea93454d4d"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/text"
+  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  revision = "d5a9226ed7dd70cade6ccae9d37517fe14dd9fee"
+
+[[projects]]
+  branch = "master"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  revision = "a8101f21cf983e773d0c1133ebc5424792003214"
+
+[[projects]]
   name = "google.golang.org/grpc"
-  packages = [".","codes","credentials","grpclog","health","health/grpc_health_v1","internal","keepalive","metadata","naming","peer","stats","tap","transport"]
-  revision = "4eaacfed9779ee7568c9e72e9f763dbd3af8e0b4"
+  packages = [".","balancer","balancer/roundrobin","codes","connectivity","credentials","encoding","grpclb/grpc_lb_v1/messages","grpclog","health","health/grpc_health_v1","internal","keepalive","metadata","naming","peer","resolver","resolver/dns","resolver/passthrough","stats","status","tap","transport"]
+  revision = "5a9f7b402fe85096d2e1d0383435ee1876e863d0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9f02e0ded94b8fa5ea3468a7e82f4ca94efbe357c7138be49f4cdbc2d88db313"
+  inputs-digest = "aaed0570c39cc2a0296fa387973a192b7275a68fc36833b21023870ac991246c"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -28,7 +28,7 @@ func (ctx *VmContext) newContainer(id string) error {
 	if ok {
 		ctx.Log(TRACE, "start sending INIT_NEWCONTAINER")
 		var err error
-		err = ctx.agent.NewContainer(c.VmSpec())
+		err = c.agentStart()
 		ctx.Log(TRACE, "sent INIT_NEWCONTAINER")
 		return err
 	} else {
@@ -125,9 +125,16 @@ func (ctx *VmContext) agentUpdateInterface(id string, addresses string, mtu uint
 	return nil
 }
 
+var shareStorage agent.Storage = agent.Storage{
+	Fstype:     "9p",
+	Source:     ShareDirTag,
+	Options:    []string{"nodev,trans=virtio"},
+	MountPoint: "/kata/storage/sharefs",
+}
+
 func (ctx *VmContext) startPod() error {
 	ctx.Log(INFO, "startPod: sharetag:%s, %#v", ShareDirTag, ctx.networks.SandboxConfig)
-	err := ctx.agent.StartSandbox(ctx.networks.SandboxConfig, ShareDirTag)
+	err := ctx.agent.StartSandbox(ctx.networks.SandboxConfig, []*agent.Storage{&shareStorage})
 	if err == nil {
 		ctx.Log(INFO, "pod start successfully")
 		ctx.reportSuccess("Start POD success", []byte{})

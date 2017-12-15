@@ -23,7 +23,7 @@ var pauseCommand = cli.Command{
 		}
 
 		root := context.GlobalString("root")
-		h, err := agent.NewGrpcBasedHyperstart(filepath.Join(root, container, "sandbox", "hyperstartgrpc.sock"))
+		h, err := agent.NewKataAgent(filepath.Join(root, container, "sandbox", "kata-agent.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get hyperstart: %v", err), -1)
 		}
@@ -60,7 +60,7 @@ var resumeCommand = cli.Command{
 		}
 
 		root := context.GlobalString("root")
-		h, err := agent.NewGrpcBasedHyperstart(filepath.Join(root, container, "sandbox", "hyperstartgrpc.sock"))
+		h, err := agent.NewKataAgent(filepath.Join(root, container, "sandbox", "kata-agent.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to get client: %v", err), -1)
 		}
