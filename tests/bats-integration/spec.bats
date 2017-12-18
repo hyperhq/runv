@@ -72,7 +72,7 @@ function teardown() {
   run git clone https://github.com/opencontainers/runtime-spec.git src/runtime-spec
   [ "$status" -eq 0 ]
 
-  SPEC_COMMIT=$(grep -A1 'github.com/opencontainers/runtime-spec' ${TESTDIR}/../../Godeps/Godeps.json |grep Comment|cut -d ' ' -f 2|sed -E 's/"(.*)".*/\1/g')
+  SPEC_COMMIT=$(grep -A3 'github.com/opencontainers/runtime-spec' ${TESTDIR}/../../Gopkg.lock |grep version|sed -E 's/.*"(.*)".*/\1/g')
   run git -C src/runtime-spec reset --hard "${SPEC_COMMIT}"
 
   [ "$status" -eq 0 ]
