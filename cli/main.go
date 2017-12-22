@@ -4,11 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/hypervisor"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
 
@@ -56,7 +58,17 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "runv"
 	app.Usage = usage
-	app.Version = fmt.Sprintf("%s, commit: %s", version, gitCommit)
+
+	var v []string
+	if version != "" {
+		v = append(v, version)
+	}
+	if gitCommit != "" {
+		v = append(v, fmt.Sprintf("commit: %s", gitCommit))
+	}
+	v = append(v, fmt.Sprintf("spec: %s", specs.Version))
+	app.Version = strings.Join(v, "\n")
+
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug",
