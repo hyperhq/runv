@@ -15,7 +15,7 @@ $ git clone https://github.com/hyperhq/hyperstart.git
 $ cd hyperstart
 $ ./autogen.sh ;./configure ;make
 $ mkdir /var/lib/hyper/
-$ cp build/hyper-initrd.img build/kernel /var/lib/hyper
+$ cp build/hyper-initrd.img build/arch/x86_64/kernel /var/lib/hyper
 ```
 
 ### Install runv
