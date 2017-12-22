@@ -12,7 +12,7 @@ The following filesystems SHOULD be made available in each container's filesyste
 
 | Path     | Type   |
 | -------- | ------ |
-| /proc    | [procfs][] |
+| /proc    | [proc][] |
 | /sys     | [sysfs][]  |
 | /dev/pts | [devpts][] |
 | /dev/shm | [tmpfs][]  |
@@ -35,7 +35,8 @@ The following parameters can be specified to set up namespaces:
     * **`user`** the container will be able to remap user and group IDs from the host to local users and groups within the container.
     * **`cgroup`** the container will have an isolated view of the cgroup hierarchy.
 
-* **`path`** *(string, OPTIONAL)* - an absolute path to namespace file in the [runtime mount namespace](glossary.md#runtime-namespace).
+* **`path`** *(string, OPTIONAL)* - namespace file.
+    This value MUST be an absolute path in the [runtime mount namespace](glossary.md#runtime-namespace).
     The runtime MUST place the container process in the namespace associated with that `path`.
     The runtime MUST [generate an error](runtime.md#errors) if `path` is not associated with a namespace of type `type`.
 
@@ -327,16 +328,25 @@ The following parameters can be specified to set up the controller:
 
 * **`weight`** *(uint16, OPTIONAL)* - specifies per-cgroup weight. This is default weight of the group on all devices until and unless overridden by per-device rules.
 * **`leafWeight`** *(uint16, OPTIONAL)* - equivalents of `weight` for the purpose of deciding how much weight tasks in the given cgroup has while competing with the cgroup's child cgroups.
-* **`weightDevice`** *(array of objects, OPTIONAL)* - specifies the list of devices which will be bandwidth rate limited. The following parameters can be specified per-device:
-    * **`major, minor`** *(int64, REQUIRED)* - major, minor numbers for device. More info in [mknod(1)][mknod.1] man page.
-    * **`weight`** *(uint16, OPTIONAL)* - bandwidth rate for the device.
-    * **`leafWeight`** *(uint16, OPTIONAL)* - bandwidth rate for the device while competing with the cgroup's child cgroups, CFQ scheduler only
+* **`weightDevice`** *(array of objects, OPTIONAL)* - an array of per-device bandwidth weights.
+    Each entry has the following structure:
+    * **`major, minor`** *(int64, REQUIRED)* - major, minor numbers for device.
+        For more information, see the [mknod(1)][mknod.1] man page.
+    * **`weight`** *(uint16, OPTIONAL)* - bandwidth weight for the device.
+    * **`leafWeight`** *(uint16, OPTIONAL)* - bandwidth weight for the device while competing with the cgroup's child cgroups, CFQ scheduler only
 
     You MUST specify at least one of `weight` or `leafWeight` in a given entry, and MAY specify both.
 
-* **`throttleReadBpsDevice`**, **`throttleWriteBpsDevice`**, **`throttleReadIOPSDevice`**, **`throttleWriteIOPSDevice`** *(array of objects, OPTIONAL)* - specify the list of devices which will be IO rate limited.
-    The following parameters can be specified per-device:
-    * **`major, minor`** *(int64, REQUIRED)* - major, minor numbers for device. More info in [mknod(1)][mknod.1] man page.
+* **`throttleReadBpsDevice`**, **`throttleWriteBpsDevice`** *(array of objects, OPTIONAL)* - an array of per-device bandwidth rate limits.
+    Each entry has the following structure:
+    * **`major, minor`** *(int64, REQUIRED)* - major, minor numbers for device.
+        For more information, see the [mknod(1)][mknod.1] man page.
+    * **`rate`** *(uint64, REQUIRED)* - bandwidth rate limit in bytes per second for the device
+
+* **`throttleReadIOPSDevice`**, **`throttleWriteIOPSDevice`** *(array of objects, OPTIONAL)* - an array of per-device IO rate limits.
+    Each entry has the following structure:
+    * **`major, minor`** *(int64, REQUIRED)* - major, minor numbers for device.
+        For more information, see the [mknod(1)][mknod.1] man page.
     * **`rate`** *(uint64, REQUIRED)* - IO rate limit for the device
 
 #### Example
@@ -451,14 +461,14 @@ The following parameters can be specified to set up the controller:
     If `intelRdt` is set, the runtime MUST write the container process ID to the `<container-id>/tasks` file in a mounted `resctrl` pseudo-filesystem, using the container ID from [`start`](runtime.md#start) and creating the `<container-id>` directory if necessary.
     If no mounted `resctrl` pseudo-filesystem is available in the [runtime mount namespace](glossary.md#runtime-namespace), the runtime MUST [generate an error](runtime.md#errors).
 
-    If `intelRdt` is not set, the runtime MUST NOT manipulate any `resctrl` psuedo-filesystems.
+    If `intelRdt` is not set, the runtime MUST NOT manipulate any `resctrl` pseudo-filesystems.
 
 The following parameters can be specified for the container:
 
 * **`l3CacheSchema`** *(string, OPTIONAL)* - specifies the schema for L3 cache id and capacity bitmask (CBM).
     If `l3CacheSchema` is set, runtimes MUST write the value to the `schemata` file in the `<container-id>` directory discussed in `intelRdt`.
 
-    If `l3CacheSchema` is not set, runtimes MUST NOT write to `schemata` files in any `resctrl` psuedo-filesystems.
+    If `l3CacheSchema` is not set, runtimes MUST NOT write to `schemata` files in any `resctrl` pseudo-filesystems.
 
 ### Example
 
@@ -642,7 +652,7 @@ The following parameters can be specified to set up seccomp:
 [devpts]: https://www.kernel.org/doc/Documentation/filesystems/devpts.txt
 [file]: http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html#tag_03_164
 [libseccomp]: https://github.com/seccomp/libseccomp
-[procfs]: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
+[proc]: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
 [seccomp]: https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt
 [sharedsubtree]: https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt
 [sysfs]: https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt

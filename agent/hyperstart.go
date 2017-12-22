@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -13,6 +15,7 @@ import (
 	hyperstartapi "github.com/hyperhq/runv/agent/api/hyperstart"
 	runvapi "github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/lib/utils"
+	ocispecs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const (
@@ -46,6 +49,9 @@ type jsonBasedHyperstart struct {
 	streamOuts    map[uint64]streamOut
 	ctlChan       chan *hyperstartCmd
 	streamChan    chan *hyperstartapi.TtyMessage
+
+	shareStorage     Storage
+	containerCreated map[string]*hyperstartapi.Container
 }
 
 // hyperstartPauseSync and hyperstartUnpause are private here and large enough
@@ -69,6 +75,8 @@ func NewJsonBasedHyperstart(id, ctlSock, streamSock string, lastStreamSeq uint64
 		streamOuts:    make(map[uint64]streamOut),
 		ctlChan:       make(chan *hyperstartCmd, 128),
 		streamChan:    make(chan *hyperstartapi.TtyMessage, 128),
+
+		containerCreated: make(map[string]*hyperstartapi.Container),
 	}
 	go handleStreamSock(h, streamSock)
 	go handleCtlSock(h, ctlSock, waitReady, paused)
@@ -627,22 +635,6 @@ func (h *jsonBasedHyperstart) Unpause() error {
 	return err
 }
 
-func (h *jsonBasedHyperstart) WriteFile(container, path string, data []byte) error {
-	writeCmd, _ := json.Marshal(hyperstartapi.FileCommand{
-		Container: container,
-		File:      path,
-	})
-	writeCmd = append(writeCmd, data...)
-	return h.hyperstartCommand(hyperstartapi.INIT_WRITEFILE, writeCmd)
-}
-
-func (h *jsonBasedHyperstart) ReadFile(container, path string) ([]byte, error) {
-	return h.hyperstartCommandWithRetMsg(hyperstartapi.INIT_READFILE, &hyperstartapi.FileCommand{
-		Container: container,
-		File:      path,
-	})
-}
-
 func (h *jsonBasedHyperstart) AddRoute(r []Route) error {
 	routes := []hyperstartapi.Route{}
 	for _, e := range r {
@@ -818,8 +810,106 @@ func (h *jsonBasedHyperstart) removeProcess(container, process string) {
 	}
 }
 
-func (h *jsonBasedHyperstart) NewContainer(c *hyperstartapi.Container) error {
+func convertUser(p *hyperstartapi.Process, user *runvapi.UserGroupInfo) {
+	if user == nil {
+		return
+	}
+
+	if user.User != "" {
+		p.User = user.User
+	}
+	if user.Group != "" {
+		p.Group = user.Group
+	}
+	if user.AdditionalGroups != nil {
+		p.AdditionalGroups = append(p.AdditionalGroups, user.AdditionalGroups...)
+	}
+}
+
+func (h *jsonBasedHyperstart) convertContainer(container string, user *runvapi.UserGroupInfo, storages []*Storage, oci *ocispecs.Spec) (*hyperstartapi.Container, error) {
+	shareDir := h.shareStorage.MountPoint
+	if shareDir != "" && strings.HasPrefix(oci.Root.Path, shareDir) {
+
+	}
+	rtContainer := &hyperstartapi.Container{ // runtime Container
+		Id:            container,
+		Process:       hyperstartapi.ProcessFromOci("init", oci.Process),
+		Sysctl:        oci.Linux.Sysctl,
+		RestartPolicy: "never",
+		//todo Initialize:
+		ReadOnly: oci.Root.Readonly,
+	}
+	convertUser(rtContainer.Process, user)
+
+	if shareDir != "" && strings.HasPrefix(oci.Root.Path, shareDir) {
+		rtContainer.Rootfs = filepath.Base(strings.TrimPrefix(oci.Root.Path, shareDir))
+		rtContainer.Image = filepath.Dir(strings.TrimPrefix(oci.Root.Path, shareDir))
+	} else if len(storages) >= 1 && strings.HasPrefix(oci.Root.Path, storages[0].MountPoint) {
+		rtContainer.Rootfs = strings.TrimPrefix(oci.Root.Path, storages[0].MountPoint)
+		rtContainer.Fstype = storages[0].Fstype
+		rtContainer.Image = storages[0].Source
+		if storages[0].Driver == "scsi" {
+			rtContainer.Addr = storages[0].Source
+		}
+		storages = storages[1:]
+	} else {
+		return nil, fmt.Errorf("wrong configured storages for the container root")
+	}
+
+	for _, m := range oci.Mounts {
+		if shareDir != "" && strings.HasPrefix(m.Source, shareDir) {
+			h.Log(DEBUG, "volume (fs mapping) for %s", m.Destination)
+			rtContainer.Fsmap = append(rtContainer.Fsmap, &hyperstartapi.FsmapDescriptor{
+				Source: strings.TrimPrefix(m.Source, shareDir),
+				Path:   m.Destination,
+				//todo ReadOnly:
+				//todo DockerVolume:
+			})
+		} else {
+			var found *Storage
+			for _, s := range storages {
+				if strings.HasPrefix(m.Source, s.MountPoint) {
+					found = s
+					break
+				}
+			}
+			// It doesn't use the storage
+			if found == nil {
+				continue
+			}
+			// docker and hyperstart expect "_data" is the volume dir inside the block
+			if filepath.Join(found.MountPoint, "_data") != m.Source {
+				return nil, fmt.Errorf("wrong configured storages: shareDir:%s, mount:%v", shareDir, m)
+			}
+			h.Log(DEBUG, "volume (disk %s) for %s", found.Source, m.Destination)
+			vd := &hyperstartapi.VolumeDescriptor{
+				Device: found.Source,
+				Mount:  m.Destination,
+				Fstype: found.Fstype,
+				//todo ReadOnly:
+				//todo DockerVolume:
+			}
+			if found.Driver == "scsi" {
+				vd.Addr = found.Source
+			}
+			rtContainer.Volumes = append(rtContainer.Volumes, vd)
+		}
+	}
+
+	return rtContainer, nil
+}
+
+func (h *jsonBasedHyperstart) CreateContainer(container string, user *runvapi.UserGroupInfo, storages []*Storage, oci *ocispecs.Spec) error {
+	c, err := h.convertContainer(container, user, storages, oci)
+	if err != nil {
+		return err
+	}
+
 	h.Lock()
+	if _, ok := h.containerCreated[container]; ok {
+		h.Unlock()
+		return fmt.Errorf("container %s is already created", container)
+	}
 	if _, existed := h.procs[pKey{c: c.Id, p: c.Process.Id}]; existed {
 		h.Unlock()
 		return fmt.Errorf("process id conflicts, the process of the id %s already exists", c.Process.Id)
@@ -827,45 +917,37 @@ func (h *jsonBasedHyperstart) NewContainer(c *hyperstartapi.Container) error {
 	ps := &pState{}
 	h.setupProcessIo(ps, c.Process.Terminal)
 	h.procs[pKey{c: c.Id, p: c.Process.Id}] = ps
-	h.Unlock()
-
 	c.Process.Stdio = ps.stdioSeq
 	c.Process.Stderr = ps.stderrSeq
-
-	err := h.hyperstartCommand(hyperstartapi.INIT_NEWCONTAINER, c)
-	if err != nil {
-		h.removeProcess(c.Id, c.Process.Id)
-		return err
-	}
-	return err
-}
-
-func (h *jsonBasedHyperstart) RestoreContainer(c *hyperstartapi.Container) error {
-	h.Lock()
-	if _, existed := h.procs[pKey{c: c.Id, p: c.Process.Id}]; existed {
-		h.Unlock()
-		return fmt.Errorf("process id conflicts, the process of the id %s already exists", c.Process.Id)
-	}
-	h.Unlock()
-	// Send SIGCONT signal to init to test whether it's alive.
-	err := h.SignalProcess(c.Id, "init", syscall.SIGCONT)
-	if err != nil {
-		return fmt.Errorf("container not exist or already stopped: %v", err)
-	}
-	// restore procs/streamOuts map
-	ps := &pState{
-		stdioSeq:  c.Process.Stdio,
-		stderrSeq: c.Process.Stderr,
-	}
-	h.Lock()
-	h.setupProcessIo(ps, c.Process.Terminal)
-	h.procs[pKey{c: c.Id, p: c.Process.Id}] = ps
+	h.containerCreated[container] = c
 	h.Unlock()
 
 	return nil
 }
 
-func (h *jsonBasedHyperstart) AddProcess(container string, p *hyperstartapi.Process) error {
+func (h *jsonBasedHyperstart) StartContainer(container string) error {
+	h.Lock()
+	if c, ok := h.containerCreated[container]; !ok {
+		h.Unlock()
+		return fmt.Errorf("container %s is not created", container)
+	} else {
+
+		delete(h.containerCreated, container)
+		h.Unlock()
+
+		err := h.hyperstartCommand(hyperstartapi.INIT_NEWCONTAINER, c)
+		if err != nil {
+			h.removeProcess(c.Id, c.Process.Id)
+			return err
+		}
+		return err
+	}
+}
+
+func (h *jsonBasedHyperstart) ExecProcess(container, process string, user *runvapi.UserGroupInfo, oci *ocispecs.Process) error {
+	p := hyperstartapi.ProcessFromOci(process, oci)
+	convertUser(p, user)
+
 	h.Lock()
 	if _, existed := h.procs[pKey{c: container, p: p.Id}]; existed {
 		h.Unlock()
@@ -926,8 +1008,14 @@ func (h *jsonBasedHyperstart) WaitProcess(container, process string) int {
 	return -1
 }
 
-func (h *jsonBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, sharetag string) error {
-	vmSpec := hyperstartapi.Pod{ShareDir: sharetag}
+func (h *jsonBasedHyperstart) StartSandbox(sb *runvapi.SandboxConfig, storages []*Storage) error {
+	if len(storages) != 1 || storages[0].Fstype != "9p" {
+		return fmt.Errorf("unspported storages")
+	}
+	if len(storages) >= 1 && storages[0].Fstype == "9p" {
+		h.shareStorage = *storages[0]
+	}
+	vmSpec := hyperstartapi.Pod{ShareDir: h.shareStorage.Source}
 
 	vmSpec.Hostname = sb.Hostname
 	vmSpec.Dns = sb.Dns

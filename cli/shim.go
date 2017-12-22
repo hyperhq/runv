@@ -51,7 +51,7 @@ var shimCommand = cli.Command{
 		container := context.String("container")
 		process := context.String("process")
 
-		h, err := agent.NewGrpcBasedHyperstart(filepath.Join(context.GlobalString("root"), container, "sandbox", "hyperstartgrpc.sock"))
+		h, err := agent.NewKataAgent(filepath.Join(context.GlobalString("root"), container, "sandbox", "kata-agent.sock"))
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("failed to connect to hyperstart proxy: %v", err), -1)
 		}

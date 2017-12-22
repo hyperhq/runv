@@ -36,6 +36,10 @@ func ContainerDescriptionFromOCF(id string, s *ocispecs.Spec) *ContainerDescript
 		container.OciSpec.Linux.Sysctl["vm.overcommit_memory"] = "1"
 	}
 
+	// the mounts need to be filtered and add it back after ContainerDescriptionFromOCF()
+	container.OciSpec.Mounts = []ocispecs.Mount{}
+	container.OciSpec.Root.Path = "" // already mounted on filepath.Join(rootfs.Source, container.RootPath)
+
 	rootfs := &VolumeDescription{
 		Name:     id,
 		Source:   id,

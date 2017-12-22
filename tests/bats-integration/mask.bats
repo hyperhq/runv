@@ -24,8 +24,8 @@ function teardown() {
 	[ "$status" -eq 0 ]
 
 	runv exec test_busybox cat /testfile
-	[ "$status" -eq 1 ]
-	[[ "${output}" == *"Permission denied"* ]]
+	[ "$status" -eq 0 ]
+	[[ "${output}" == "" ]]
 
 	runv exec test_busybox rm -f /testfile
 	[ "$status" -eq 1 ]

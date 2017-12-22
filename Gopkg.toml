@@ -29,6 +29,11 @@
   name = "github.com/golang/glog"
 
 [[constraint]]
+  branch = "runv"
+  name = "github.com/kata-containers/agent"
+  source = "github.com/laijs/kata-agent"
+
+[[constraint]]
   name = "github.com/opencontainers/runtime-spec"
   version = "1.0.0"
 
