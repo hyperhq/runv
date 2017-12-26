@@ -85,6 +85,12 @@ func createAndLockSandBox(context *cli.Context, f factory.Factory, spec *specs.S
 		return nil, nil, err
 	}
 
+	err = createWatcher(context, vm.Id)
+	if err != nil {
+		vm.Kill()
+		return nil, nil, err
+	}
+
 	r := make(chan api.Result, 1)
 	go func() {
 		r <- vm.WaitInit()
@@ -92,12 +98,6 @@ func createAndLockSandBox(context *cli.Context, f factory.Factory, spec *specs.S
 
 	sandbox := api.SandboxInfoFromOCF(spec)
 	vm.InitSandbox(sandbox)
-
-	err = createWatcher(context, vm.Id)
-	if err != nil {
-		vm.Kill()
-		return nil, nil, err
-	}
 
 	rsp := <-r
 
