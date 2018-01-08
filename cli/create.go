@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hyperhq/runv/hypervisor"
+	crio_annotations "github.com/kubernetes-incubator/cri-o/pkg/annotations"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -90,9 +91,9 @@ func cmdCreateContainer(context *cli.Context, attach bool) error {
 	}
 
 	var sharedContainer string
-	if containerType, ok := spec.Annotations["ocid/container_type"]; ok {
+	if containerType, ok := spec.Annotations[crio_annotations.ContainerType]; ok {
 		if containerType == "container" {
-			sharedContainer = spec.Annotations["ocid/sandbox_name"]
+			sharedContainer = spec.Annotations[crio_annotations.SandboxName]
 		}
 	} else {
 		for _, ns := range spec.Linux.Namespaces {

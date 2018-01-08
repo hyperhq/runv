@@ -86,6 +86,12 @@
   revision = "ce7fa45920dc37a92de8377972e52bc55ffa8d57"
 
 [[projects]]
+  name = "github.com/kubernetes-incubator/cri-o"
+  packages = ["pkg/annotations"]
+  revision = "814c6ab0913d827543696b366048056a31d9529c"
+  version = "v1.9.0"
+
+[[projects]]
   name = "github.com/mohae/deepcopy"
   packages = ["."]
   revision = "491d3605edfb866af34a48075bd4355ac1bf46ca"
@@ -179,6 +185,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "aaed0570c39cc2a0296fa387973a192b7275a68fc36833b21023870ac991246c"
+  inputs-digest = "ee107c86e68276973019e8f3bd2363178830c4725667e5b87f0377d8d8e3d30e"
   solver-name = "gps-cdcl"
   solver-version = 1
