@@ -1,13 +1,18 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 
 	"github.com/golang/glog"
+	"github.com/hashicorp/yamux"
 	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/agent/proxy"
 	"github.com/kardianos/osext"
@@ -33,6 +38,10 @@ var proxyCommand = cli.Command{
 			Usage: "the vm's stream sock address to be connected",
 		},
 		cli.StringFlag{
+			Name:  "kata-yamux-sock",
+			Usage: "the vm's kata yamux sock address to be connected",
+		},
+		cli.StringFlag{
 			Name:  "proxy-hyperstart",
 			Usage: "gprc sock address to be created for proxying hyperstart API",
 		},
@@ -41,9 +50,15 @@ var proxyCommand = cli.Command{
 		return cmdPrepare(context, false, false)
 	},
 	Action: func(context *cli.Context) (err error) {
-		if context.String("vmid") == "" || context.String("hyperstart-ctl-sock") == "" ||
-			context.String("hyperstart-stream-sock") == "" || context.String("proxy-hyperstart") == "" {
-			return err
+		if context.String("vmid") == "" || context.String("proxy-hyperstart") == "" {
+			return fmt.Errorf("missing arguements")
+		}
+
+		if context.String("kata-yamux-sock") != "" {
+			return kataYamuxServer(context.String("kata-yamux-sock"), context.String("proxy-hyperstart"))
+		}
+		if context.String("hyperstart-ctl-sock") == "" || context.String("hyperstart-stream-sock") == "" {
+			return fmt.Errorf("missing arguements")
 		}
 
 		glog.Infof("agent.NewJsonBasedHyperstart")
@@ -111,5 +126,118 @@ func createProxy(context *cli.Context, VMID, ctlSock, streamSock, grpcSock strin
 	}
 	glog.V(2).Infof("createProxy succeeded with proxy pid: %d", cmd.Process.Pid)
 
+	return nil
+}
+
+func serve(servConn io.ReadWriteCloser, proto, addr string, results chan error) error {
+	session, err := yamux.Client(servConn, nil)
+	if err != nil {
+		return err
+	}
+
+	// serving connection
+	l, err := net.Listen(proto, addr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		var err error
+		defer func() {
+			l.Close()
+			results <- err
+		}()
+
+		for {
+			var conn, stream net.Conn
+			conn, err = l.Accept()
+			if err != nil {
+				return
+			}
+
+			stream, err = session.Open()
+			if err != nil {
+				return
+			}
+
+			go proxyConn(conn, stream)
+		}
+	}()
+
+	return nil
+}
+
+func proxyConn(conn1 net.Conn, conn2 net.Conn) {
+	wg := &sync.WaitGroup{}
+	once := &sync.Once{}
+	cleanup := func() {
+		conn1.Close()
+		conn2.Close()
+	}
+	copyStream := func(dst io.Writer, src io.Reader) {
+		_, err := io.Copy(dst, src)
+		if err != nil {
+			once.Do(cleanup)
+		}
+		wg.Done()
+	}
+
+	wg.Add(2)
+	go copyStream(conn1, conn2)
+	go copyStream(conn2, conn1)
+	go func() {
+		wg.Wait()
+		once.Do(cleanup)
+	}()
+}
+
+func unixAddr(uri string) (string, error) {
+	if len(uri) == 0 {
+		return "", errors.New("empty uri")
+
+	}
+	addr, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	if addr.Scheme != "" && addr.Scheme != "unix" {
+		return "", errors.New("invalid address scheme")
+	}
+	return addr.Host + addr.Path, nil
+}
+
+func kataYamuxServer(channel, proxyAddr string) error {
+	muxAddr, err := unixAddr(channel)
+	if err != nil {
+		glog.Error("invalid mux socket address")
+		return err
+	}
+	listenAddr, err := unixAddr(proxyAddr)
+	if err != nil {
+		glog.Error("invalid listen socket address")
+		return err
+	}
+
+	// yamux connection
+	servConn, err := net.Dial("unix", muxAddr)
+	if err != nil {
+		glog.Errorf("failed to dial channel(%q): %s", muxAddr, err)
+		return err
+	}
+	defer servConn.Close()
+
+	results := make(chan error)
+	err = serve(servConn, "unix", listenAddr, results)
+	if err != nil {
+		glog.Error(err.Error())
+		return err
+	}
+
+	for err = range results {
+		if err != nil {
+			glog.Errorf(err.Error())
+			return err
+		}
+	}
 	return nil
 }
