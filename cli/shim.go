@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -19,6 +20,8 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
+
+const KataShimBinary = "/usr/libexec/kata-containers/kata-shim"
 
 var shimCommand = cli.Command{
 	Name:     "shim",
@@ -153,6 +156,20 @@ func forwardAllSignals(h agent.SandboxAgent, container, process string) chan os.
 	return sigc
 }
 
+func prepareKataShim(options runvOptions, container, process string, terminal bool) (string, []string, error) {
+	args := []string{"kata-shim"}
+	if options.GlobalBool("debug") {
+		args = append(args, "--log", "debug")
+	}
+	agentAddr := filepath.Join(options.GlobalString("root"), container, "sandbox", "kata-agent.sock")
+	args = append(args, "--agent", agentAddr, "--container", container, "--exec-id", process)
+	if terminal {
+		args = append(args, "--terminal")
+	}
+
+	return KataShimBinary, args, nil
+}
+
 func prepareRunvShim(options runvOptions, container, process string, terminal bool) (string, []string, error) {
 	path, err := osext.Executable()
 	if err != nil {
@@ -194,10 +211,19 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		ptymaster.Close()
 	}
 
-	path, args, err := prepareRunvShim(options, container, process, spec.Terminal)
+	var (
+		path string
+		args []string
+	)
+	if options.GlobalString("agent") != "kata" {
+		path, args, err = prepareRunvShim(options, container, process, spec.Terminal)
+	} else {
+		path, args, err = prepareKataShim(options, container, process, spec.Terminal)
+	}
 	if err != nil {
 		return nil, err
 	}
+	glog.V(3).Infof("starting shim with args %s", strings.Join(args, " "))
 
 	cmd := exec.Cmd{
 		Path: path,
