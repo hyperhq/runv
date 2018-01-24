@@ -153,13 +153,31 @@ func forwardAllSignals(h agent.SandboxAgent, container, process string) chan os.
 	return sigc
 }
 
-func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
+func prepareRunvShim(options runvOptions, container, process string, terminal bool) (string, []string, error) {
 	path, err := osext.Executable()
 	if err != nil {
-		return nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
+		return "", nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
 	}
 
+	args := []string{"runv", "--root", options.GlobalString("root")}
+	if options.GlobalString("log_dir") != "" {
+		args = append(args, "--log_dir", filepath.Join(options.GlobalString("log_dir"), "shim-"+container))
+	}
+	if options.GlobalBool("debug") {
+		args = append(args, "--debug")
+	}
+	args = append(args, "shim", "--container", container, "--process", process)
+	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
+	if terminal {
+		args = append(args, "--proxy-winsize")
+	}
+
+	return path, args, nil
+}
+
+func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
 	var ptymaster, tty *os.File
+	var err error
 	if options.String("console") != "" {
 		tty, err = os.OpenFile(options.String("console"), os.O_RDWR, 0)
 		if err != nil {
@@ -176,17 +194,9 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		ptymaster.Close()
 	}
 
-	args := []string{"runv", "--root", options.GlobalString("root")}
-	if options.GlobalString("log_dir") != "" {
-		args = append(args, "--log_dir", filepath.Join(options.GlobalString("log_dir"), "shim-"+container))
-	}
-	if options.GlobalBool("debug") {
-		args = append(args, "--debug")
-	}
-	args = append(args, "shim", "--container", container, "--process", process)
-	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
-	if spec.Terminal {
-		args = append(args, "--proxy-winsize")
+	path, args, err := prepareRunvShim(options, container, process, spec.Terminal)
+	if err != nil {
+		return nil, err
 	}
 
 	cmd := exec.Cmd{
@@ -198,6 +208,7 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 			Setsid:  tty != nil || !options.attach,
 		},
 	}
+	// TODO: kata-shim does not support entering netns
 	if options.withContainer == nil {
 		cmd.SysProcAttr.Cloneflags = syscall.CLONE_NEWNET
 	} else {
