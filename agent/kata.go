@@ -117,7 +117,7 @@ func (kata *kataAgent) UpdateInterface(t InfUpdateType, dev, newName string, ipA
 func (kata *kataAgent) WriteStdin(container, process string, data []byte) (int, error) {
 	ret, err := kata.agent.WriteStdin(context.Background(), &kagenta.WriteStreamRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		Data:        data,
 	})
 	if err == nil {
@@ -133,7 +133,7 @@ func (kata *kataAgent) WriteStdin(container, process string, data []byte) (int, 
 func (kata *kataAgent) ReadStdout(container, process string, data []byte) (int, error) {
 	ret, err := kata.agent.ReadStdout(context.Background(), &kagenta.ReadStreamRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		Len:         uint32(len(data)),
 	})
 	if err == nil {
@@ -150,7 +150,7 @@ func (kata *kataAgent) ReadStdout(container, process string, data []byte) (int, 
 func (kata *kataAgent) ReadStderr(container, process string, data []byte) (int, error) {
 	ret, err := kata.agent.ReadStderr(context.Background(), &kagenta.ReadStreamRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		Len:         uint32(len(data)),
 	})
 	if err == nil {
@@ -167,7 +167,7 @@ func (kata *kataAgent) ReadStderr(container, process string, data []byte) (int, 
 func (kata *kataAgent) CloseStdin(container, process string) error {
 	_, err := kata.agent.CloseStdin(context.Background(), &kagenta.CloseStdinRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 	})
 	return err
 }
@@ -175,7 +175,7 @@ func (kata *kataAgent) CloseStdin(container, process string) error {
 func (kata *kataAgent) TtyWinResize(container, process string, row, col uint16) error {
 	_, err := kata.agent.TtyWinResize(context.Background(), &kagenta.TtyWinResizeRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		Row:         uint32(row),
 		Column:      uint32(col),
 	})
@@ -240,7 +240,7 @@ func (kata *kataAgent) ExecProcess(container, process string, user *runvapi.User
 	}
 	_, err = kata.agent.ExecProcess(context.Background(), &kagenta.ExecProcessRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		StringUser: &kagenta.StringUser{
 			Uid:            user.User,
 			Gid:            user.Group,
@@ -254,7 +254,7 @@ func (kata *kataAgent) ExecProcess(container, process string, user *runvapi.User
 func (kata *kataAgent) SignalProcess(container, process string, signal syscall.Signal) error {
 	_, err := kata.agent.SignalProcess(context.Background(), &kagenta.SignalProcessRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 		Signal:      uint32(signal),
 	})
 	return err
@@ -266,7 +266,7 @@ func (kata *kataAgent) SignalProcess(container, process string, signal syscall.S
 func (kata *kataAgent) WaitProcess(container, process string) int {
 	ret, err := kata.agent.WaitProcess(context.Background(), &kagenta.WaitProcessRequest{
 		ContainerId: container,
-		ProcessId:   process,
+		ExecId:      process,
 	})
 	if err != nil {
 		return -1
