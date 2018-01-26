@@ -1,12 +1,10 @@
-package main
+package cli
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -134,23 +132,4 @@ func getKernelFiles(context *cli.Context, spec *specs.Spec) (string, string, str
 	}
 
 	return kernel, initrd, bios, cbfs, nil
-}
-
-func osProcessWait(process *os.Process) (int, error) {
-	state, err := process.Wait()
-	if err != nil {
-		return -1, err
-	}
-	if state.Success() {
-		return 0, nil
-	}
-
-	ret := -1
-	if status, ok := state.Sys().(syscall.WaitStatus); ok {
-		ret = status.ExitStatus()
-		if ret != 0 {
-			err = errors.New("")
-		}
-	}
-	return ret, err
 }

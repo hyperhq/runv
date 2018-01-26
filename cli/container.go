@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -17,9 +17,22 @@ import (
 	"github.com/hyperhq/runv/lib/linuxsignal"
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/urfave/cli"
 )
 
-func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *State) error {
+const (
+	SpecConfig  = "config.json"
+	StateJSON   = "state.json"
+	ProcessJSON = "process.json"
+)
+
+type RunvOptions struct {
+	*cli.Context
+	WithContainer *State
+	Attach        bool
+}
+
+func StartContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec, state *State) error {
 	err := vm.StartContainer(container)
 	if err != nil {
 		glog.V(1).Infof("Start Container fail: fail to start container with err: %#v", err)
@@ -35,7 +48,7 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 	glog.V(3).Infof("change the status of container %s to `running`", container)
 	state.Status = "running"
 	state.ContainerCreateTime = time.Now().UTC().Unix()
-	if err = saveStateFile(root, container, state); err != nil {
+	if err = SaveStateFile(root, container, state); err != nil {
 		return err
 	}
 
@@ -61,7 +74,7 @@ func startContainer(vm *hypervisor.Vm, root, container string, spec *specs.Spec,
 	return err
 }
 
-func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, stateRoot string, spec *specs.Spec) (shim *os.Process, err error) {
+func CreateContainer(options RunvOptions, vm *hypervisor.Vm, container, bundle, stateRoot string, spec *specs.Spec) (shim *os.Process, err error) {
 	if err = setupContainerFs(vm, bundle, container, spec); err != nil {
 		return nil, err
 	}
@@ -136,7 +149,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 		ShimCreateTime: stat.StartTime,
 	}
 	glog.V(3).Infof("save state id %s, boundle %s", container, bundle)
-	if err = saveStateFile(stateRoot, container, state); err != nil {
+	if err = SaveStateFile(stateRoot, container, state); err != nil {
 		return nil, err
 	}
 
@@ -149,7 +162,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	// If runv is launched via docker/containerd, we start netlistener to watch/collect network changes.
 	// TODO: if runv is launched by cni compatible tools, the cni script can use `runv interface` cmdline to update the network.
 	// Create the listener process which will enters into the netns of the shim
-	options.withContainer = state
+	options.WithContainer = state
 	if err = startNsListener(options, vm); err != nil {
 		glog.Errorf("start ns listener fail: %v", err)
 		return nil, err
@@ -158,7 +171,7 @@ func createContainer(options runvOptions, vm *hypervisor.Vm, container, bundle, 
 	return shim, nil
 }
 
-func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
+func DeleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec *specs.Spec, state *State) error {
 	// non-force killing can only be performed when at least one of the realProcess and shimProcess exited
 	exitedVM := true
 	for _, c := range vm.ContainerList() {
@@ -167,7 +180,7 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 			break
 		}
 	}
-	exitedHost := !shimProcessAlive(state.Pid, state.ShimCreateTime)
+	exitedHost := !ShimProcessAlive(state.Pid, state.ShimCreateTime)
 	if !exitedVM && !exitedHost && !force {
 		// don't perform deleting
 		return fmt.Errorf("the container %s is still alive, use -f to force kill it?", container)
@@ -184,16 +197,16 @@ func deleteContainer(vm *hypervisor.Vm, root, container string, force bool, spec
 	}
 	vm.RemoveContainer(container)
 
-	return deleteContainerHost(root, container, spec, state)
+	return DeleteContainerHost(root, container, spec, state)
 }
 
-func deleteContainerHost(root, container string, spec *specs.Spec, state *State) error {
-	if shimProcessAlive(state.Pid, state.ShimCreateTime) { // force kill the shim process in the host
+func DeleteContainerHost(root, container string, spec *specs.Spec, state *State) error {
+	if ShimProcessAlive(state.Pid, state.ShimCreateTime) { // force kill the shim process in the host
 		time.Sleep(200 * time.Millisecond) // the shim might be going to exit, wait it
 		for i := 0; i < 100; i++ {
 			syscall.Kill(state.Pid, syscall.SIGKILL)
 			time.Sleep(100 * time.Millisecond)
-			if !shimProcessAlive(state.Pid, state.ShimCreateTime) {
+			if !ShimProcessAlive(state.Pid, state.ShimCreateTime) {
 				break
 			}
 		}
@@ -211,7 +224,7 @@ func deleteContainerHost(root, container string, spec *specs.Spec, state *State)
 	return os.RemoveAll(filepath.Join(root, container))
 }
 
-func addProcess(options runvOptions, vm *hypervisor.Vm, container, process string, spec *specs.Process) (shim *os.Process, err error) {
+func AddProcess(options RunvOptions, vm *hypervisor.Vm, container, process string, spec *specs.Process) (shim *os.Process, err error) {
 	p := &api.Process{
 		Container:  container,
 		Id:         process,
@@ -315,7 +328,7 @@ func execPoststopHooks(rt *specs.Spec, state *State) error {
 	return nil
 }
 
-func shimProcessAlive(pid int, createTime uint64) bool {
+func ShimProcessAlive(pid int, createTime uint64) bool {
 	stat, err := system.Stat(pid)
 	return err == nil && stat.StartTime == createTime && stat.State != system.Zombie && stat.State != system.Dead
 }

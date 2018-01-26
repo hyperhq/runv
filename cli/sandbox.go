@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, error) {
+func SetupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, error) {
 	kernel, initrd, bios, cbfs, err := getKernelFiles(context, spec)
 	if err != nil {
 		return nil, fmt.Errorf("can't find kernel/initrd/bios/cbfs files")
@@ -78,7 +78,7 @@ func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, erro
 	return singlefactory.Dummy(bootConfig), nil
 }
 
-func createAndLockSandBox(context *cli.Context, f factory.Factory, spec *specs.Spec, cpu int, mem int) (*hypervisor.Vm, *os.File, error) {
+func CreateAndLockSandBox(context *cli.Context, f factory.Factory, spec *specs.Spec, cpu int, mem int) (*hypervisor.Vm, *os.File, error) {
 	vm, err := f.GetVm(cpu, mem)
 	if err != nil {
 		glog.Errorf("Create VM failed with err: %v", err)
@@ -191,9 +191,9 @@ func releaseAndUnlockSandbox(vm *hypervisor.Vm, lockFile *os.File) error {
 	return nil
 }
 
-var getSandbox = lockAndAssociateSandbox
+var GetSandbox = lockAndAssociateSandbox
 
-func putSandbox(vm *hypervisor.Vm, lockFile *os.File) {
+func PutSandbox(vm *hypervisor.Vm, lockFile *os.File) {
 	if len(vm.ContainerList()) > 0 {
 		err := releaseAndUnlockSandbox(vm, lockFile)
 		if err != nil {
@@ -212,7 +212,7 @@ func shareDirPath(vm *hypervisor.Vm) string {
 	return filepath.Join(hypervisor.BaseDir, vm.Id, hypervisor.ShareDirTag)
 }
 
-func setupHyperstartFunc(context *cli.Context) {
+func SetupHyperstartFunc(context *cli.Context) {
 	agent.NewHyperstart = func(vmid, ctlSock, streamSock string, lastStreamSeq uint64, waitReady, paused bool) (agent.SandboxAgent, error) {
 		return newHyperstart(context, vmid, ctlSock, streamSock)
 	}

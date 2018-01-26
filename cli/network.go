@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/gob"
@@ -13,10 +13,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
-	_ "github.com/hyperhq/runv/cli/nsenter"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/kardianos/osext"
-	"github.com/urfave/cli"
 	"github.com/vishvananda/netlink"
 )
 
@@ -234,7 +232,7 @@ func newPipe() (parent, child *os.File, err error) {
 	return os.NewFile(uintptr(fds[1]), "parent"), os.NewFile(uintptr(fds[0]), "child"), nil
 }
 
-func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
+func startNsListener(options RunvOptions, vm *hypervisor.Vm) (err error) {
 	var parentPipe, childPipe *os.File
 	var path string
 
@@ -258,8 +256,8 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 		}
 	}()
 
-	env := append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
-	env = append(env, fmt.Sprintf("_RUNVCONTAINERID=%s", options.withContainer.ID))
+	env := append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.WithContainer.Pid))
+	env = append(env, fmt.Sprintf("_RUNVCONTAINERID=%s", options.WithContainer.ID))
 	cmd := exec.Cmd{
 		Path:       path,
 		Args:       []string{"runv", "network-nslisten"},
@@ -301,20 +299,7 @@ func startNsListener(options runvOptions, vm *hypervisor.Vm) (err error) {
 	return nil
 }
 
-var nsListenCommand = cli.Command{
-	Name:     "network-nslisten",
-	Usage:    "[internal command] collection net namespace's network configuration",
-	HideHelp: true,
-	Before: func(context *cli.Context) error {
-		return cmdPrepare(context, false, false)
-	},
-	Action: func(context *cli.Context) error {
-		doListen()
-		return nil
-	},
-}
-
-func doListen() {
+func DoListen() {
 
 	childPipe := os.NewFile(uintptr(3), "child")
 	enc := gob.NewEncoder(childPipe)

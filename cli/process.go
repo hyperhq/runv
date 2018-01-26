@@ -1,6 +1,6 @@
 // +build linux
 
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ type ProcessList struct {
 
 // Return locked processlist, which needs to be released by caller after using
 func NewProcessList(root, name string) (*ProcessList, error) {
-	f, err := os.OpenFile(filepath.Join(root, name, processJSON), os.O_RDWR|os.O_CREATE, 0644)
+	f, err := os.OpenFile(filepath.Join(root, name, ProcessJSON), os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}

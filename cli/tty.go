@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ func resizeTty(h agent.SandboxAgent, container, process string) {
 	}
 }
 
-func monitorTtySize(h agent.SandboxAgent, container, process string) {
+func MonitorTtySize(h agent.SandboxAgent, container, process string) {
 	resizeTty(h, container, process)
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGWINCH)
