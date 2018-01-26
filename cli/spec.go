@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -9,81 +9,9 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
 )
 
-var specCommand = cli.Command{
-	Name:  "spec",
-	Usage: "create a new specification file",
-	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:  "bundle, b",
-			Usage: "path to the root of the bundle directory",
-		},
-	},
-	Before: func(context *cli.Context) error {
-		return cmdPrepare(context, false, false)
-	},
-	Action: func(context *cli.Context) {
-		spec := specs.Spec{
-			Version: specs.Version,
-			Root: &specs.Root{
-				Path:     "rootfs",
-				Readonly: true,
-			},
-			Process: &specs.Process{
-				Terminal: true,
-				User:     specs.User{},
-				Args: []string{
-					"sh",
-				},
-				Env: []string{
-					"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-					"TERM=xterm",
-				},
-				Cwd: "/",
-			},
-			Hostname: "shell",
-			Linux: &specs.Linux{
-				Resources: &specs.LinuxResources{},
-			},
-		}
-
-		checkNoFile := func(name string) error {
-			_, err := os.Stat(name)
-			if err == nil {
-				return fmt.Errorf("File %s exists. Remove it first", name)
-			}
-			if !os.IsNotExist(err) {
-				return err
-			}
-			return nil
-		}
-
-		bundle := context.String("bundle")
-		if bundle != "" {
-			if err := os.Chdir(bundle); err != nil {
-				fmt.Printf("Failed to chdir to bundle dir:%s\nerror:%v\n", bundle, err)
-				return
-			}
-		}
-		if err := checkNoFile(specConfig); err != nil {
-			fmt.Printf("%s\n", err.Error())
-			return
-		}
-		data, err := json.MarshalIndent(&spec, "", "\t")
-		if err != nil {
-			fmt.Printf("%s\n", err.Error())
-			return
-		}
-		if err := ioutil.WriteFile(specConfig, data, 0666); err != nil {
-			fmt.Printf("%s\n", err.Error())
-			return
-		}
-	},
-}
-
-func loadSpec(ocffile string) (*specs.Spec, error) {
+func LoadSpec(ocffile string) (*specs.Spec, error) {
 	var spec specs.Spec
 
 	if _, err := os.Stat(ocffile); err != nil {
@@ -104,8 +32,8 @@ func loadSpec(ocffile string) (*specs.Spec, error) {
 	return &spec, nil
 }
 
-// loadProcessConfig loads the process configuration from the provided path.
-func loadProcessConfig(path string) (*specs.Process, error) {
+// LoadProcessConfig loads the process configuration from the provided path.
+func LoadProcessConfig(path string) (*specs.Process, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -127,8 +55,8 @@ type State struct {
 	ContainerCreateTime int64  `json:"container_create_time"`
 }
 
-func saveStateFile(root, container string, state *State) error {
-	stateFile := filepath.Join(root, container, stateJSON)
+func SaveStateFile(root, container string, state *State) error {
+	stateFile := filepath.Join(root, container, StateJSON)
 	stateData, err := json.MarshalIndent(state, "", "\t")
 	if err != nil {
 		glog.V(1).Infof("%s\n", err.Error())
@@ -142,8 +70,8 @@ func saveStateFile(root, container string, state *State) error {
 	return nil
 }
 
-func loadStateFile(root, container string) (*State, error) {
-	stateFile := filepath.Join(root, container, stateJSON)
+func LoadStateFile(root, container string) (*State, error) {
+	stateFile := filepath.Join(root, container, StateJSON)
 	file, err := os.Open(stateFile)
 	if err != nil {
 		return nil, err
@@ -157,12 +85,12 @@ func loadStateFile(root, container string) (*State, error) {
 	return &state, nil
 }
 
-func loadStateAndSpec(root, container string) (*State, *specs.Spec, error) {
-	state, err := loadStateFile(root, container)
+func LoadStateAndSpec(root, container string) (*State, *specs.Spec, error) {
+	state, err := LoadStateFile(root, container)
 	if err != nil {
 		return nil, nil, err
 	}
-	spec, err := loadSpec(filepath.Join(state.Bundle, specConfig))
+	spec, err := LoadSpec(filepath.Join(state.Bundle, SpecConfig))
 	if err != nil {
 		return nil, nil, err
 	}
