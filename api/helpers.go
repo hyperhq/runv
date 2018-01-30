@@ -29,13 +29,6 @@ func ContainerDescriptionFromOCF(id string, s *ocispecs.Spec) *ContainerDescript
 		OciSpec:    *s,
 	}
 
-	if container.OciSpec.Linux.Sysctl == nil {
-		container.OciSpec.Linux.Sysctl = map[string]string{}
-	}
-	if _, ok := container.OciSpec.Linux.Sysctl["vm.overcommit_memory"]; !ok {
-		container.OciSpec.Linux.Sysctl["vm.overcommit_memory"] = "1"
-	}
-
 	// the mounts need to be filtered and add it back after ContainerDescriptionFromOCF()
 	// virtual mounts are added back here.
 	container.OciSpec.Mounts = []ocispecs.Mount{}
