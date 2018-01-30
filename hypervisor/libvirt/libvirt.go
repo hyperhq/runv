@@ -566,32 +566,48 @@ func (lc *LibvirtContext) domainXml(ctx *hypervisor.VmContext) (string, error) {
 	}
 	dom.Devices.Filesystems = append(dom.Devices.Filesystems, sharedfs)
 
-	hyperchannel := channel{
-		Type: "unix",
-		Source: channsrc{
-			Mode: "bind",
-			Path: ctx.HyperSockName,
-		},
-		Target: channtgt{
-			Type: "virtio",
-			Name: "sh.hyper.channel.0",
-		},
-	}
-	dom.Devices.Channels = append(dom.Devices.Channels, hyperchannel)
+	if !boot.EnableVsock {
+		if boot.KataAgent {
+			agentchannel := channel{
+				Type: "unix",
+				Source: channsrc{
+					Mode: "bind",
+					Path: ctx.KataSockName,
+				},
+				Target: channtgt{
+					Type: "virtio",
+					Name: "agent.channel.0",
+				},
+			}
+			dom.Devices.Channels = append(dom.Devices.Channels, agentchannel)
+		} else {
+			hyperchannel := channel{
+				Type: "unix",
+				Source: channsrc{
+					Mode: "bind",
+					Path: ctx.HyperSockName,
+				},
+				Target: channtgt{
+					Type: "virtio",
+					Name: "sh.hyper.channel.0",
+				},
+			}
+			dom.Devices.Channels = append(dom.Devices.Channels, hyperchannel)
 
-	ttychannel := channel{
-		Type: "unix",
-		Source: channsrc{
-			Mode: "bind",
-			Path: ctx.TtySockName,
-		},
-		Target: channtgt{
-			Type: "virtio",
-			Name: "sh.hyper.channel.1",
-		},
+			ttychannel := channel{
+				Type: "unix",
+				Source: channsrc{
+					Mode: "bind",
+					Path: ctx.TtySockName,
+				},
+				Target: channtgt{
+					Type: "virtio",
+					Name: "sh.hyper.channel.1",
+				},
+			}
+			dom.Devices.Channels = append(dom.Devices.Channels, ttychannel)
+		}
 	}
-	dom.Devices.Channels = append(dom.Devices.Channels, ttychannel)
-
 	dom.Devices.Console = console{
 		Type: "unix",
 		Source: channsrc{

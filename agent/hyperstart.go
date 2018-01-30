@@ -831,6 +831,16 @@ func (h *jsonBasedHyperstart) convertContainer(container string, user *runvapi.U
 	if shareDir != "" && strings.HasPrefix(oci.Root.Path, shareDir) {
 
 	}
+
+	// And "vm.overcommit_memory" sysctl. TODO: Don't modify it inplace
+	// TODO "vm.overcommit_memory" is sanbox level systl, find a way to handle it for kata-agent
+	if oci.Linux.Sysctl == nil {
+		oci.Linux.Sysctl = map[string]string{}
+	}
+	if _, ok := oci.Linux.Sysctl["vm.overcommit_memory"]; !ok {
+		oci.Linux.Sysctl["vm.overcommit_memory"] = "1"
+	}
+
 	rtContainer := &hyperstartapi.Container{ // runtime Container
 		Id:            container,
 		Process:       hyperstartapi.ProcessFromOci("init", oci.Process),

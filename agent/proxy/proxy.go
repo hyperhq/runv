@@ -90,39 +90,39 @@ func (proxy *jsonProxy) ExecProcess(ctx context.Context, req *kagenta.ExecProces
 	if err != nil {
 		return nil, fmt.Errorf("failed kagenta.GRPCtoOCI(req.OCI)")
 	}
-	err = proxy.json.ExecProcess(req.ContainerId, req.ProcessId, ugi, ociProcess)
+	err = proxy.json.ExecProcess(req.ContainerId, req.ExecId, ugi, ociProcess)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) SignalProcess(ctx context.Context, req *kagenta.SignalProcessRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.SignalProcess(req.ContainerId, req.ProcessId, syscall.Signal(req.Signal))
+	err := proxy.json.SignalProcess(req.ContainerId, req.ExecId, syscall.Signal(req.Signal))
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) WaitProcess(ctx context.Context, req *kagenta.WaitProcessRequest) (*kagenta.WaitProcessResponse, error) {
-	ret := proxy.json.WaitProcess(req.ContainerId, req.ProcessId)
+	ret := proxy.json.WaitProcess(req.ContainerId, req.ExecId)
 	return &kagenta.WaitProcessResponse{Status: int32(ret)}, nil
 }
 
 // stdio
 func (proxy *jsonProxy) WriteStdin(ctx context.Context, req *kagenta.WriteStreamRequest) (*kagenta.WriteStreamResponse, error) {
-	length, err := proxy.json.WriteStdin(req.ContainerId, req.ProcessId, req.Data)
+	length, err := proxy.json.WriteStdin(req.ContainerId, req.ExecId, req.Data)
 	return &kagenta.WriteStreamResponse{Len: uint32(length)}, err
 }
 func (proxy *jsonProxy) ReadStdout(ctx context.Context, req *kagenta.ReadStreamRequest) (*kagenta.ReadStreamResponse, error) {
 	data := make([]byte, req.Len)
-	length, err := proxy.json.ReadStdout(req.ContainerId, req.ProcessId, data)
+	length, err := proxy.json.ReadStdout(req.ContainerId, req.ExecId, data)
 	return &kagenta.ReadStreamResponse{Data: data[0:length]}, err
 }
 func (proxy *jsonProxy) ReadStderr(ctx context.Context, req *kagenta.ReadStreamRequest) (*kagenta.ReadStreamResponse, error) {
 	data := make([]byte, req.Len)
-	length, err := proxy.json.ReadStderr(req.ContainerId, req.ProcessId, data)
+	length, err := proxy.json.ReadStderr(req.ContainerId, req.ExecId, data)
 	return &kagenta.ReadStreamResponse{Data: data[0:length]}, err
 }
 func (proxy *jsonProxy) CloseStdin(ctx context.Context, req *kagenta.CloseStdinRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.CloseStdin(req.ContainerId, req.ProcessId)
+	err := proxy.json.CloseStdin(req.ContainerId, req.ExecId)
 	return pbEmpty(err), err
 }
 func (proxy *jsonProxy) TtyWinResize(ctx context.Context, req *kagenta.TtyWinResizeRequest) (*google_protobuf.Empty, error) {
-	err := proxy.json.TtyWinResize(req.ContainerId, req.ProcessId, uint16(req.Row), uint16(req.Column))
+	err := proxy.json.TtyWinResize(req.ContainerId, req.ExecId, uint16(req.Row), uint16(req.Column))
 	return pbEmpty(err), err
 }
 

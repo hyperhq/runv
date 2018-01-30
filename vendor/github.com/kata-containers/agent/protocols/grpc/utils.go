@@ -22,42 +22,49 @@ func copyValue(to, from reflect.Value) error {
 	}
 
 	if toKind == reflect.Ptr {
-		// If the destination is a pointer, we need to allocate a new one.
+		// Handle the case of nil pointers.
+		if fromKind == reflect.Ptr && from.IsNil() {
+			return nil
+		}
+
+		// If the destination and the origin are both pointers, and
+		// if the origin is not nil, we need to allocate a new one
+		// for the destination.
 		to.Set(reflect.New(to.Type().Elem()))
 		if fromKind == reflect.Ptr {
 			return copyValue(to.Elem(), from.Elem())
-		} else {
-			return copyValue(to.Elem(), from)
-		}
-	} else {
-		// Here the destination is not a pointer.
-		// Let's check what's the origin.
-		if fromKind == reflect.Ptr {
-			return copyValue(to, from.Elem())
 		}
 
-		switch toKind {
-		case reflect.Struct:
-			return copyStructValue(to, from)
-		case reflect.Slice:
-			return copySliceValue(to, from)
-		case reflect.Map:
-			return copyMapValue(to, from)
-		default:
-			// We now are copying non pointers scalar.
-			// This is the leaf of the recursion.
-			if from.Type() != to.Type() {
-				if from.Type().ConvertibleTo(to.Type()) {
-					to.Set(from.Convert(to.Type()))
-					return nil
-				} else {
-					return fmt.Errorf("Can not convert %v to %v", from.Type(), to.Type())
-				}
-			} else {
-				to.Set(from)
+		return copyValue(to.Elem(), from)
+	}
+
+	// Here the destination is not a pointer.
+	// Let's check what's the origin.
+	if fromKind == reflect.Ptr {
+		return copyValue(to, from.Elem())
+	}
+
+	switch toKind {
+	case reflect.Struct:
+		return copyStructValue(to, from)
+	case reflect.Slice:
+		return copySliceValue(to, from)
+	case reflect.Map:
+		return copyMapValue(to, from)
+	default:
+		// We now are copying non pointers scalar.
+		// This is the leaf of the recursion.
+		if from.Type() != to.Type() {
+			if from.Type().ConvertibleTo(to.Type()) {
+				to.Set(from.Convert(to.Type()))
 				return nil
 			}
+
+			return fmt.Errorf("Can not convert %v to %v", from.Type(), to.Type())
 		}
+
+		to.Set(from)
+		return nil
 	}
 }
 
@@ -221,6 +228,7 @@ func copyStruct(to interface{}, from interface{}) (err error) {
 	return copyStructValue(toVal, fromVal)
 }
 
+// OCItoGRPC converts an OCI specification to its gRPC representation
 func OCItoGRPC(ociSpec *specs.Spec) (*Spec, error) {
 	s := &Spec{}
 
@@ -229,6 +237,7 @@ func OCItoGRPC(ociSpec *specs.Spec) (*Spec, error) {
 	return s, err
 }
 
+// GRPCtoOCI converts a gRPC specification back into an OCI representation
 func GRPCtoOCI(grpcSpec *Spec) (*specs.Spec, error) {
 	s := &specs.Spec{}
 
@@ -237,6 +246,8 @@ func GRPCtoOCI(grpcSpec *Spec) (*specs.Spec, error) {
 	return s, err
 }
 
+// ProcessOCItoGRPC converts an OCI process specification into its gRPC
+// representation
 func ProcessOCItoGRPC(ociProcess *specs.Process) (*Process, error) {
 	s := &Process{}
 
@@ -245,6 +256,8 @@ func ProcessOCItoGRPC(ociProcess *specs.Process) (*Process, error) {
 	return s, err
 }
 
+// ProcessGRPCtoOCI converts a gRPC specification back into an OCI
+// representation
 func ProcessGRPCtoOCI(grpcProcess *Process) (*specs.Process, error) {
 	s := &specs.Process{}
 
