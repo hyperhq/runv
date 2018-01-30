@@ -4,6 +4,7 @@ const (
 	BaseDir         = "/var/run/hyper"
 	HyperSockName   = "hyper.sock"
 	TtySockName     = "tty.sock"
+	KataSockName    = "kata-yamux-agent.sock"
 	ConsoleSockName = "console.sock"
 	ShareDirTag     = "share_dir"
 	DefaultKernel   = "/var/lib/hyper/kernel"

@@ -16,6 +16,7 @@ type BootConfig struct {
 	BootFromTemplate bool
 	EnableVsock      bool
 	EnableVhostUser  bool
+	KataAgent        bool
 	MemoryPath       string
 	DevicesStatePath string
 	Kernel           string

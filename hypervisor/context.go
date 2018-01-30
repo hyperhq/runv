@@ -35,6 +35,7 @@ type VmContext struct {
 	HomeDir         string
 	HyperSockName   string
 	TtySockName     string
+	KataSockName    string
 	ConsoleSockName string
 	ShareDir        string
 	GuestCid        uint32
@@ -121,6 +122,7 @@ func InitContext(id string, hub chan VmEvent, client chan *types.VmResponse, dc 
 		HomeDir:         homeDir,
 		HyperSockName:   hyperSockName,
 		TtySockName:     ttySockName,
+		KataSockName:    filepath.Join(homeDir, KataSockName),
 		ConsoleSockName: consoleSockName,
 		ShareDir:        shareDir,
 		timer:           nil,
@@ -365,6 +367,7 @@ func (ctx *VmContext) RemoveContainer(id string, result chan<- api.Result) {
 	if ctx.current != StateRunning {
 		ctx.Log(DEBUG, "remove container %s during %v", id, ctx.current)
 		result <- api.NewResultBase(id, true, "pod not running")
+		return
 	}
 
 	cc, ok := ctx.containers[id]
