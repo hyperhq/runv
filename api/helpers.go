@@ -37,7 +37,14 @@ func ContainerDescriptionFromOCF(id string, s *ocispecs.Spec) *ContainerDescript
 	}
 
 	// the mounts need to be filtered and add it back after ContainerDescriptionFromOCF()
+	// virtual mounts are added back here.
 	container.OciSpec.Mounts = []ocispecs.Mount{}
+	for _, m := range s.Mounts {
+		switch m.Type {
+		case "proc", "sysfs", "mqueue", "tmpfs", "cgroup", "devpts":
+			container.OciSpec.Mounts = append(container.OciSpec.Mounts, m)
+		}
+	}
 	container.OciSpec.Root.Path = "" // already mounted on filepath.Join(rootfs.Source, container.RootPath)
 
 	rootfs := &VolumeDescription{
