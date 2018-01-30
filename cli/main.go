@@ -97,6 +97,11 @@ func main() {
 			Name:  "driver",
 			Usage: "hypervisor driver (supports: kvm xen)",
 		},
+		cli.StringFlag{
+			Name:  "agent",
+			Value: "hyperstart",
+			Usage: "speicify the agent: (kata|hyperstart)",
+		},
 		cli.IntFlag{
 			Name:  "default_cpus",
 			Usage: "default number of vcpus to assign pod",

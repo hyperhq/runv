@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/hyperhq/runv/agent"
 	"github.com/hyperhq/runv/agent/proxy"
+	"github.com/hyperhq/runv/lib/utils"
 	"github.com/kardianos/osext"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
@@ -55,6 +56,7 @@ var proxyCommand = cli.Command{
 		}
 
 		if context.String("kata-yamux-sock") != "" {
+			glog.Infof("kata-yamux proxy server")
 			return kataYamuxServer(context.String("kata-yamux-sock"), context.String("proxy-hyperstart"))
 		}
 		if context.String("hyperstart-ctl-sock") == "" || context.String("hyperstart-stream-sock") == "" {
@@ -91,7 +93,7 @@ var proxyCommand = cli.Command{
 	},
 }
 
-func createProxy(context *cli.Context, VMID, ctlSock, streamSock, grpcSock string) error {
+func createProxy(context *cli.Context, VMID, ctlSock, streamSock, yamuxSock, grpcSock string) error {
 	path, err := osext.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
@@ -107,8 +109,12 @@ func createProxy(context *cli.Context, VMID, ctlSock, streamSock, grpcSock strin
 	if context.GlobalString("log_dir") != "" {
 		args = append(args, "--log_dir", context.GlobalString("log_dir"))
 	}
-	args = append(args, "proxy", "--vmid", VMID, "--hyperstart-ctl-sock", ctlSock,
-		"--hyperstart-stream-sock", streamSock, "--proxy-hyperstart", grpcSock)
+	args = append(args, "proxy", "--vmid", VMID, "--proxy-hyperstart", grpcSock)
+	if yamuxSock == "" {
+		args = append(args, "--hyperstart-ctl-sock", ctlSock, "--hyperstart-stream-sock", streamSock)
+	} else {
+		args = append(args, "--kata-yamux-sock", yamuxSock)
+	}
 	cmd = &exec.Cmd{
 		Path: path,
 		Args: args,
@@ -219,7 +225,7 @@ func kataYamuxServer(channel, proxyAddr string) error {
 	}
 
 	// yamux connection
-	servConn, err := net.Dial("unix", muxAddr)
+	servConn, err := utils.UnixSocketConnect(muxAddr)
 	if err != nil {
 		glog.Errorf("failed to dial channel(%q): %s", muxAddr, err)
 		return err

@@ -74,6 +74,7 @@ func setupFactory(context *cli.Context, spec *specs.Spec) (factory.Factory, erro
 		Bios:        bios,
 		Cbfs:        cbfs,
 		EnableVsock: vsock,
+		KataAgent:   context.GlobalString("agent") == "kata",
 	}
 	return singlefactory.Dummy(bootConfig), nil
 }
@@ -220,6 +221,10 @@ func setupHyperstartFunc(context *cli.Context) {
 
 func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (agent.SandboxAgent, error) {
 	grpcSock := filepath.Join(hypervisor.BaseDir, vmid, "kata-agent.sock")
+	yamuxSock := ""
+	if context.GlobalString("agent") == "kata" {
+		yamuxSock = filepath.Join(hypervisor.BaseDir, vmid, "kata-yamux-agent.sock")
+	}
 
 	glog.Infof("newHyperstart() on socket: %s", grpcSock)
 	if st, err := os.Stat(grpcSock); err != nil {
@@ -228,7 +233,7 @@ func newHyperstart(context *cli.Context, vmid, ctlSock, streamSock string) (agen
 			glog.Errorf("%s existed with wrong stats", grpcSock)
 			return nil, fmt.Errorf("%s existed with wrong stats", grpcSock)
 		}
-		err = createProxy(context, vmid, ctlSock, streamSock, grpcSock)
+		err = createProxy(context, vmid, ctlSock, streamSock, yamuxSock, grpcSock)
 		if err != nil {
 			return nil, err
 		}
