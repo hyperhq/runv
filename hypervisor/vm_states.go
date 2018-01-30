@@ -129,7 +129,7 @@ var shareStorage agent.Storage = agent.Storage{
 	Fstype:     "9p",
 	Source:     ShareDirTag,
 	Options:    []string{"nodev,trans=virtio"},
-	MountPoint: "/kata/storage/sharefs",
+	MountPoint: "/kata/storage/sharefs/",
 }
 
 func (ctx *VmContext) startPod() error {

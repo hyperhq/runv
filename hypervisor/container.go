@@ -122,7 +122,7 @@ func (cc *ContainerContext) agentStart() error {
 		if cc.RootVolume.Fstype == "" {
 			return fmt.Errorf("fstype is not provided")
 		}
-		root.MountPoint = fmt.Sprintf("/kata/storage/%s/root_volume", cc.Id)
+		root.MountPoint = fmt.Sprintf("/kata/storage/%s/root_volume/", cc.Id)
 		root.Fstype = cc.RootVolume.Fstype
 		root.Source = cc.root.DeviceName
 		if cc.root.ScsiAddr != "" {
@@ -162,7 +162,7 @@ func (cc *ContainerContext) agentStart() error {
 			storage := &agent.Storage{
 				Source:     vol.DeviceName,
 				Fstype:     vol.Fstype,
-				MountPoint: fmt.Sprintf("/kata/storage/%s/%s", cc.Id, vn),
+				MountPoint: fmt.Sprintf("/kata/storage/%s/%s/", cc.Id, vn),
 			}
 			if vol.ScsiAddr != "" {
 				storage.Source = cc.root.ScsiAddr
