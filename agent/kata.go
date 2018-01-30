@@ -212,6 +212,7 @@ func (kata *kataAgent) CreateContainer(container string, user *runvapi.UserGroup
 	}
 	_, err = kata.agent.CreateContainer(context.Background(), &kagenta.CreateContainerRequest{
 		ContainerId: container,
+		ExecId:      "init",
 		StringUser: &kagenta.StringUser{
 			Uid:            user.User,
 			Gid:            user.Group,
