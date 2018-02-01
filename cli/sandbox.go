@@ -264,6 +264,7 @@ func lockSandbox(sandboxPath string) (*os.File, error) {
 
 	err = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX)
 	if err != nil {
+		lockFile.Close()
 		return nil, err
 	}
 
