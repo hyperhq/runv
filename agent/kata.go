@@ -253,6 +253,10 @@ func (kata *kataAgent) ExecProcess(container, process string, user *runvapi.User
 }
 
 func (kata *kataAgent) SignalProcess(container, process string, signal syscall.Signal) error {
+	// Kata Agent uses empty ExecId to signal all processes of a container
+	if process == "init" {
+		process = ""
+	}
 	_, err := kata.agent.SignalProcess(context.Background(), &kagenta.SignalProcessRequest{
 		ContainerId: container,
 		ExecId:      process,
