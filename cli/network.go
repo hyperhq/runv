@@ -67,6 +67,15 @@ func createFakeBridge() {
 	}
 }
 
+func validateInterface(infos []InterfaceInfo) bool {
+	for _, info := range infos {
+		if len(info.Ip) == 0 || len(info.Mac) == 0 || len(info.Name) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, pid int) error {
 	/* send collect netns request to nsListener */
 	if err := enc.Encode("init"); err != nil {
@@ -99,6 +108,11 @@ func initSandboxNetwork(vm *hypervisor.Vm, enc *gob.Encoder, dec *gob.Decoder, p
 	createFakeBridge()
 
 	glog.V(3).Infof("interface configuration for sandbox ns is %#v", infos)
+	if !validateInterface(infos) {
+		glog.V(1).Infof("interface not configured")
+		return nil
+	}
+
 	mirredPairs := []tcMirredPair{}
 	for _, info := range infos {
 		nicId := strconv.Itoa(info.Index)
