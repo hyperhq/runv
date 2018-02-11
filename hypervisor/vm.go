@@ -336,7 +336,15 @@ func (vm *Vm) AddVolume(vol *api.VolumeDescription) api.Result {
 func (vm *Vm) AddContainer(c *api.ContainerDescription) api.Result {
 	result := make(chan api.Result, 1)
 	vm.ctx.AddContainer(c, result)
-	return <-result
+	ret := <-result
+	if !ret.IsSuccess() {
+		return ret
+	}
+	err := vm.ctx.createContainer(c.Id)
+	if err != nil {
+		return NewCommonError(c.Id, err.Error())
+	}
+	return ret
 }
 
 func (vm *Vm) RemoveContainer(id string) api.Result {
@@ -397,7 +405,7 @@ func (vm *Vm) batchWaitResult(names []string, op waitResultOp) (bool, map[string
 }
 
 func (vm *Vm) StartContainer(id string) error {
-	err := vm.ctx.newContainer(id)
+	err := vm.ctx.startContainer(id)
 	if err != nil {
 		return fmt.Errorf("Create new container failed: %v", err)
 	}
