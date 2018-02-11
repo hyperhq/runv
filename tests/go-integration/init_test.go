@@ -49,6 +49,12 @@ var (
 		Hostname: "shell",
 		Linux: &specs.Linux{
 			Resources: &specs.LinuxResources{},
+			Namespaces: []specs.LinuxNamespace{
+				{Type: "pid"},
+				{Type: "network"},
+				{Type: "ipc"},
+				{Type: "uts"},
+			},
 		},
 	}
 )
