@@ -234,12 +234,7 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 			Setsid:  tty != nil || !options.attach,
 		},
 	}
-	// TODO: kata-shim does not support entering netns
-	if options.withContainer == nil {
-		cmd.SysProcAttr.Cloneflags = syscall.CLONE_NEWNET
-	} else {
-		cmd.Env = append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
-	}
+
 	if tty == nil {
 		// inherit stdio/tty
 		cmd.Stdin = os.Stdin
@@ -252,7 +247,12 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		cmd.Stderr = tty
 	}
 
-	err = cmd.Start()
+	if options.withContainer == nil {
+		cmd.SysProcAttr.Cloneflags = syscall.CLONE_NEWNET
+		err = cmd.Start()
+	} else {
+		err = nsSetRun(options.withContainer.Pid, cmd.Start)
+	}
 	if err != nil {
 		return nil, err
 	}
