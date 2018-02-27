@@ -5,6 +5,7 @@ const (
 	ET_BUSY      string = "RESOURSE_UNAVAILABLE"
 	ET_DEVICE    string = "DEVICE_OPERATION_FAIL"
 	ET_NOT_READY string = "VM_NOT_READY"
+	ET_COMMON    string = "COMMON_ERROR"
 )
 
 type Errors interface {
@@ -69,5 +70,13 @@ func NewNotReadyError(id string) *CommonError {
 		errType:   ET_NOT_READY,
 		contextId: id,
 		cause:     "vm is not ready to accept requests",
+	}
+}
+
+func NewCommonError(id, reason string) *CommonError {
+	return &CommonError{
+		errType:   ET_COMMON,
+		contextId: id,
+		cause:     reason,
 	}
 }

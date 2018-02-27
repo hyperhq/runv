@@ -51,7 +51,7 @@ func cmdStartContainer(context *cli.Context, container string, config *specs.Spe
 		return err
 	}
 	defer putSandbox(vm, fileLock) // todo handle error when disassociation
-	err = startContainer(vm, context.GlobalString("root"), container, config, state)
+	err = startContainer(vm, context.GlobalString("root"), container, config, state, context.GlobalString("agent") != "kata")
 	if err != nil {
 		deleteContainer(vm, context.GlobalString("root"), container, true, config, state)
 	}

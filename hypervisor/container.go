@@ -89,7 +89,7 @@ func (cc *ContainerContext) fillHyperstartVolSpec(spec *hyperstartapi.Container)
 	}
 }
 
-func (cc *ContainerContext) agentStart() error {
+func (cc *ContainerContext) agentCreate() error {
 	if !cc.root.isReady() {
 		cc.Log(ERROR, "root volume insert failed")
 		return fmt.Errorf("root volume insert failed")
@@ -185,6 +185,10 @@ func (cc *ContainerContext) agentStart() error {
 		cc.Log(ERROR, "agent.CreateContainer() failed: %v", err)
 		return err
 	}
+	return nil
+}
+
+func (cc *ContainerContext) agentStart() error {
 	return cc.sandbox.agent.StartContainer(cc.Id)
 }
 

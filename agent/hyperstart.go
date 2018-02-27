@@ -982,6 +982,11 @@ func (h *jsonBasedHyperstart) ExecProcess(container, process string, user *runva
 }
 
 func (h *jsonBasedHyperstart) SignalProcess(container, process string, signal syscall.Signal) error {
+	// Kata agent API requires process == "" to kill all processes in a container
+	// Convert it back to hyperstart semantics.
+	if process == "" {
+		process = "init"
+	}
 	if h.vmAPIVersion <= 4242 {
 		if process == "init" {
 			return h.hyperstartCommand(hyperstartapi.INIT_KILLCONTAINER, hyperstartapi.KillCommand{

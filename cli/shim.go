@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -19,6 +20,8 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
+
+const KataShimBinary = "/usr/libexec/kata-containers/kata-shim"
 
 var shimCommand = cli.Command{
 	Name:     "shim",
@@ -153,13 +156,45 @@ func forwardAllSignals(h agent.SandboxAgent, container, process string) chan os.
 	return sigc
 }
 
-func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
-	path, err := osext.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
+func prepareKataShim(options runvOptions, container, process string, terminal bool) (string, []string, error) {
+	args := []string{"kata-shim"}
+	if options.GlobalBool("debug") {
+		args = append(args, "--log", "debug")
+	}
+	agentAddr := filepath.Join(options.GlobalString("root"), container, "sandbox", "kata-agent.sock")
+	args = append(args, "--agent", agentAddr, "--container", container, "--exec-id", process)
+	if terminal {
+		args = append(args, "--terminal")
 	}
 
+	return KataShimBinary, args, nil
+}
+
+func prepareRunvShim(options runvOptions, container, process string, terminal bool) (string, []string, error) {
+	path, err := osext.Executable()
+	if err != nil {
+		return "", nil, fmt.Errorf("cannot find self executable path for %s: %v", os.Args[0], err)
+	}
+
+	args := []string{"runv", "--root", options.GlobalString("root")}
+	if options.GlobalString("log_dir") != "" {
+		args = append(args, "--log_dir", filepath.Join(options.GlobalString("log_dir"), "shim-"+container))
+	}
+	if options.GlobalBool("debug") {
+		args = append(args, "--debug")
+	}
+	args = append(args, "shim", "--container", container, "--process", process)
+	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
+	if terminal {
+		args = append(args, "--proxy-winsize")
+	}
+
+	return path, args, nil
+}
+
+func createShim(options runvOptions, container, process string, spec *specs.Process) (*os.Process, error) {
 	var ptymaster, tty *os.File
+	var err error
 	if options.String("console") != "" {
 		tty, err = os.OpenFile(options.String("console"), os.O_RDWR, 0)
 		if err != nil {
@@ -176,18 +211,19 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		ptymaster.Close()
 	}
 
-	args := []string{"runv", "--root", options.GlobalString("root")}
-	if options.GlobalString("log_dir") != "" {
-		args = append(args, "--log_dir", filepath.Join(options.GlobalString("log_dir"), "shim-"+container))
+	var (
+		path string
+		args []string
+	)
+	if options.GlobalString("agent") != "kata" {
+		path, args, err = prepareRunvShim(options, container, process, spec.Terminal)
+	} else {
+		path, args, err = prepareKataShim(options, container, process, spec.Terminal)
 	}
-	if options.GlobalBool("debug") {
-		args = append(args, "--debug")
+	if err != nil {
+		return nil, err
 	}
-	args = append(args, "shim", "--container", container, "--process", process)
-	args = append(args, "--proxy-stdio", "--proxy-exit-code", "--proxy-signal")
-	if spec.Terminal {
-		args = append(args, "--proxy-winsize")
-	}
+	glog.V(3).Infof("starting shim with args %s", strings.Join(args, " "))
 
 	cmd := exec.Cmd{
 		Path: path,
@@ -198,11 +234,7 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 			Setsid:  tty != nil || !options.attach,
 		},
 	}
-	if options.withContainer == nil {
-		cmd.SysProcAttr.Cloneflags = syscall.CLONE_NEWNET
-	} else {
-		cmd.Env = append(os.Environ(), fmt.Sprintf("_RUNVNETNSPID=%d", options.withContainer.Pid))
-	}
+
 	if tty == nil {
 		// inherit stdio/tty
 		cmd.Stdin = os.Stdin
@@ -215,7 +247,12 @@ func createShim(options runvOptions, container, process string, spec *specs.Proc
 		cmd.Stderr = tty
 	}
 
-	err = cmd.Start()
+	if options.withContainer == nil {
+		cmd.SysProcAttr.Cloneflags = syscall.CLONE_NEWNET
+		err = cmd.Start()
+	} else {
+		err = nsSetRun(options.withContainer.Pid, cmd.Start)
+	}
 	if err != nil {
 		return nil, err
 	}

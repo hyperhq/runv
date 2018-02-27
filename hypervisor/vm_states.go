@@ -15,7 +15,29 @@ const (
 	StateNone        = "NONE"
 )
 
-func (ctx *VmContext) newContainer(id string) error {
+// TODO: move this to ctx.AddContainer and hide ctx exported functions
+func (ctx *VmContext) createContainer(id string) error {
+	ctx.lock.Lock()
+	defer ctx.lock.Unlock()
+
+	if ctx.current != StateRunning {
+		ctx.Log(DEBUG, "create container %s during %v", id, ctx.current)
+		return NewNotReadyError(id)
+	}
+
+	c, ok := ctx.containers[id]
+	if ok {
+		ctx.Log(TRACE, "start sending create container")
+		var err error
+		err = c.agentCreate()
+		ctx.Log(TRACE, "sent create container")
+		return err
+	} else {
+		return fmt.Errorf("container %s not exist", id)
+	}
+}
+
+func (ctx *VmContext) startContainer(id string) error {
 	ctx.lock.Lock()
 	defer ctx.lock.Unlock()
 
