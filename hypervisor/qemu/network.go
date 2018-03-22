@@ -19,6 +19,7 @@ const (
 	CIFF_TAP       = 0x0002
 	CIFF_NO_PI     = 0x1000
 	CIFF_ONE_QUEUE = 0x2000
+	CIFF_VNET_HDR  = 0x4000
 )
 
 type ifReq struct {
@@ -38,7 +39,7 @@ func GetTapFd(device, bridge, options string) (int, error) {
 		return -1, err
 	}
 
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
+	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE | CIFF_VNET_HDR
 	copy(req.Name[:len(req.Name)-1], []byte(device))
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
 		uintptr(syscall.TUNSETIFF),
