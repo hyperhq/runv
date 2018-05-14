@@ -127,6 +127,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	}
 
 	args := qc.arguments(ctx)
+	args = append(args, "-pidfile", fmt.Sprintf("runvpid=%d", os.Getpid()))
 	args = append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile.Name)
 	if ctx.Boot.EnableVsock && qc.driver.hasVsock && ctx.GuestCid > 0 {
 		addr := ctx.NextPciAddr()
