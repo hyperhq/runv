@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"syscall"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
@@ -28,6 +30,14 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	boot := ctx.Boot
 	qc.cpus = boot.CPU
 
+	maxmem := hypervisor.DefaultMaxMem
+	var sysInfo syscall.Sysinfo_t
+	err := syscall.Sysinfo(&sysInfo)
+	if err == nil {
+		maxmem = int(sysInfo.Totalram / 1024 / 1024)
+	} else {
+		ctx.Log(hlog.DEBUG, "syscall.Sysinfo got error %v, use hypervisor.DefaultMaxMem", err)
+	}
 	maxcpus := runtime.NumCPU()
 	if maxcpus > X86_64_CONFIG_NR_CPUS {
 		maxcpus = X86_64_CONFIG_NR_CPUS
@@ -35,7 +45,7 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 
 	var machineClass, memParams, cpuParams string
 	machineClass = "pc-i440fx-2.1"
-	memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, hypervisor.DefaultMaxMem) // TODO set maxmem to the total memory of the system
+	memParams = fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, maxmem)
 	cpuParams = fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, maxcpus)
 
 	cmdline := "console=ttyS0 panic=1 no_timer_check iommu=off"
