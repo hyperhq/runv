@@ -14,7 +14,7 @@ const (
 	VM_MIN_MEMORY_SIZE = 256 // On ppc64le the minimum memory size of a VM is 256 MiB
 )
 
-func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
+func (qc *QemuContext) arguments(ctx *hypervisor.VmContext, maxmem, maxcpus int) []string {
 	if ctx.Boot == nil {
 		ctx.Boot = &hypervisor.BootConfig{
 			CPU:    1,

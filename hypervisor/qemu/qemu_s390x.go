@@ -13,7 +13,7 @@ const (
 	QEMU_SYSTEM_EXE = "qemu-system-s390x"
 )
 
-func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
+func (qc *QemuContext) arguments(ctx *hypervisor.VmContext, maxmem, maxcpus int) []string {
 	if ctx.Boot == nil {
 		ctx.Boot = &hypervisor.BootConfig{
 			CPU:    1,

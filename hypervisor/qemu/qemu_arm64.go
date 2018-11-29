@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	QEMU_SYSTEM_EXE    = "qemu-system-aarch64"
-	VM_MIN_MEMORY_SIZE = 128
+	QEMU_SYSTEM_EXE        = "qemu-system-aarch64"
+	VM_MIN_MEMORY_SIZE     = 128
+	AARCH64_CONFIG_NR_CPUS = 8
 )
 
-func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
+func (qc *QemuContext) arguments(ctx *hypervisor.VmContext, maxmem, maxcpus int) []string {
 	if ctx.Boot == nil {
 		ctx.Boot = &hypervisor.BootConfig{
 			CPU:    1,
@@ -27,13 +28,17 @@ func (qc *QemuContext) arguments(ctx *hypervisor.VmContext) []string {
 	boot := ctx.Boot
 	qc.cpus = boot.CPU
 
+	if maxcpus > AARCH64_CONFIG_NR_CPUS {
+		maxcpus = AARCH64_CONFIG_NR_CPUS
+	}
+
 	// Currently the default memory size is fixed to 128 MiB.
 	if boot.Memory < VM_MIN_MEMORY_SIZE {
 		boot.Memory = VM_MIN_MEMORY_SIZE
 	}
 
-	memParams := fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, hypervisor.DefaultMaxMem)
-	cpuParams := fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, hypervisor.DefaultMaxCpus)
+	memParams := fmt.Sprintf("size=%d,slots=1,maxmem=%dM", boot.Memory, maxmem)
+	cpuParams := fmt.Sprintf("cpus=%d,maxcpus=%d", boot.CPU, maxcpus)
 
 	params := []string{"-machine", "virt,accel=kvm,gic-version=host,usb=off", "-global", "kvm-pit.lost_tick_policy=discard", "-cpu", "host"}
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {

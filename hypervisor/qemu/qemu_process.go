@@ -9,10 +9,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/hypervisor"
 )
 
@@ -126,7 +129,17 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 		return
 	}
 
-	args := qc.arguments(ctx)
+	maxmem := hypervisor.DefaultMaxMem
+	var sysInfo syscall.Sysinfo_t
+	err := syscall.Sysinfo(&sysInfo)
+	if err == nil {
+		maxmem = int(sysInfo.Totalram / 1024 / 1024)
+	} else {
+		ctx.Log(hlog.ERROR, "syscall.Sysinfo got error %v, use hypervisor.DefaultMaxMem", err)
+	}
+	maxcpus := runtime.NumCPU()
+
+	args := qc.arguments(ctx, maxmem, maxcpus)
 	args = append(args, "-daemonize", "-pidfile", qc.qemuPidFile, "-D", qc.qemuLogFile.Name)
 	if ctx.GDBTCPPort != 0 {
 		args = append(args, "-gdb", fmt.Sprintf("tcp::%d", ctx.GDBTCPPort))
@@ -150,7 +163,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 
 	if stdout.Len() != 0 {
 		glog.V(1).Info(stdout.String())
