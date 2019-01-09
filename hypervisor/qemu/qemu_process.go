@@ -146,7 +146,7 @@ func launchQemu(qc *QemuContext, ctx *hypervisor.VmContext) {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
-	err := cmd.Run()
+	err := cmd.Start()
 
 	if stdout.Len() != 0 {
 		glog.V(1).Info(stdout.String())
