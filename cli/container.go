@@ -213,14 +213,14 @@ func deleteContainerHost(root, container string, spec *specs.Spec, state *State)
 	return os.RemoveAll(filepath.Join(root, container))
 }
 
-func addProcess(options runvOptions, vm *hypervisor.Vm, container, process string, spec *specs.Process) (shim *os.Process, err error) {
+func addProcess(options runvOptions, vm *hypervisor.Vm, container, process string, spec *specs.Process) (*os.Process, error) {
 	p := &api.Process{
 		Container:  container,
 		Id:         process,
 		OciProcess: *spec,
 	}
-	err = vm.AddProcess(p)
 
+	err := vm.AddProcess(p)
 	if err != nil {
 		glog.V(1).Infof("add process to container failed: %v", err)
 		return nil, err
@@ -231,6 +231,7 @@ func addProcess(options runvOptions, vm *hypervisor.Vm, container, process strin
 		}
 	}()
 
+	var shim *os.Process
 	shim, err = createShim(options, container, process, spec)
 	if err != nil {
 		return nil, err
