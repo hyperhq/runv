@@ -1,3 +1,16 @@
+
+The runV as a virtualized container runtime engine has been OBSOLETED by [Kata Containers](https://katacontainers.io/).
+
+Together with Intel, the runV team created Kata Containers project in OpenInfra Foundation, and the
+Kata Containers is a top level open infrastructure project in the foundation.
+
+We encourage folks, who are considering runV, check the Kata Containers project. It could work with
+kubernetes through containerd or CRI-O fluently.
+
+Thank you for visiting runV and we are still actively working in Kata Containers community.
+
+----
+
 [![Build Status](https://travis-ci.org/hyperhq/runv.svg?branch=master)](https://travis-ci.org/hyperhq/runv)
 
 ## ![runV](logo.png)
